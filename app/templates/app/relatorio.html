@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+{% block content %}
+    <div class="container">
+        <h1>Relatório - (Em desenvolvimento)</h1>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-4">
+                    <label>Placa</label>
+                    <input class="form-control" type="text" id="placa" name="placa" required>
+                </div>
+                <div class="col-4">
+                    <label>Data inicial</label>
+                    <input class="form-control" type="date" id="data_inicial" name="data_inicial" required>
+                </div>
+                <div class="col-4">
+                    <label>Data final</label>
+                    <input class="form-control" type="date" id="data_final" name="data_final" required>
+                </div>
+            </div>
+            <br>
+            <button class="btn btn-primary" id="gerar_relatorio" onclick="armazenarConsulta()">Gerar</button>
+        </form>
+        <br>
+        <div>
+            <center>
+                <h5>Processamento Resumo Diário</h5>
+                </center>
+            <hr>
+            {{dados}}
+            {% if resumos %}
+            <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">PLACA</th>
+                    <th scope="col">DATA</th>
+                    <th scope="col">HORA ALMOÇO</th>
+                    <th scope="col">TEMPO ESPERA</th>
+                    <th scope="col">TEMPO DESCANSO</th>
+                  </tr>
+                </thead>
+                <tbody>
+
+                  {% for i in resumos %}
+                  <tr>
+                    <td>{{i.placa}}</td>
+                    <td>{{i.data}}</td>
+                    <td>{{i.horaAlmoco}}</td>
+                    <td>{{i.tempoEspera}}</td>
+                    <td>{{i.tempoDescanso}}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+            <center>
+                <h6>Sem dados para gerar relatorio... </h6>
+                </center>
+            {% endif %}
+        </div>
+        <div>
+            <br>
+            <center>
+            <h5>Processamento Analitico</h5>
+            </center>
+            <hr>
+            {% if dados %}
+            <table class="table">relatorio.html
+                <thead>
+                  <tr>
+                    <th scope="col">PLACA</th>
+                    <th scope="col">EVENTO</th>
+                    <th scope="col">INICIO</th>
+                    <th scope="col">FIM</th>
+                    <th scope="col">TEMPO PROCESSADO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for i in dados %}
+                  <tr>
+                    <td>{{i.placa}}</td>
+                    <td>{{i.evento}}</td>
+                    <td>{{i.inicio}}</td>
+                    <td>{{i.fim}}</td>
+                    <td>{{i.tempoProcessado}}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+            <center>
+                <h6>Sem dados para gerar relatorio... </h6>
+            </center>
+            {% endif %}
+
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block content %}
+<div class="container">
+  <form method="post">
+    {% csrf_token %}
+    <div class="row">
+      <div class="col-4">
+        <label>Data:</label>
+        {% render_field form.data type="date" class="form-control" required="true" %}
+      </div>
+      <div class="col-4">
+        <label>Placa:</label>
+        {% render_field form.placa type="text" class="form-control" required="true" %}
+      </div>
+      <div class="col-4">
+        <label>OS:</label>
+        {% render_field form.os type="text" class="form-control" required="true" %}
+      </div>
+    </div>
+    <br>
+    <div class="row">
+      <div class="col-4">
+        <button type="submit" class="btn btn-primary">Atualizar OS</button>
+        <a href="{% url 'os' %}" class="btn btn-secondary">Voltar</a>
+      </div>
+
+    </div>
+  </form>
+  <br>
+  <!-- Button trigger modal -->
+  {% for message in messages %}
+  
+  <div class="alert {{ message.tags }} alert-dismissible" role="alert" >
+    <strong>{{message}}</strong>      
+  </div>
+
+{% endfor %}
+  </div>
+  {% endblock %}

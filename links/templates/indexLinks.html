@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<br>
+<div class="container-fluid" >
+    <!-- Page Header -->
+    <div class="page-header mb-4" style="margin-left: 185px;">
+        <div class="row align-items-center">
+            <div class="col">
+                <h2 class="page-title">Painéis de Links</h2>
+                <div class="text-muted">Acesse os painéis disponíveis</div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Links Table -->
+    <div class="card" style="width: 70%;margin: 0 auto;">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="tbInsert">
+                    <thead>
+                        <tr>
+                            <th class="w-40">Painel</th>
+                            <th class="w-10 text-center">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for l in links %}
+                        <tr>
+                            <td class="text-truncate" style="font-size: 20px;">{{l.desc}}</td>
+                            <td class="text-center" >
+                                <a href="{% url 'painel' l.id %}" target="_blank" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-box-arrow-in-right me-1"></i>Acessar
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<style>
+    :root {
+        --igefe-green: #2E7D32;
+        --igefe-green-light: #4CAF50;
+        --igefe-orange: #E65100;
+        --igefe-orange-light: #FB8C00;
+        --igefe-light: #ffffff;
+        --igefe-gray-100: #f8f9fa;
+        --igefe-gray-200: #e9ecef;
+        --igefe-gray-600: #6c757d;
+        --igefe-gray-800: #343a40;
+        --igefe-dark: #212529;
+    }
+
+    /* Page Styles */
+    .page-title {
+        color: var(--igefe-dark);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Card Styles */
+    .card {
+        border: none;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        background-color: var(--igefe-light);
+        overflow: hidden;
+        margin: 0 1.5rem;
+    }
+
+    /* Table Styles */
+    .table {
+        margin-bottom: 0;
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .table thead th {
+        background-color: var(--igefe-gray-100);
+        color: var(--igefe-gray-800);
+        font-weight: 600;
+        border-bottom: 2px solid var(--igefe-gray-200);
+        padding: 1rem;
+        white-space: nowrap;
+    }
+
+    .table tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        color: var(--igefe-gray-800);
+    }
+
+    .table tbody tr {
+        transition: all 0.2s ease;
+    }
+
+    .table tbody tr:hover {
+        background-color: var(--igefe-gray-100);
+    }
+
+    /* Button Styles */
+    .btn-primary {
+        background: linear-gradient(45deg, var(--igefe-green) 0%, var(--igefe-green-light) 100%);
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(45deg, var(--igefe-green-light) 0%, var(--igefe-green) 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(46, 125, 50, 0.2);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .page-header {
+            margin-bottom: 1rem;
+            padding: 0 1.5rem;
+        }
+        
+        .card {
+            margin: 0;
+            border-radius: 0;
+        }
+
+        .table-responsive {
+            margin: 0;
+            padding: 0;
+        }
+
+        .table thead th,
+        .table tbody td {
+            padding: 0.75rem;
+        }
+
+        .btn-primary {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.875rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .table thead th,
+        .table tbody td {
+            padding: 0.5rem;
+        }
+
+        .btn-primary {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.75rem;
+        }
+
+        .btn-primary i {
+            margin-right: 0.25rem;
+        }
+    }
+
+    /* Filter Styles */
+    .form-label {
+        color: var(--igefe-gray-800);
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-select {
+        border: 1px solid var(--igefe-gray-200);
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        color: var(--igefe-gray-800);
+        transition: all 0.2s ease;
+    }
+
+    .form-select:focus {
+        border-color: var(--igefe-green);
+        box-shadow: 0 0 0 0.2rem rgba(46, 125, 50, 0.1);
+    }
+
+    .form-select option {
+        padding: 0.5rem;
+    }
+
+    /* DataTables Styles */
+    .dataTables_wrapper .dataTables_paginate {
+        padding: 1rem;
+        text-align: right;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+        padding: 0.5rem 1rem;
+        margin: 0 0.2rem;
+        border-radius: 8px;
+        border: none;
+        background: var(--igefe-gray-100);
+        color: var(--igefe-gray-800) !important;
+        transition: all 0.2s ease;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+        background: var(--igefe-gray-200);
+        color: var(--igefe-green) !important;
+        border: none;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+        background: linear-gradient(45deg, var(--igefe-green) 0%, var(--igefe-green-light) 100%);
+        color: white !important;
+        border: none;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+        background: linear-gradient(45deg, var(--igefe-green-light) 0%, var(--igefe-green) 100%);
+        color: white !important;
+    }
+
+    .dataTables_wrapper .dataTables_info {
+        padding: 1rem;
+        color: var(--igefe-gray-600);
+    }
+
+    .dataTables_wrapper .dataTables_length select {
+        border: 1px solid var(--igefe-gray-200);
+        border-radius: 8px;
+        padding: 0.3rem 2rem 0.3rem 0.5rem;
+        color: var(--igefe-gray-800);
+    }
+
+    .dataTables_wrapper .dataTables_filter input {
+        border: 1px solid var(--igefe-gray-200);
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        color: var(--igefe-gray-800);
+    }
+
+    .dataTables_wrapper .dataTables_filter input:focus {
+        border-color: var(--igefe-green);
+        box-shadow: 0 0 0 0.2rem rgba(46, 125, 50, 0.1);
+    }
+</style>
+
+<script>
+    $(document).ready(function () {
+        var table = $('#tbInsert').DataTable({
+            language: {
+                "sEmptyTable": "Nenhum dado disponível na tabela",
+                "sInfo": "Mostrando _START_ até _END_ de _TOTAL_ registos",
+                "sInfoEmpty": "Mostrando 0 até 0 de 0 registros",
+                "sInfoFiltered": "(filtrado de _MAX_ registros no total)",
+                "sInfoPostFix": "",
+                "sInfoThousands": ".",
+                "sLengthMenu": "Mostrar _MENU_ registros",
+                "sLoadingRecords": "Carregando...",
+                "sProcessing": "Processando...",
+                "sSearch": "Pesquisar:",
+                "sZeroRecords": "Nenhum registro encontrado",
+                "oPaginate": {
+                    "sFirst": "Primeiro",
+                    "sLast": "Último",
+                    "sNext": "Próximo",
+                    "sPrevious": "Anterior"
+                }
+            },
+            pageLength: 10,
+            lengthMenu: [[10, 25, 50, -1], [10, 25, 50, "Todos"]],
+            dom: '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>rtip',
+            responsive: true,
+            order: [[0, 'asc']],
+            columnDefs: [
+                { orderable: false, targets: -1 }
+            ]
+        });
+
+        // Custom filtering function
+        $.fn.dataTable.ext.search.push(
+            function(settings, data, dataIndex) {
+                var organismo = $('#filterOrganismo').val();
+                var painel = $('#filterPainel').val();
+
+                var rowOrganismo = data[0];
+                var rowPainel = data[1];
+
+                if (
+                    (organismo === '' || rowOrganismo === organismo) &&
+                    (painel === '' || rowPainel === painel)
+                ) {
+                    return true;
+                }
+                return false;
+            }
+        );
+
+        // Event listeners for filters
+        $('#filterOrganismo, #filterPainel').on('change', function() {
+            table.draw();
+        });
+
+        // Remove duplicate options from selects
+        function removeDuplicateOptions(selectId) {
+            var select = document.getElementById(selectId);
+            var options = select.options;
+            var uniqueValues = new Set();
+            
+            for (var i = options.length - 1; i >= 0; i--) {
+                if (uniqueValues.has(options[i].value)) {
+                    select.remove(i);
+                } else {
+                    uniqueValues.add(options[i].value);
+                }
+            }
+        }
+
+        // Remove duplicates from select options
+        removeDuplicateOptions('filterOrganismo');
+        removeDuplicateOptions('filterPainel');
+    });
+</script>
+
+{% endblock %} 

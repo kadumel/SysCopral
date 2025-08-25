@@ -1,0 +1,95 @@
+h1, h5, label, th {
+    color: #00316b;
+}
+
+li {
+    border-left: 2px solid #00316b;
+    margin-left: 20px;
+}
+
+.navbar-light .navbar-nav .nav-link{
+    color: #fff;
+    background-color: #00316b;
+    border-radius: 10px;
+}
+
+.navbar-light .navbar-nav .nav-link:hover{
+    color: #00316b;
+    background-color: #fff;
+    border: 1px solid #00316b;
+    transition: 0.8s;
+}
+ 
+a.nav-link{
+    font-size: 18px;
+    margin-left: 10px;
+}
+a.nav-link:hover{
+    font-size: 20px;
+    transition: 0.4s;
+    color: white;
+    background-color: rgb(197, 193, 212);
+}
+
+#button-excel {
+    color: green;
+    position: relative;
+    left: 3%;
+    border: none;
+    border-radius: 5px;
+    font-size: 20px;
+    margin: 10px;
+    cursor: pointer;
+}
+
+#tabela {
+    margin-left:45px;
+    margin-right: 45px;
+    width: auto;
+}
+
+
+
+.cabecalho {
+    text-align: center;
+    background: #ececec;
+}
+table { 
+    word-wrap:break-word;
+}
+
+th, td {
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+td.tableColor {
+    background-color: #FFFF00;
+    border: 1px solid gray;
+    font-weight: bold;
+}
+
+.btn-atualizar {
+    font-size: 12px;
+    border-radius: 30px;
+    background: #007bff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+.ui-autocomplete{
+    z-index: 1050 !important;
+ }
+
+#id_placa {
+    text-transform: uppercase;
+}
+
+#consulta_placa {
+    text-transform: uppercase;
+}
+
+.dt-button {
+    background-color: #00316b;
+}

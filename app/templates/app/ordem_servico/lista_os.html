@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block content %}
+<div class="container">
+  <form method="post">
+    {% csrf_token %}
+    <div class="row">
+      <div class="col-4">
+        <label>Data Inicial:</label>
+        <input id="data_inicial" name="data_inicial" type="date" class="form-control" required="true">
+      </div>
+      <div class="col-4">
+        <label>Data Final:</label>
+        <input id="data_final" name="data_final" type="date" class="form-control" required="true">
+      </div>
+      <div class="col-4">
+        <label>Placa:</label>
+        <input type="text" class="form-control" name="consulta_placa" id="consulta_placa">
+      </div>
+      
+    </div>
+    <br>
+    <div class="row">
+      <div class="col-4">
+        <button type="submit" class="btn btn-primary">Consultar</button>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalOsCreate">
+          Adicionar
+        </button>
+      </div>
+    </div>
+  </form>
+  
+  <!-- Button trigger modal -->
+
+
+<!-- Modal -->
+  
+<div class="modal fade" id="modalOsCreate" tabindex="-1" aria-labelledby="modalOsLabel" aria-hidden="true">
+  <form id="formCreate" name="formCreate" method="post" action="{% url 'os_create' %}">
+    {% csrf_token %}
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalOsLabel">Cadastrar OS</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-12">
+            <label>Data:</label>
+            {% render_field form.data class="form-control" type="date" required="true" %}
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-8 ui-front">
+            <label for="placa_modal">Placa:</label>
+            {% render_field form.placa class="form-control" type="text" required="true" %}
+          </div>
+          <div class="col-4 ui-widget">
+            <label>OS:</label>
+            {% render_field form.os class="form-control" type="text" required="true" %}
+          </div>
+          <div class="row">
+            <div class="col-12">
+              <label>Continuar adicionando ?</label>
+              <input id="whileRegistro" type="checkbox">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+        <button type="submit" class="btn btn-success" id="adicionar">Adicionar</button>
+      </div>
+    </div>
+  </div>
+</form>
+</div>
+
+  <br>
+  {% for message in messages %}
+  
+    <div class="alert {{ message.tags }} alert-dismissible" role="alert" >
+      <strong>{{message}}</strong>      
+    </div>
+  
+{% endfor %}
+  <!-- Button trigger modal -->
+
+    {% if ordens_servicos %}
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Data</th>
+          <th scope="col" >Placa</th>
+          <th scope="col">OS</th>
+          <th scope="col">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for os in ordens_servicos %}
+        <tr>
+          <th scope="row">{{os.id}}</th>
+          <td>{{os.data}}</td>
+          <td>{{os.placa}}</td>
+          <td>{{os.os}}</td>
+          <td>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalOsUpdate">
+              Adicionar
+            </button>
+            <a style="margin: 20px;" href="{% url 'os_update' os.id %}"><i  class="bi bi-pencil-square"></i></a>
+            <a href="{% url 'os_delete' os.id %}"><i style="color: red;" class="bi bi-trash"></i></a>
+          </td>
+        </tr>
+        {% endfor %}
+
+      </tbody>
+    </table>
+    {% else %}
+    <hr>
+    <center>...</center>
+    {% endif %}
+    
+  </div>
+  {% endblock %}
+
+  {% block js %}
+  
+  <script>
+  
+  $(document).ready(function(){
+    var listaplacas = [{% for i in result_placa %}'{{i.placa}}',{% endfor %}];
+    
+    $("#id_placa").autocomplete({
+    source: function(request, response) {
+      var matcher = new RegExp("^" + $.ui.autocomplete.escapeRegex(request.term), "i");
+      response($.grep(listaplacas, function(item){
+        return matcher.test(item);
+      }))
+      
+    }
+  })
+  })
+
+  $(document).ready(function(){
+    var listaplacas = [{% for i in result_placa %}'{{i.placa}}',{% endfor %}];
+    
+    $("#consulta_placa").autocomplete({
+      source: listaplacas
+    });
+  });
+  $(document).ready(function(){
+    let dateObj = new Date();
+    let month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    let day = String(dateObj.getDate()).padStart(2, '0');
+    let year = dateObj.getFullYear();
+    let output = year + '-' + month + '-' + day;
+    let data_inicial = $("#data_inicial").val(output)
+    let data_final = $("#data_final").val(output)
+    let data_modal = $("#id_data").val(output)
+  })
+  //Modal Create
+  var myModal = new bootstrap.Modal(document.getElementById('modalOsCreate'), {
+    keyboard: false
+  })
+  
+  $(document).ready(function() {
+    $("#formCreate").submit(function( event ) {
+      let token = '{{csrf_token}}';
+      let data = $("#id_data").val()
+      let placa = $("#id_placa").val()
+      let os = $("#id_os").val()
+      event.preventDefault()
+      $.ajax({
+        headers: { "X-CSRFToken": token },
+        url: "{% url 'os_create' %}",
+        type: 'POST',
+        data: {
+          data: data,
+          placa: placa,
+          os: os
+        },
+        success: function(response){
+          $("#id_placa").val("")
+          $("#id_os").val("")
+          Swal.fire({
+            icon: 'success',
+            title: 'Tudo certo.',
+            text: response.info,
+            timer: 3000,
+            timerProgressBar: true,
+          })
+          if($("#whileRegistro").is(':checked')){
+            myModal.show()
+            $("#whileRegistro").checked = true;
+          }else {
+            myModal.hide()
+          }
+        },
+        error: function(response){
+          Swal.fire({
+            icon: 'error',
+            title: 'Ops.',
+            text: response.responseJSON.errors,
+            timer: 3000,
+            timerProgressBar: true,
+          })
+        },
+        
+      })
+    })
+  })
+  </script>
+
+  {% endblock %}
+  

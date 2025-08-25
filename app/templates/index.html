@@ -1,0 +1,303 @@
+{% load static %}
+{% load widget_tweaks %}
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="{% static 'css\style.css' %}">
+    <title>Copral Web</title>
+</head>
+
+<body>
+
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <img src="{% static 'img/logo.png' %}">
+    <div class=" container-fluid collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item active">
+          <a class="nav-link" href="{% url 'index' %}">Home <span class="sr-only">(current)</span></a>
+        </li>
+        <li class="nav-item active">
+          <a class="nav-link" href="{% url 'painel' %}">Painel </span></a>
+        <!--
+        </li>
+          <li class="nav-item active">
+          <a class="nav-link" href="{% url 'relatorio' %}">Relatório</span></a>
+        </li>
+      -->
+      </ul>
+        <button class="btn btn-danger my-2 my-sm-0"><a style="text-decoration: none; color: white;" href="accounts/logout">Sair</a></button>
+    </div>
+  </nav>
+
+  <div class="container" style="margin:40px">
+  <!--Filtro-->
+    <div class="row">
+      <div class="col-sm-4" >
+        <div class="card" style="border-radius:10px; background-color: #ececec">
+          <div class="card-body">
+            <h1>Controle</h1>
+            <hr>
+            <form method="POST">
+              {% csrf_token %}
+               <div class="form-group" >
+                  <label>Data inicial : </label>
+                      {% render_field form.data_inicial type="date" id="data_inicial" %}
+               </div>
+               <div class="form-group" >
+                  <label>Data final : </label>
+                      {% render_field form.data_final type="date" id="data_final" %}
+               </div>
+               <div class="form-group">
+                  <label>Seleção : </label>
+                    {% render_field form.selecao class="custom-select mr-sm-2"  %}
+               </div>
+               <div class="form-group">
+                  <label>Nome ou Placa : </label>
+                    {% render_field form.nome_placa class="form-control" type="text" id="nome_placa" %}
+               </div>
+              <div class="form-group row">
+                <div class="col-sm-10">
+                    <br>
+                  <button type="submit" id="botao-busca" class="btn btn-primary" value="">Buscar</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+<!--totalizadores-->
+      <div id="totalizadores" class="col-sm-8 container-fluid">
+        <div class="card" style="border-radius: 10px; width: 870px; padding: 10px; background-color: #ececec">
+            <div class="card-body" style="padding: 5px">
+                <h5 style="font-size: 30px"> Totalizadores:</h5>
+            </div>
+              <table style="width: auto; " >
+                  <td>
+                        <div class="card" style="margin: 10px; border-radius: 10px;">
+                          <h5 class="card-title" style="margin:5px">Tempo de jornada:</h5>
+                          <div class="card-body" title="">
+                             <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{tJornada}}</h5>
+                          </div>
+                      </div>
+                      <div class="card" style="margin: 10px; border-radius: 10px">
+                          <h5 class="card-title" style="margin:10px">Parado ligado:</h5>
+                          <div class="card-body" title="">
+                            <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{paradoLigado}}</h5>
+                          </div>
+                      </div>
+                       <div class="card" style="margin: 10px; border-radius: 10px;">
+                          <h5 class="card-title" style="margin:10px">Em movimento:</h5>
+                          <div class="card-body" title="">
+                             <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{veiMovimento}}</h5>
+                          </div>
+                      </div>
+                  </td>
+
+                  <td>
+                      <div class="card" style="margin: 10px; border-radius: 10px; ">
+                          <h5 class="card-title" style="margin:5px">Tempo de almoço:</h5>
+                          <div class="card-body" title="">
+                             <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{horarioAlmoco}}</h5>
+                          </div>
+                      </div>
+                      <div class="card" style="margin: 10px; border-radius: 10px; ">
+                          <h5 class="card-title" style="margin:10px">Tempo de espera:</h5>
+                          <div class="card-body" title="">
+                             <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{tempoEspera}}</h5>
+                          </div>
+                      </div>
+                       <div class="card" style="margin: 10px; border-radius: 10px;">
+                          <h5 class="card-title" style="margin:10px">Tempo de descanso:</h5>
+                          <div class="card-body" title="">
+                             <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{tempoDescanso}}</h5>
+                          </div>
+                      </div>
+                  </td>
+
+                   <td>
+                      <div class="card" style="margin: 10px; border-radius: 10px; ">
+                          <h5 class="card-title" style="margin:5px">Tempo noturno:</h5>
+                          <div class="card-body" title="">
+                             <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{ tempoNoturno }}</h5>
+                          </div>
+                      </div>
+                      <div class="card" style="margin: 10px; border-radius: 10px; ">
+                          <h5 class="card-title" style="margin:10px">Horas Extras Noturnas:</h5>
+                          <div class="card-body" title="">
+                             <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{ extraNoturno }}</h5>
+                          </div>
+                      </div>
+                       <div class="card" style="margin: 10px; border-radius: 10px;">
+                          <h5 class="card-title" style="margin:10px">Horas Extras Diurnas:</h5>
+                          <div class="card-body" title="">
+                             <h5 style=" font-size:25px; text-align: center;vertical-align: middle;" >{{extrasDiurnas}}</h5>
+                          </div>
+                      </div>
+                  </td>
+
+              </table>
+          </div>
+      </div>
+
+    </div>
+</div>
+<!--Fim do totalizadores -->
+<hr>
+  <!-- alerta django -->
+<div class="row justify-content-md-center">
+{% if messages %}
+  <ul>
+      {% for message in messages %}
+      <li style="list-style-type: none;" class="alert alert-danger">{{message}}</li>
+      {% endfor %}
+  </ul>
+{% endif %}
+</div>
+
+ <!--botão para gerar o arquivo excel -->
+<button id="button-excel" onclick = "exportTableToExcel('tblData','copral')">Excel <i class="fa fa-file-excel-o"></i> </button>
+<br>
+<div id="tabela">
+    <!--tabelas do banco -->
+
+    <table id="tblData" class="container-fluid table table-bordered table-sm">
+    <thead>
+        <tr>
+          <th scope="col">Placa</th>
+          <th scope="col">Data</th>
+          <th scope="col">Motorista</th>
+          <th scope="col">Dia da Semana</th>
+          <th scope="col">Inicio de jornada</th>
+          <th scope="col">Fim de jornada</th>
+          <th scope="col">Jornada</th>
+          <th scope="col">Parado ligado</th>
+          <th scope="col">Veiculo movimento</th>
+          <th scope="col">Hora do almoço</th>
+          <th scope="col">Tempo de espera</th>
+          <th scope="col">Tempo de descanço</th>
+          <th scope="col">Tempo efetivo</th>
+          <th scope="col">Estouro jornada</th>
+          <th scope="col">Tempo noturno</th>
+          <th scope="col">Tempo Extra</th>
+          <th scope="col">Tempo extra noturno</th>
+        </tr>
+    </thead>
+    <tbody>
+
+         {% for i in sqlConnect %}
+            <tr id="dados">
+
+              <td class="placa">{{i.placa}}</td>
+              <td class="data">{{i.data }}</td>
+              <td class="motorista">{{i.motoristaRAS}}</td>
+              <td class="dia-semana">{{i.diaSemana}}</td>
+              <td class="inicio-jornada">{{i.InicioJornada}}</td>
+              <td class="fim-jornada">{{i.FimJornada}}</td>
+              <td class="jornada">{{i.Jornada}}</td>
+              <td class="ligado-parado">{{i.ligadoParado}}</td>
+              <td class="veiculo-movimento">{{i.veiMovi}}</td>
+              <td class="hora-almoco">{{i.horaAlmoco}}</td>
+              <td class="tempo-espera">{{i.tempoEspera}}</td>
+              <td class="tempo-descanco">{{i.tempoDescanso}}</td>
+              <td class="tempo-efetivo-trabalho">00:00:00</td>
+              <td class="estouro-jornada">{{i.estouroJornada}}</td>
+              <td class="tempo-noturno">{{i.tempoNoturno}}</td>
+              <td class="tempo-extra">{{i.TempoExtra}}</td>
+              <td class="tempo-noturno-extra">{{i.tempoNoturnoExtra}}</td>
+            </tr>
+        {% endfor %}
+
+
+  </tbody>
+</table>
+
+    <!--fim da tabela -->
+</div>
+
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+<script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<script src="{% static 'js/scripts.js' %}"></script>
+<script src="{% static 'js/table2excel.js' %}"></script>
+
+<!--Script do sistema-->
+<script>
+
+  $(document).ready(function(){
+    $("#id_selecao").change(function(){
+      if ($(this).val() == 'placa') {
+        //alert('As placas foram carregadas')
+        $("#nome_placa").val("")
+        var listaplacas = [{% for i in result_placa %}'{{i.placa}}',{% endfor %}]
+        //console.log(listaplacas)
+        $("#nome_placa").prop("disabled", false)
+        $("#nome_placa" ).autocomplete({
+          source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listaplacas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+       });
+      } else if ($(this).val() == 'motorista') {
+        //alert('Os motoristas foram carregados')
+        $("#nome_placa").val("")
+        var listasmotoristas = [{% for i in result_motorista %}'{{i.motoristaRAS}}',{% endfor %}]
+        //console.log(listasmotoristas)
+        $("#nome_placa").prop("disabled", false)
+        $("#nome_placa" ).autocomplete({
+          source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listasmotoristas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+       });
+      } else if ($(this).val() == "todos") {
+        $("#nome_placa").val("")
+        $("#nome_placa").prop("disabled", true)
+      }
+    })
+  })
+$(function(){
+  $("#nome_placa").click(function(){
+    if ($("#id_selecao").val() == 'placa'){
+      var listaplacas =  [{% for i in result_placa %}'{{i.placa}}',{% endfor %}]
+      $("#nome_placa" ).autocomplete({
+        source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listaplacas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+    });
+    }
+     if ($("#id_selecao").val() == 'motorista'){
+      var listasmotoristas = [{% for i in result_motorista %}'{{i.motoristaRAS}}',{% endfor %}]
+      $("#nome_placa").val("")
+      $("#nome_placa").autocomplete({
+        source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listasmotoristas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+      });
+    }
+  })
+})
+
+</script>
+<script>
+window.onload = function () {
+   if($("#id_selecao").val() == 'todos'){
+    $("#nome_placa").prop("disabled", true)
+   }
+ }
+
+</script>
+</body>
+</html>

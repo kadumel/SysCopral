@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load widget_tweaks %}
+{% block content %}
+    <div class="container">
+        <h1>Relatório - (Em desenvolvimento)</h1>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-4">
+                    <label>Placa</label>
+                    <input class="form-control" type="text" id="placa" name="placa" required>
+                </div>
+                <div class="col-4">
+                    <label>Data inicial</label>
+                    <input class="form-control" type="date" id="data_inicial" name="data_inicial" required>
+                </div>
+                <div class="col-4">
+                    <label>Data final</label>
+                    <input class="form-control" type="date" id="data_final" name="data_final" required>
+                </div>
+            </div>
+            <br>
+            <button class="btn btn-primary" id="gerar_relatorio" onclick="armazenarConsulta()">Gerar</button>
+        </form>
+        <br>
+        <div>
+            <center>
+            <h5>Processamento Movimento - Tempo Total: {{horas_totais}}</h5>
+            <span>{{processamento}}</span>
+            </center>
+            <hr>
+            {% if dados %}
+            <table class="table" id="tabela_dados">
+                <thead>
+                  <tr>
+                    <th scope="col">DATA</th>
+                    <th scope="col">INFORMAÇÂO</th>
+                    <th scope="col">LATITUDE</th>
+                    <th scope="col">LONGITUDE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for i in dados %}
+                  <tr>
+                      <td>{{i.data}}</td>
+                      <td>{{i.mensagem}}</td>
+                      <td>{{i.latitude}}</td>
+                      <td>{{i.longitude}}</td>
+                  </tr>
+
+                  {% endfor %}
+
+                </tbody>
+              </table>
+            {% else %}
+            <center>
+                <h6>Sem dados para gerar relatorio... </h6>
+            </center>
+            {% endif %}
+
+        </div>
+    </div>
+{% endblock %}
+
+{% block js %}
+<script>
+    $(document).ready( function() {
+    
+    var table =$('#tabela_dados').DataTable( {
+        paging: false,
+        dom: 'Bfrtip',
+            buttons: [
+                {
+                    //EXCEL
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel"></i> EXCEL', //u can define a diferent text or icon
+                    title: '{{processamento}}',
+                   
+                },
+            ]
+        })
+    });
+$(function(){
+  $("#placa").click(function(){
+      var listaplacas =  [{% for i in placas %}'{{i.placa}}',{% endfor %}]
+      $("#placa" ).autocomplete({
+        source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listaplacas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+    })
+})
+});
+
+$(function(){
+
+$("#gerar_relatorio").on('click', function(){
+    if ($("#data_final").val() < $("#data_inicial").val()){
+        Swal.fire({
+            icon: 'error',
+            title: 'Ops.',
+            text: "A Data final não pode menor que a Data inicial",
+            timer: 3000,
+            timerProgressBar: true,
+          })
+    } 
+})
+})
+     
+</script>
+{% endblock %}
