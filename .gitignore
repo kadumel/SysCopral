@@ -173,8 +173,6 @@ Desktop.ini
 
 # Django specific
 media/
-static/
-!app/static/
 secret_key.txt
 
 # Local development
