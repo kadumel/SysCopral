@@ -424,7 +424,7 @@
                 </a>
                 <ul class="sidebar-submenu" id="rh-submenu">
                     <li>
-                        <a href="{% url 'cartao_visita' %}">
+                        <a href="{% url 'app:cartao_visita' %}">
                             <i class="fas fa-id-card"></i>
                             Cartão de Visita
                         </a>
@@ -433,11 +433,22 @@
             </li>
             {% endif %}
             {% if perms.app.acessar_dp %}
-            <li>
-                <a href="#">
+            <li class="menu-item-with-submenu">
+                <a href="#" onclick="toggleSubmenu(event, 'dp-submenu')">
+                    <span>
                     <i class="fas fa-chart-line"></i>
                     DP
+                    </span>
+                    <i class="fas fa-chevron-down submenu-toggle"></i>
                 </a>
+                <ul class="sidebar-submenu" id="dp-submenu">
+                    <li>
+                        <a href="{% url 'app:controleJornada' %}">
+                            <i class="fas fa-clock"></i>
+                            Controle de Jornadas
+                        </a>
+                    </li>
+                </ul>
             </li>
             {% endif %}
             {% if perms.operacional.acessar_operacional %}

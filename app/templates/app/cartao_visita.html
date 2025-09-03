@@ -215,7 +215,7 @@
 
   <div class="card">
     <div class="card-body">
-      <form id="cartaoForm" method="post" action="{% url 'cartao_visita' %}">
+      <form id="cartaoForm" method="post" action="{% url 'app:cartao_visita' %}">
         {% csrf_token %}
         
         <!-- Primeira linha: Nome, Sobrenome, Empresa -->
@@ -299,7 +299,7 @@ document.getElementById('cartaoForm').addEventListener('submit', function(e) {
   
   const formData = new FormData(this);
   
-  fetch('{% url "cartao_visita" %}', {
+  fetch('{% url "app:cartao_visita" %}', {
     method: 'POST',
     body: formData,
     headers: {

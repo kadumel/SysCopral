@@ -86,7 +86,7 @@ class cartao_visita(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
         return render(request, self.template_name)
 
 @login_required
-def index(request):
+def controleJornada(request):
     query_motorista = 'select distinct motoristaRAS from vw_consolidado'
     query_placa = 'select distinct placa from vw_consolidado'
     placas = cf.getAll(query_placa)
@@ -120,7 +120,7 @@ def index(request):
             messages.info(request, "Ops... Nenhum registro encontrado :(")
 
         totais = procHoras(result)
-        return render(request, 'app/index.html', {'sqlConnect': result, 'form': form,
+        return render(request, 'app/controleJornada.html', {'sqlConnect': result, 'form': form,
                                               'tJornada': totais[0],
                                               'paradoLigado': totais[1],
                                               'veiMovimento': totais[2],
@@ -134,7 +134,7 @@ def index(request):
                                               'result_motorista': motoristas,
                                               })
     else:
-        return render(request, 'app/index.html', {'form': form, 'result_placa': placas, 'result_motorista': motoristas})
+        return render(request, 'app/controleJornada.html', {'form': form, 'result_placa': placas, 'result_motorista': motoristas})
 
 
 @login_required

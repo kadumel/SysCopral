@@ -1,0 +1,619 @@
+{% extends 'home.html' %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block title %}Controle de Jornadas - Copral{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .jornada-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .main-content {
+        margin-left: 250px;
+    }
+
+    /* Header + Filters */
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+
+    .page-title {
+        margin: 0 0 1rem 0;
+        color: var(--text-color);
+        font-size: 1.4rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .page-title i {
+        color: var(--primary-color);
+        font-size: 1.3rem;
+    }
+
+    .filters-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 0;
+    }
+
+    .form-group label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-color);
+        margin-bottom: 0.4rem;
+    }
+
+    .form-control, .custom-select {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        background: white;
+    }
+
+    .form-control:focus, .custom-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        outline: none;
+    }
+
+    .btn-search {
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-weight: 500;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: fit-content;
+    }
+
+    .btn-search:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-hover);
+        color: white;
+    }
+
+    /* Totalizadores Grid */
+    .totalizadores-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+    }
+
+    .totalizadores-title {
+        margin: 0 0 1rem 0;
+        color: var(--text-color);
+        font-size: 1.2rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .totalizadores-title i {
+        color: var(--secondary-color);
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .metric-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.9) 100%);
+        border: 1px solid var(--glass-border);
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--primary-gradient);
+    }
+
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .metric-title {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-light);
+        margin-bottom: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-color);
+        margin: 0;
+    }
+
+    /* Table Section */
+    .table-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        overflow: hidden;
+    }
+
+    .table-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-excel {
+        background: var(--success-color);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .btn-excel:hover {
+        background: #059669;
+        transform: translateY(-1px);
+    }
+
+    .table-container {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .table {
+        margin: 0;
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    .table th {
+        background: var(--light-gray);
+        color: var(--text-color);
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 0.75rem 0.5rem;
+        text-align: left;
+        border-bottom: 2px solid #e2e8f0;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .table td {
+        padding: 0.6rem 0.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.85rem;
+        color: var(--text-color);
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(0, 86, 179, 0.04);
+    }
+
+    /* Messages */
+    .alert {
+        border-radius: 8px;
+        border: none;
+        padding: 0.75rem 1rem;
+        margin: 1rem 0;
+        box-shadow: var(--shadow-medium);
+    }
+
+    .alert-danger {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #dc2626;
+        border-left: 4px solid #dc2626;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+        }
+        
+        .jornada-main-content {
+            padding: 1rem 0.5rem;
+        }
+
+        .filters-form {
+            grid-template-columns: 1fr;
+        }
+
+        .metrics-grid {
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        }
+
+        .table-container {
+            max-height: 400px;
+        }
+    }
+
+    /* Animations */
+    .slide-up {
+        animation: slideUp 0.6s ease-out;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="jornada-main-content">
+    <!-- Header + Filters -->
+    <div class="header-filters slide-up">
+        <h1 class="page-title">
+            <i class="fas fa-clock"></i>
+            Controle de Jornadas
+        </h1>
+        <form method="POST" class="filters-form">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="data_inicial">Data Inicial</label>
+                {% render_field form.data_inicial type="date" id="data_inicial" class="form-control" %}
+            </div>
+            <div class="form-group">
+                <label for="data_final">Data Final</label>
+                {% render_field form.data_final type="date" id="data_final" class="form-control" %}
+            </div>
+            <div class="form-group">
+                <label for="selecao">Seleção</label>
+                {% render_field form.selecao class="custom-select" id="id_selecao" %}
+            </div>
+            <div class="form-group">
+                <label for="nome_placa">Nome ou Placa</label>
+                {% render_field form.nome_placa class="form-control" type="text" id="nome_placa" %}
+            </div>
+            <div class="form-group">
+                <button type="submit" id="botao-busca" class="btn-search">
+                    <i class="fas fa-search"></i>
+                    Buscar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Totalizadores -->
+    <div class="totalizadores-section slide-up">
+        <h2 class="totalizadores-title">
+            <i class="fas fa-chart-bar"></i>
+            Totalizadores
+        </h2>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-title">Tempo de Jornada</div>
+                <div class="metric-value">{{tJornada|default:"--:--"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Parado Ligado</div>
+                <div class="metric-value">{{paradoLigado|default:"--:--"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Em Movimento</div>
+                <div class="metric-value">{{veiMovimento|default:"--:--"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Tempo de Almoço</div>
+                <div class="metric-value">{{horarioAlmoco|default:"--:--"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Tempo de Espera</div>
+                <div class="metric-value">{{tempoEspera|default:"--:--"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Tempo de Descanso</div>
+                <div class="metric-value">{{tempoDescanso|default:"--:--"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Tempo Noturno</div>
+                <div class="metric-value">{{tempoNoturno|default:"--:--"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Horas Extras Noturnas</div>
+                <div class="metric-value">{{extraNoturno|default:"--:--"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Horas Extras Diurnas</div>
+                <div class="metric-value">{{extrasDiurnas|default:"--:--"}}</div>
+            </div>
+        </div>
+    </div>
+    <!-- Messages -->
+    {% if messages %}
+        <div class="fade-in">
+            {% for message in messages %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {{message}}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Table Section -->
+    <div class="table-section fade-in">
+        <div class="table-header">
+            <h3 class="table-title">
+                <i class="fas fa-table"></i>
+                Relatório de Jornadas
+            </h3>
+            <button id="button-excel" class="btn-excel" onclick="exportTableToExcel('tblData','copral')">
+                <i class="fas fa-file-excel"></i>
+                Exportar Excel
+            </button>
+        </div>
+        <div class="table-container">
+            <table id="tblData" class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">Placa</th>
+                        <th scope="col">Data</th>
+                        <th scope="col">Motorista</th>
+                        <th scope="col">Dia da Semana</th>
+                        <th scope="col">Início de Jornada</th>
+                        <th scope="col">Fim de Jornada</th>
+                        <th scope="col">Jornada</th>
+                        <th scope="col">Parado Ligado</th>
+                        <th scope="col">Veículo Movimento</th>
+                        <th scope="col">Hora do Almoço</th>
+                        <th scope="col">Tempo de Espera</th>
+                        <th scope="col">Tempo de Descanso</th>
+                        <th scope="col">Tempo Efetivo</th>
+                        <th scope="col">Estouro Jornada</th>
+                        <th scope="col">Tempo Noturno</th>
+                        <th scope="col">Tempo Extra</th>
+                        <th scope="col">Tempo Extra Noturno</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in sqlConnect %}
+                        <tr>
+                            <td class="placa">{{i.placa}}</td>
+                            <td class="data">{{i.data}}</td>
+                            <td class="motorista">{{i.motoristaRAS}}</td>
+                            <td class="dia-semana">{{i.diaSemana}}</td>
+                            <td class="inicio-jornada">{{i.InicioJornada}}</td>
+                            <td class="fim-jornada">{{i.FimJornada}}</td>
+                            <td class="jornada">{{i.Jornada}}</td>
+                            <td class="ligado-parado">{{i.ligadoParado}}</td>
+                            <td class="veiculo-movimento">{{i.veiMovi}}</td>
+                            <td class="hora-almoco">{{i.horaAlmoco}}</td>
+                            <td class="tempo-espera">{{i.tempoEspera}}</td>
+                            <td class="tempo-descanco">{{i.tempoDescanso}}</td>
+                            <td class="tempo-efetivo-trabalho">00:00:00</td>
+                            <td class="estouro-jornada">{{i.estouroJornada}}</td>
+                            <td class="tempo-noturno">{{i.tempoNoturno}}</td>
+                            <td class="tempo-extra">{{i.TempoExtra}}</td>
+                            <td class="tempo-noturno-extra">{{i.tempoNoturnoExtra}}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="17" style="text-align: center; padding: 2rem; color: var(--text-light);">
+                                <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                                Nenhum dado encontrado. Utilize os filtros acima para buscar informações.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+<script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<script src="{% static 'js/scripts.js' %}"></script>
+<script src="{% static 'js/table2excel.js' %}"></script>
+
+<!--Script do sistema-->
+<script>
+
+  $(document).ready(function(){
+    $("#id_selecao").change(function(){
+      if ($(this).val() == 'placa') {
+        //alert('As placas foram carregadas')
+        $("#nome_placa").val("")
+        var listaplacas = [{% for i in result_placa %}'{{i.placa}}',{% endfor %}]
+        //console.log(listaplacas)
+        $("#nome_placa").prop("disabled", false)
+        $("#nome_placa" ).autocomplete({
+          source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listaplacas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+       });
+      } else if ($(this).val() == 'motorista') {
+        //alert('Os motoristas foram carregados')
+        $("#nome_placa").val("")
+        var listasmotoristas = [{% for i in result_motorista %}'{{i.motoristaRAS}}',{% endfor %}]
+        //console.log(listasmotoristas)
+        $("#nome_placa").prop("disabled", false)
+        $("#nome_placa" ).autocomplete({
+          source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listasmotoristas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+       });
+      } else if ($(this).val() == "todos") {
+        $("#nome_placa").val("")
+        $("#nome_placa").prop("disabled", true)
+      }
+    })
+  })
+$(function(){
+  $("#nome_placa").click(function(){
+    if ($("#id_selecao").val() == 'placa'){
+      var listaplacas =  [{% for i in result_placa %}'{{i.placa}}',{% endfor %}]
+      $("#nome_placa" ).autocomplete({
+        source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listaplacas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+    });
+    }
+     if ($("#id_selecao").val() == 'motorista'){
+      var listasmotoristas = [{% for i in result_motorista %}'{{i.motoristaRAS}}',{% endfor %}]
+      $("#nome_placa").val("")
+      $("#nome_placa").autocomplete({
+        source: function( request, response ) {
+          var matcher = new RegExp( "^" + $.ui.autocomplete.escapeRegex( request.term ), "i" );
+          response( $.grep( listasmotoristas, function( item ){
+              return matcher.test( item );
+          }) );
+      }
+      });
+    }
+  })
+})
+
+</script>
+<script>
+window.onload = function () {
+   if($("#id_selecao").val() == 'todos'){
+    $("#nome_placa").prop("disabled", true)
+   }
+ }
+
+</script>
+</body>
+</html>
+{% endblock %}
