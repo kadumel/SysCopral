@@ -1,0 +1,1212 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Gestão de Veículos - Copral{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .main-content {
+        margin-left: 250px;
+    }
+
+    /* Header + Filters */
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+
+    .header-filters .page-title {
+        text-align: left;
+        justify-content: flex-start;
+    }
+
+    /* Ensure filter labels have no list bullets */
+    .header-filters .form-label {
+        list-style: none;
+        display: inline-block;
+        padding-left: 0;
+        margin-left: 0;
+    }
+
+    /* In case any lists are used around filters, reset bullets */
+    .header-filters ul { list-style: none; padding-left: 0; margin-left: 0; }
+    .header-filters li { list-style: none; }
+
+    .header-filters::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-color);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    /* Custom Status Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.5rem 0.875rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: none;
+        position: relative;
+        overflow: hidden;
+        transition: var(--transition);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .status-badge::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.6s;
+    }
+
+    .status-badge:hover::before {
+        left: 100%;
+    }
+
+    .status-badge-active {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+    }
+
+    .status-badge-active:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+    }
+
+    .status-badge-inactive {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+    }
+
+    .status-badge-inactive:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5);
+    }
+
+    .status-badge i {
+        font-size: 0.9rem;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+    }
+
+    .veiculos-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .page-header {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: var(--border-radius);
+        padding: 2rem 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        position: relative;
+        overflow: hidden;
+        transform: translateY(0);
+        transition: var(--transition);
+    }
+
+    .page-header:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .page-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: var(--primary-gradient);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .page-header::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: rotate-glow 20s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes rotate-glow {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .page-title {
+        text-align: left;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    .page-title i {
+        font-size: 2.2rem;
+        animation: pulse 2s ease-in-out infinite;
+        color: var(--primary-color);
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .page-subtitle {
+        color: #6b7280;
+        font-size: 1.2rem;
+        font-weight: 500;
+        position: relative;
+        z-index: 2;
+    }
+
+    .filters-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1.25rem 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 1rem;
+    }
+
+    .filters-section:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .filters-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        transition: var(--transition);
+    }
+
+    .filters-section:hover::before {
+        left: 100%;
+    }
+
+    .filters-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 3px solid #e5e7eb;
+        position: relative;
+    }
+
+    .filters-header::after {
+        content: '';
+        position: absolute;
+        bottom: -3px;
+        left: 0;
+        width: 60px;
+        height: 3px;
+        background: var(--primary-gradient);
+        border-radius: 2px;
+    }
+
+    .filters-header i {
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 1.5rem;
+        filter: drop-shadow(0 5px 15px rgba(102, 126, 234, 0.3));
+    }
+
+    .filters-title {
+        font-size: 1rem;
+        color: var(--primary-color);
+        margin: 0;
+        font-weight: 700;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        height: 38px;
+    }
+
+    .form-control::before, .form-select::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+        transition: var(--transition);
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.15);
+        outline: none;
+        transform: translateY(-2px);
+    }
+
+    .form-control:focus::before, .form-select:focus::before {
+        left: 100%;
+    }
+
+    .form-label {
+        font-size: 0.85rem;
+        margin-bottom: 0.25rem;
+        border-left: none !important;
+        margin-left: 0 !important;
+        list-style: none !important;
+    }
+
+    .form-label::before {
+        display: none !important;
+    }
+
+    label {
+        border-left: none !important;
+        margin-left: 0 !important;
+        list-style: none !important;
+    }
+
+    label::before {
+        display: none !important;
+    }
+
+    .btn {
+        border-radius: 8px;
+        padding: 0.5rem 0.9rem;
+        font-size: 0.9rem;
+        line-height: 1.2;
+    }
+
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: var(--transition);
+    }
+
+    .btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-primary {
+        background: var(--secondary-color);
+        border-color: var(--secondary-color);
+    }
+
+    .btn-primary:hover {
+        background: #e05e00;
+        border-color: #e05e00;
+    }
+
+    .btn-outline {
+        color: var(--primary-color);
+        border: 1px solid var(--primary-color);
+        background: transparent;
+    }
+
+    .btn-outline:hover {
+        color: #fff;
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+    .table-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .table-header {
+        background: var(--primary-color);
+        color: white;
+        padding: 1rem 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .table-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+        animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    .table-title {
+        font-size: 0.95rem;
+        color: #ffffff;
+        margin: 0;
+        font-weight: 700;
+    }
+
+    .table-title i {
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    .table {
+        margin: 0;
+        background: transparent;
+    }
+
+    .table thead th {
+        font-size: 0.85rem;
+        padding: 0.6rem 0.75rem;
+        background: var(--light-gray);
+        color: #374151;
+    }
+
+    .table thead th::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--primary-gradient);
+        transform: scaleX(0);
+        transition: var(--transition);
+        border-radius: 2px;
+    }
+
+    .table thead th:hover::after {
+        transform: scaleX(1);
+    }
+
+    .table tbody tr {
+        transition: var(--transition);
+        border-bottom: 2px solid #f1f5f9;
+        background: rgba(255, 255, 255, 0.8);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .table tbody tr::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.05), transparent);
+        transition: var(--transition);
+    }
+
+    .table tbody tr:hover {
+        background: rgba(255, 255, 255, 1);
+        transform: scale(1.02);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border-color: #667eea;
+    }
+
+    .table tbody tr:hover::before {
+        left: 100%;
+    }
+
+    .table tbody td {
+        font-size: 0.9rem;
+        padding: 0.6rem 0.75rem;
+        vertical-align: middle;
+        border: none;
+        color: #374151;
+        font-weight: 600;
+        position: relative;
+        z-index: 2;
+    }
+
+    .vehicle-plate {
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .vehicle-plate:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    }
+
+    .status-badge {
+        border-radius: 999px;
+        font-size: 0.75rem;
+        padding: 0.25rem 0.6rem;
+    }
+
+    .status-badge::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+        transition: var(--transition);
+    }
+
+    .status-badge:hover::before {
+        left: 100%;
+    }
+
+    .status-active {
+        background: var(--success-gradient);
+        color: white;
+        box-shadow: 0 6px 20px rgba(79, 172, 254, 0.4);
+    }
+
+    .status-active:hover {
+        transform: scale(1.05);
+        box-shadow: 0 10px 30px rgba(79, 172, 254, 0.5);
+    }
+
+    .status-inactive {
+        background: var(--danger-gradient);
+        color: white;
+        box-shadow: 0 6px 20px rgba(250, 112, 154, 0.4);
+    }
+
+    .status-inactive:hover {
+        transform: scale(1.05);
+        box-shadow: 0 10px 30px rgba(250, 112, 154, 0.5);
+    }
+
+    /* Pagination Section */
+    .pagination-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-medium);
+        border: 1px solid var(--glass-border);
+        padding: 1rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .pagination {
+        margin: 0;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        list-style: none !important;
+        padding: 0 !important;
+    }
+
+    .pagination li {
+        list-style: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .pagination li::before,
+    .pagination li::after {
+        display: none !important;
+        content: none !important;
+    }
+
+    .page-link {
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        color: var(--primary-color);
+        text-decoration: none;
+        transition: var(--transition);
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 40px;
+        height: 40px;
+    }
+
+    .page-link:hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+    }
+
+    .page-item.active .page-link {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+        font-weight: 600;
+    }
+
+    .page-item.disabled .page-link {
+        color: var(--text-light);
+        pointer-events: none;
+        background: var(--light-gray);
+        border-color: #e5e7eb;
+    }
+
+    .page-item.disabled .page-link:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 5rem 2rem;
+        color: #6b7280;
+    }
+
+    .no-results i {
+        font-size: 5rem;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 1.5rem;
+        filter: drop-shadow(0 10px 20px rgba(102, 126, 234, 0.3));
+    }
+
+    .no-results h4 {
+        font-weight: 800;
+        color: #374151;
+        margin-bottom: 1rem;
+        font-size: 1.5rem;
+    }
+
+    .no-results p {
+        color: #6b7280;
+        margin-bottom: 2rem;
+        font-size: 1.1rem;
+    }
+
+    .loading-spinner {
+        display: inline-block;
+        width: 24px;
+        height: 24px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .slide-up {
+        animation: slideUp 0.8s ease-out 0.3s both;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .bounce-in {
+        animation: bounceIn 0.8s ease-out 0.6s both;
+    }
+
+    @keyframes bounceIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.3);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Garantir que placa e status fiquem na mesma linha */
+    .filter-row-primary {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 1rem;
+    }
+    
+    .filter-row-primary .col-md-6 {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    /* Estilização do cabeçalho da tabela com informações de paginação */
+    .table-header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .pagination-info-header {
+        font-size: 0.875rem;
+        color: white;
+        opacity: 0.8;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .pagination-info-header i {
+        font-size: 0.75rem;
+    }
+    
+    /* Diminuir tamanho da fonte dos componentes de paginação */
+    .pagination {
+        font-size: 0.875rem;
+    }
+    
+    .pagination .page-link {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .pagination-info {
+        font-size: 0.875rem;
+    }
+
+    @media (max-width: 768px) {
+        .veiculos-main-content {
+            padding: 1rem 0.5rem;
+        }
+        
+        .page-title {
+            font-size: 2.5rem;
+        }
+        
+        .page-title i {
+            font-size: 3rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .pagination-section {
+            flex-direction: column;
+            text-align: center;
+        }
+        
+        .pagination {
+            justify-content: center;
+        }
+        
+        .table-responsive {
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+        }
+        
+        /* Manter placa e status na mesma linha mesmo em mobile */
+        .filter-row-primary {
+            flex-wrap: nowrap;
+        }
+        
+        .filter-row-primary .col-md-6 {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        /* Layout responsivo do cabeçalho da tabela */
+        .table-header-content {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .pagination-info-header {
+            font-size: 0.8rem;
+        }
+        
+        .pagination {
+            font-size: 0.8rem;
+        }
+        
+        .pagination .page-link {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+        
+        /* Layout responsivo do cabeçalho da tabela */
+        .table-header-content {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.5rem;
+        }
+        
+        .pagination-info-header {
+            font-size: 0.8rem;
+        }
+        
+        .pagination {
+            font-size: 0.8rem;
+        }
+        
+        .pagination .page-link {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .page-header {
+            padding: 2rem 1.5rem;
+        }
+        
+        .filters-section {
+            padding: 2rem 1.5rem;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+            margin-bottom: 0.75rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="veiculos-main-content">
+    <div class="header-filters fade-in">
+        <h1 class="page-title">
+            <i class="fas fa-car"></i>
+            Gestão de Veículos
+        </h1>
+        <form method="GET" class="row g-3">
+            <!-- Primeira linha de filtros: Placa e Status -->
+            <div class="filter-row-primary">
+                <div class="col-md-6">
+                    <label for="placa" class="form-label">Placa do Veículo</label>
+                    <input type="text" class="form-control" id="placa" name="placa" value="{{ placa_filtro }}" placeholder="Digite a placa (ex: ABC1234)" maxlength="10">
+                </div>
+                <div class="col-md-6">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">Todos os status</option>
+                        <option value="ativo" {% if status_filtro == 'ativo' %}selected{% endif %}>Ativo</option>
+                        <option value="inativo" {% if status_filtro == 'inativo' %}selected{% endif %}>Inativo</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Segunda linha de filtros: Frota, Centro de Custo e Agregado -->
+            <div class="col-md-4">
+                <label for="frota" class="form-label">Frota</label>
+                <select class="form-select" id="frota" name="frota">
+                    <option value="">Todas as frotas</option>
+                    {% for frota in frotas_disponiveis %}
+                        <option value="{{ frota }}" {% if frota_filtro == frota %}selected{% endif %}>{{ frota }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="centro_custo" class="form-label">Centro de Custo</label>
+                <select class="form-select" id="centro_custo" name="centro_custo">
+                    <option value="">Todos os centros de custo</option>
+                    {% for centro_custo in centros_custo_disponiveis %}
+                        <option value="{{ centro_custo }}" {% if centro_custo_filtro == centro_custo %}selected{% endif %}>{{ centro_custo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="agregado" class="form-label">Agregado</label>
+                <select class="form-select" id="agregado" name="agregado">
+                    <option value="">Todos os agregados</option>
+                    {% for agregado in agregados_disponiveis %}
+                        <option value="{{ agregado }}" {% if agregado_filtro == agregado %}selected{% endif %}>{{ agregado }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Terceira linha - Botões -->
+            <div class="col-12 d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search"></i>
+                    Filtrar
+                </button>
+                <a href="{% url 'operacional:veiculos' %}" class="btn btn-outline">
+                    <i class="fas fa-times"></i>
+                    Limpar
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Vehicles Table Section -->
+    <div class="table-section bounce-in">
+        <div class="table-header">
+            <div class="table-header-content">
+                <h5 class="table-title">
+                    <i class="fas fa-list"></i>
+                    Lista de Veículos
+                </h5>
+                {% if is_paginated %}
+                <div class="pagination-info-header">
+                    <i class="fas fa-info-circle"></i>
+                    Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ total_veiculos }} veículos
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="table-responsive">
+            {% if veiculos %}
+            <table class="table table-striped table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th ></th>
+                        <th>Placa</th>
+                        <th>Código Veículo</th>
+                        <th>Frota</th>
+                        <th>Centro de Custo</th>
+                        <th>CNPJ/CPF</th>
+                        <th>Agregado</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for veiculo in veiculos %}
+                    <tr>
+                        <td>{{ veiculo.placa.placa }}</td>
+                        <td>{{ veiculo.cd_veiculo }}</td>
+                        <td>{{ veiculo.nm_frota }}</td>
+                        <td>{{ veiculo.nm_centro_custo }}</td>
+                        <td>
+                            {% if veiculo.cnpjcpf %}
+                                {{ veiculo.cnpjcpf }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if veiculo.placa %}
+                                {{ veiculo.placa.nm_agregado }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if veiculo.dt_inativacao %}
+                                <span class="status-badge status-badge-inactive">
+                                    <i class="fas fa-times-circle"></i>
+                                    Inativo
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-badge-active">
+                                    <i class="fas fa-check-circle"></i>
+                                    Ativo
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-results">
+                <i class="fas fa-truck"></i>
+                <h4>Nenhum veículo encontrado</h4>
+                {% if placa_filtro or status_filtro %}
+                    <p>Não foram encontrados veículos com os filtros aplicados.</p>
+                    <a href="{% url 'operacional:veiculos' %}" class="btn btn-primary">
+                        <i class="fas fa-list me-2"></i>
+                        Ver todos os veículos
+                    </a>
+                {% else %}
+                    <p>Não há veículos cadastrados no sistema.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pagination Section -->
+    {% if is_paginated %}
+    <div class="pagination-section slide-up">
+        <nav aria-label="Paginação de veículos">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if status_filtro %}status={{ status_filtro }}&{% endif %}page=1" title="Primeira página">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if status_filtro %}status={{ status_filtro }}&{% endif %}page={{ page_obj.previous_page_number }}" title="Página anterior">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-double-left"></i>
+                        </span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-left"></i>
+                        </span>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if status_filtro %}status={{ status_filtro }}&{% endif %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if status_filtro %}status={{ status_filtro }}&{% endif %}page={{ page_obj.next_page_number }}" title="Próxima página">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if status_filtro %}status={{ status_filtro }}&{% endif %}page={{ page_obj.paginator.num_pages }}" title="Última página">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-right"></i>
+                        </span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-double-right"></i>
+                        </span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-focus no campo de placa
+        const placaInput = document.getElementById('placa');
+        if (placaInput && !placaInput.value) {
+            placaInput.focus();
+        }
+        
+        // Converter placa para maiúsculo enquanto digita
+        if (placaInput) {
+            placaInput.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+        }
+        
+        // Adicionar loading aos botões de filtro
+        const filterForm = document.querySelector('form');
+        if (filterForm) {
+            filterForm.addEventListener('submit', function(e) {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    const originalText = submitBtn.innerHTML;
+                    submitBtn.innerHTML = '<span class="loading-spinner"></span> Filtrando...';
+                    submitBtn.disabled = true;
+                    
+                    setTimeout(() => {
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    }, 2000);
+                }
+            });
+        }
+        
+        // Adicionar efeitos hover avançados nas linhas da tabela
+        const tableRows = document.querySelectorAll('tbody tr');
+        tableRows.forEach(row => {
+            row.addEventListener('mouseenter', function() {
+                this.style.transform = 'scale(1.02) translateY(-2px)';
+                this.style.boxShadow = '0 15px 35px rgba(0, 0, 0, 0.15)';
+            });
+            
+            row.addEventListener('mouseleave', function() {
+                this.style.transform = '';
+                this.style.boxShadow = '';
+            });
+        });
+        
+        // removed stat-card hover effects
+        
+        // Adicionar efeitos nos botões
+        const buttons = document.querySelectorAll('.btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-3px) scale(1.05)';
+            });
+            
+            btn.addEventListener('mouseleave', function() {
+                this.style.transform = '';
+            });
+        });
+        
+        // Adicionar efeitos de entrada para elementos
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+        
+        // Observar elementos para animações de entrada
+        document.querySelectorAll('.filters-section, .table-section, .pagination-section').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
+            observer.observe(el);
+        });
+    });
+</script>
+{% endblock %}

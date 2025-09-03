@@ -1,0 +1,1183 @@
+{% extends 'home.html' %}
+{% load static %}
+{% load humanize %}
+{% load brazilian_format %}
+
+{% block title %}Gestão de Abastecimento{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .abastecimento-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .main-content {
+        margin-left: 250px;
+    }
+
+    /* Header + Filters */
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+
+    .header-filters .page-title {
+        text-align: left;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    /* Ensure filter labels have no list bullets */
+    .header-filters .form-label {
+        list-style: none;
+        display: inline-block;
+        padding-left: 0;
+        margin-left: 0;
+    }
+
+    /* In case any lists are used around filters, reset bullets */
+    .header-filters ul {
+        list-style: none;
+        padding-left: 0;
+        margin-left: 0;
+    }
+
+    .header-filters li {
+        list-style: none;
+        padding-left: 0;
+        margin-left: 0;
+    }
+
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .filter-group label {
+        font-weight: 600;
+        color: var(--text-color);
+        font-size: 0.9rem;
+        margin: 0;
+    }
+
+    .filter-group input,
+    .filter-group select {
+        padding: 0.5rem 0.75rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        background: white;
+    }
+
+    .filter-group input:focus,
+    .filter-group select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        transform: translateY(-1px);
+    }
+
+    .filter-group input::placeholder {
+        color: var(--text-light);
+        font-style: italic;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 0.75rem;
+        align-items: end;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: var(--transition);
+    }
+
+    .btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-primary {
+        background: var(--secondary-color);
+        border-color: var(--secondary-color);
+        border: none;
+        color: white;
+        transition: var(--transition);
+        box-shadow: var(--shadow-deep);
+    }
+
+    .btn-primary:hover {
+        background: #e05e00;
+        border-color: #e05e00;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .btn-outline {
+        color: var(--primary-color);
+        border: 1px solid var(--primary-color);
+        background: transparent;
+        transition: var(--transition);
+    }
+
+    .btn-outline:hover {
+        color: #fff;
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .btn-success {
+        background: var(--success-gradient);
+        border: none;
+        color: white;
+        transition: var(--transition);
+        box-shadow: var(--shadow-deep);
+    }
+
+    .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    /* Table Section */
+    .table-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .table-header {
+        background: var(--primary-color);
+        color: white;
+        padding: 1rem 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .table-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+        animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    .table-header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+    }
+
+    .table-title {
+        font-size: 0.95rem;
+        color: #ffffff;
+        margin: 0;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .table-title i {
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    .pagination-info-header {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .table {
+        margin: 0;
+        background: transparent;
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    .table thead th {
+        font-size: 0.85rem;
+        padding: 0.6rem 0.75rem;
+        background: var(--light-gray);
+        color: #374151;
+        font-weight: 600;
+        text-align: left;
+        border-bottom: 2px solid #e5e7eb;
+        text-transform: none;
+        letter-spacing: 0.05em;
+        position: relative;
+    }
+
+    .table thead th::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--primary-gradient);
+        transform: scaleX(0);
+        transition: var(--transition);
+        border-radius: 2px;
+    }
+
+    .table thead th:hover::after {
+        transform: scaleX(1);
+    }
+
+    .table tbody tr {
+        transition: var(--transition);
+        border-bottom: 2px solid #f1f5f9;
+        background: rgba(255, 255, 255, 0.8);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .table tbody tr:hover {
+        background: #f8fafc;
+        transform: scale(1.01);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .table tbody td {
+        font-size: 0.85rem;
+        padding: 0.6rem 0.75rem;
+        color: var(--text-color);
+        vertical-align: middle;
+    }
+
+    /* Editable Litros Column */
+    .litros-cell {
+        position: relative;
+        min-width: 120px;
+    }
+
+    .litros-display {
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        transition: var(--transition);
+        border: 1px solid transparent;
+    }
+
+    .litros-display:hover {
+        background: #f3f4f6;
+        border-color: #d1d5db;
+    }
+
+    .litros-input {
+        width: 100%;
+        padding: 0.25rem 0.5rem;
+        border: 2px solid var(--primary-color);
+        border-radius: 4px;
+        font-size: 0.85rem;
+        background: white;
+    }
+
+    .litros-actions {
+        display: flex;
+        gap: 0.25rem;
+        margin-top: 0.25rem;
+    }
+
+    .litros-actions button {
+        padding: 0.125rem 0.375rem;
+        font-size: 0.75rem;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .litros-actions .btn-save {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .litros-actions .btn-cancel {
+        background: #6b7280;
+        color: white;
+    }
+
+    .litros-actions button:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-medium);
+    }
+
+    /* Save All Section */
+    .save-all-section {
+        background: var(--success-gradient);
+        color: white;
+        padding: 1rem;
+        border-radius: var(--border-radius);
+        margin-bottom: 1rem;
+        display: none;
+        animation: slideUp 0.5s ease-out;
+    }
+
+    .save-all-section.show {
+        display: block;
+    }
+
+    .save-all-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .save-all-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .save-all-info i {
+        font-size: 1.2rem;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .save-all-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    /* Pagination Section */
+    .pagination-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        padding: 1rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: slideUp 0.6s ease-out;
+    }
+
+    .pagination-info {
+        color: var(--text-color);
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .pagination {
+        display: flex;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        gap: 0.25rem;
+    }
+
+    .pagination li {
+        list-style: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    .pagination li::before,
+    .pagination li::after {
+        display: none !important;
+        content: none !important;
+    }
+
+    .page-link {
+        padding: 0.5rem 0.75rem;
+        border: 1px solid #e5e7eb;
+        background: white;
+        color: var(--primary-color);
+        text-decoration: none;
+        border-radius: 6px;
+        transition: var(--transition);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .page-link:hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-medium);
+    }
+
+    .page-item.active .page-link {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+    }
+
+    .page-item.disabled .page-link {
+        background: #f3f4f6;
+        color: #9ca3af;
+        cursor: not-allowed;
+        border-color: #e5e7eb;
+    }
+
+    /* No Results */
+    .no-results {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-light);
+    }
+
+    .no-results i {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        color: var(--text-light);
+        opacity: 0.5;
+    }
+
+    .no-results h4 {
+        color: var(--text-color);
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .no-results p {
+        margin-bottom: 1.5rem;
+        font-size: 0.9rem;
+    }
+
+    /* Animations */
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .slide-up {
+        animation: slideUp 0.5s ease-out;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .filters-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .filter-actions {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .pagination-section {
+            flex-direction: column;
+            gap: 1rem;
+            text-align: center;
+        }
+        
+        .pagination {
+            justify-content: center;
+        }
+         }
+
+     /* Indicadores Cards - Visual Dashboard Power BI */
+     .indicadores-section {
+         background: white;
+         border-radius: 12px;
+         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+         border: 1px solid #e9ecef;
+         padding: 0.5rem;
+         margin-bottom: 1rem;
+         animation: slideUp 0.6s ease-out;
+     }
+
+     .indicadores-grid {
+         display: flex;
+         justify-content: space-between;
+         align-items: stretch;
+         gap: 0.5rem;
+         width: 100%;
+     }
+
+     .indicador-card {
+         flex: 1;
+         background: linear-gradient(135deg, #0056b3 0%, #007bff 100%);
+         border-radius: 8px;
+         padding: 0.5rem;
+         display: flex;
+         flex-direction: row;
+         align-items: center;
+         text-align: left;
+         box-shadow: 0 4px 15px rgba(0, 86, 179, 0.2);
+         transition: all 0.3s ease;
+         border: 1px solid rgba(255, 255, 255, 0.1);
+         position: relative;
+         overflow: hidden;
+         min-height: 60px;
+         justify-content: flex-start;
+     }
+
+     .indicador-card:nth-child(2) {
+         background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+         box-shadow: 0 4px 15px rgba(40, 167, 69, 0.2);
+     }
+
+     .indicador-card:nth-child(3) {
+         background: linear-gradient(135deg, #ff6b00 0%, #ff8c00 100%);
+         box-shadow: 0 4px 15px rgba(255, 107, 0, 0.2);
+     }
+
+     .indicador-card:nth-child(4) {
+         background: linear-gradient(135deg, #6f42c1 0%, #8e44ad 100%);
+         box-shadow: 0 4px 15px rgba(111, 66, 193, 0.2);
+     }
+
+     .indicador-card:nth-child(5) {
+         background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+         box-shadow: 0 4px 15px rgba(220, 53, 69, 0.2);
+     }
+
+     .indicador-card:hover {
+         transform: translateY(-2px);
+         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+     }
+
+     .indicador-icon {
+         font-size: 1.25rem;
+         color: rgba(255, 255, 255, 0.95);
+         margin-right: 0.75rem;
+         background: rgba(255, 255, 255, 0.15);
+         padding: 0.4rem;
+         border-radius: 50%;
+         display: flex;
+         align-items: center;
+         justify-content: center;
+         min-width: 2rem;
+         min-height: 2rem;
+         backdrop-filter: blur(10px);
+         border: 1px solid rgba(255, 255, 255, 0.2);
+         flex-shrink: 0;
+     }
+
+     .indicador-content {
+         display: flex;
+         flex-direction: column;
+         align-items: flex-start;
+         z-index: 1;
+         position: relative;
+         flex: 1;
+     }
+
+     .indicador-title {
+         font-size: 0.6rem;
+         color: rgba(255, 255, 255, 0.9);
+         margin-bottom: 0.1rem;
+         font-weight: 600;
+         text-transform: uppercase;
+         letter-spacing: 0.02em;
+         line-height: 1;
+     }
+
+     .indicador-value {
+         font-size: 1.1rem;
+         font-weight: 700;
+         color: white;
+         margin-bottom: 0.05rem;
+         line-height: 1;
+         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+     }
+
+     .indicador-unit {
+         font-size: 0.55rem;
+         color: rgba(255, 255, 255, 0.8);
+         font-weight: 500;
+         text-transform: uppercase;
+         letter-spacing: 0.01em;
+     }
+
+     /* Responsive para indicadores */
+     @media (max-width: 1200px) {
+         .indicadores-grid {
+             flex-wrap: wrap;
+             gap: 0.4rem;
+         }
+         
+         .indicador-card {
+             flex: 1 1 calc(50% - 0.2rem);
+             min-width: 150px;
+         }
+     }
+
+     @media (max-width: 576px) {
+         .indicador-card {
+             flex: 1 1 100%;
+             min-width: unset;
+         }
+     }
+
+
+ </style>
+ {% endblock %}
+
+{% block content %}
+<div class="abastecimento-main-content">
+    <!-- Header + Filters -->
+    <div class="header-filters slide-up">
+        <h1 class="page-title">
+            <i class="fas fa-gas-pump"></i>
+            Gestão de Abastecimento
+        </h1>
+        
+        <form method="get" class="filters-form">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label for="placa" class="form-label">Placa do Veículo</label>
+                    <input type="text" id="placa" name="placa" value="{{ placa_filtro }}" placeholder="Digite a placa">
+                </div>
+                
+                <div class="form-group">
+                    <label for="data_inicial" class="form-label">Data Inicial</label>
+                    <input type="date" 
+                           class="form-control" 
+                           id="data_inicial" 
+                           name="data_inicial" 
+                           value="{{ data_inicial_filtro }}"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="data_final" class="form-label">Data Final</label>
+                    <input type="date" 
+                           class="form-control" 
+                           id="data_final" 
+                           name="data_final" 
+                           value="{{ data_final_filtro }}"
+                           required>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="tipo_combustivel" class="form-label">Tipo de Combustível</label>
+                    <select id="tipo_combustivel" name="tipo_combustivel">
+                        <option value="">Todos os tipos</option>
+                        {% for tipo in tipos_combustivel %}
+                            <option value="{{ tipo }}" {% if tipo == tipo_combustivel_filtro %}selected{% endif %}>{{ tipo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                        Filtrar
+                    </button>
+                    <a href="{% url 'operacional:abastecimento' %}" class="btn btn-outline">
+                        <i class="fas fa-times"></i>
+                        Limpar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Indicadores Cards -->
+    <div class="indicadores-section slide-up">
+        <div class="indicadores-grid">
+            <div class="indicador-card">
+                <div class="indicador-icon">
+                    <i class="fas fa-list"></i>
+                </div>
+                <div class="indicador-content">
+                    <h3 class="indicador-title">Total de Registros</h3>
+                    <p class="indicador-value">{{ total_abastecimentos|brazilian_number:0 }}</p>
+                    <span class="indicador-unit">abastecimentos</span>
+                </div>
+            </div>
+            
+            <div class="indicador-card">
+                <div class="indicador-icon">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <div class="indicador-content">
+                    <h3 class="indicador-title">Quantidade de Veículos</h3>
+                                         <p class="indicador-value">{{ quantidade_veiculos|brazilian_number:0 }}</p>
+                    <span class="indicador-unit">veículos</span>
+                </div>
+            </div>
+            
+            <div class="indicador-card">
+                <div class="indicador-icon">
+                    <i class="fas fa-road"></i>
+                </div>
+                <div class="indicador-content">
+                    <h3 class="indicador-title">Total Quilometragem</h3>
+                                         <p class="indicador-value">{{ total_quilometragem|brazilian_number:0 }}</p>
+                    <span class="indicador-unit">km</span>
+                </div>
+            </div>
+            
+            <div class="indicador-card">
+                <div class="indicador-icon">
+                    <i class="fas fa-gas-pump"></i>
+                </div>
+                <div class="indicador-content">
+                    <h3 class="indicador-title">Total Litros</h3>
+                                         <p class="indicador-value">{{ total_litros|brazilian_number:2 }}</p>
+                    <span class="indicador-unit">litros</span>
+                </div>
+            </div>
+            
+            <div class="indicador-card">
+                <div class="indicador-icon">
+                    <i class="fas fa-dollar-sign"></i>
+                </div>
+                <div class="indicador-content">
+                    <h3 class="indicador-title">Total Gasto</h3>
+                    <p class="indicador-value">{{ total_gasto|brazilian_currency:2 }}</p>
+                    <span class="indicador-unit">reais</span>
+                </div>
+            </div>
+        </div>
+         </div>
+
+
+
+     <!-- Save All Section -->
+    <div id="saveAllSection" class="save-all-section">
+        <div class="save-all-content">
+            <div class="save-all-info">
+                <i class="fas fa-save"></i>
+                <span>Você tem alterações não salvas. Clique em "Salvar Todas" para aplicar as mudanças.</span>
+            </div>
+            <div class="save-all-actions">
+                <button id="saveAllBtn" class="btn btn-success">
+                    <i class="fas fa-save"></i>
+                    Salvar Todas
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="table-section slide-up">
+        <div class="table-header">
+            <div class="table-header-content">
+                <h3 class="table-title">
+                    <i class="fas fa-list"></i>
+                    Registros de Abastecimento
+                </h3>
+                <div class="pagination-info-header">
+                    <i class="fas fa-info-circle"></i>
+                    {% if is_paginated %}
+                        Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ page_obj.paginator.count }} registros
+                    {% else %}
+                        Total de {{ abastecimentos.count }} registros
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            {% if abastecimentos %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Placa</th>
+                        <th>Data</th>
+                        <th>Ponto de Apoio</th>
+                        <th>Tipo Combustível</th>
+                        <th>Litros</th>
+                        <th>Valor do Litro</th>
+                        <th>Valor do Abastecimento</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for abastecimento in abastecimentos %}
+                    <tr data-abastecimento-id="{{ abastecimento.id }}">
+                        <td>{{ abastecimento.id_abastecimento }}</td>
+                        <td>{{ abastecimento.id_veiculo.placa.placa }}</td>
+                        <td>{{ abastecimento.dt_abastecimento|date:"d/m/Y H:i" }}</td>
+                        <td>{{ abastecimento.cd_ponto_apoio }}</td>
+                        <td>{{ abastecimento.id_item.nm_item }}</td>
+                        <td class="litros-cell">
+                             <div class="litros-display" data-original="{{ abastecimento.qt_litros|default:0 }}">
+                                 {% if abastecimento.qt_litros %}
+                                     {{ abastecimento.qt_litros|floatformat:2 }}
+                                 {% else %}
+                                     <span class="text-muted">0.00</span>
+                                 {% endif %}
+                             </div>
+                        </td>
+                        <td>
+                             {% if abastecimento.vl_litro %}
+                                 R$ {{ abastecimento.vl_litro|floatformat:2 }}
+                             {% else %}
+                                 <span class="text-muted">-</span>
+                             {% endif %}
+                        </td>
+                        <td class="valor-abastecimento">
+                            {% if abastecimento.qt_litros and abastecimento.vl_litro %}
+                                R$ {{ abastecimento.qt_litros|multiply:abastecimento.vl_litro|floatformat:2 }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="no-results">
+                <i class="fas fa-gas-pump"></i>
+                <h4>Nenhum registro de abastecimento encontrado</h4>
+                {% if placa_filtro or data_inicial_filtro or data_final_filtro or tipo_combustivel_filtro %}
+                    <p>Não foram encontrados registros com os filtros aplicados.</p>
+                    <a href="{% url 'operacional:abastecimento' %}" class="btn btn-primary">
+                        <i class="fas fa-list me-2"></i>
+                        Ver todos os registros
+                    </a>
+                {% else %}
+                    <p>Não há registros de abastecimento cadastrados no sistema.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pagination Section -->
+    {% if is_paginated %}
+    <div class="pagination-section slide-up">
+        <nav aria-label="Paginação de abastecimento">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if data_inicial_filtro %}data_inicial={{ data_inicial_filtro }}&{% endif %}{% if data_final_filtro %}data_final={{ data_final_filtro }}&{% endif %}{% if tipo_combustivel_filtro %}tipo_combustivel={{ tipo_combustivel_filtro }}&{% endif %}page=1" title="Primeira página">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if data_inicial_filtro %}data_inicial={{ data_inicial_filtro }}&{% endif %}{% if data_final_filtro %}data_final={{ data_final_filtro }}&{% endif %}{% if tipo_combustivel_filtro %}tipo_combustivel={{ tipo_combustivel_filtro }}&{% endif %}page={{ page_obj.previous_page_number }}" title="Página anterior">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-double-left"></i>
+                        </span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-left"></i>
+                        </span>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if data_inicial_filtro %}data_inicial={{ data_inicial_filtro }}&{% endif %}{% if data_final_filtro %}data_final={{ data_final_filtro }}&{% endif %}{% if tipo_combustivel_filtro %}tipo_combustivel={{ tipo_combustivel_filtro }}&{% endif %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if data_inicial_filtro %}data_inicial={{ data_inicial_filtro }}&{% endif %}{% if data_final_filtro %}data_final={{ data_final_filtro }}&{% endif %}{% if tipo_combustivel_filtro %}tipo_combustivel={{ tipo_combustivel_filtro }}&{% endif %}page={{ page_obj.next_page_number }}" title="Próxima página">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if placa_filtro %}placa={{ placa_filtro }}&{% endif %}{% if data_inicial_filtro %}data_inicial={{ data_inicial_filtro }}&{% endif %}{% if data_final_filtro %}data_final={{ data_final_filtro }}&{% endif %}{% if tipo_combustivel_filtro %}tipo_combustivel={{ tipo_combustivel_filtro }}&{% endif %}page={{ page_obj.paginator.num_pages }}" title="Última página">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-right"></i>
+                        </span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-double-right"></i>
+                        </span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sistema de edição de litros
+    let editedAbastecimentos = new Map();
+    const saveAllSection = document.getElementById('saveAllSection');
+    const saveAllBtn = document.getElementById('saveAllBtn');
+
+    // Função para tornar uma célula editável
+    function makeEditable(litrosDisplay) {
+        const originalValue = litrosDisplay.dataset.original;
+        const currentValue = litrosDisplay.textContent.trim();
+        
+        // Criar input
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.01';
+        input.min = '0';
+        input.value = currentValue === '0.00' ? '' : currentValue;
+        input.className = 'litros-input';
+        
+        // Criar botões de ação
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'litros-actions';
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'btn-save';
+        saveBtn.innerHTML = '<i class="fas fa-check"></i>';
+        saveBtn.onclick = () => saveLitros(litrosDisplay, input, actionsDiv);
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-cancel';
+        cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+        cancelBtn.onclick = () => cancelEdit(litrosDisplay, originalValue, actionsDiv);
+        
+        actionsDiv.appendChild(saveBtn);
+        actionsDiv.appendChild(cancelBtn);
+        
+        // Substituir display por input
+        litrosDisplay.innerHTML = '';
+        litrosDisplay.appendChild(input);
+        litrosDisplay.appendChild(actionsDiv);
+        
+        // Focar no input
+        input.focus();
+        input.select();
+        
+        // Adicionar eventos de teclado
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                saveLitros(litrosDisplay, input, actionsDiv);
+            } else if (e.key === 'Escape') {
+                cancelEdit(litrosDisplay, originalValue, actionsDiv);
+            }
+        });
+    }
+
+    // Função para salvar litros
+    function saveLitros(litrosDisplay, input, actionsDiv) {
+        const newValue = parseFloat(input.value);
+        const abastecimentoId = litrosDisplay.closest('tr').dataset.abastecimentoId;
+        
+        if (isNaN(newValue) || newValue < 0) {
+            alert('Por favor, insira um valor válido maior ou igual a zero.');
+            return;
+        }
+        
+        // Atualizar display
+        litrosDisplay.innerHTML = newValue.toFixed(2);
+        litrosDisplay.dataset.original = newValue;
+        
+        // Adicionar à lista de itens editados
+        editedAbastecimentos.set(abastecimentoId, newValue);
+        
+        // Mostrar seção de salvar todas
+        if (editedAbastecimentos.size > 0) {
+            saveAllSection.classList.add('show');
+        }
+    }
+
+    // Função para cancelar edição
+    function cancelEdit(litrosDisplay, originalValue, actionsDiv) {
+        litrosDisplay.innerHTML = originalValue === '0' ? '<span class="text-muted">0.00</span>' : originalValue;
+        litrosDisplay.dataset.original = originalValue;
+    }
+
+    // Adicionar evento de clique para tornar editável
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('litros-display')) {
+            makeEditable(e.target);
+        }
+    });
+
+    // Função para salvar todas as alterações
+    saveAllBtn.addEventListener('click', async function() {
+        if (editedAbastecimentos.size === 0) {
+            alert('Nenhuma alteração para salvar.');
+            return;
+        }
+
+        try {
+            const promises = [];
+            
+            for (const [abastecimentoId, litros] of editedAbastecimentos) {
+                const formData = new FormData();
+                formData.append('abastecimento_id', abastecimentoId);
+                formData.append('litros', litros);
+                
+                promises.push(
+                    fetch('{% url "operacional:save_abastecimento_litros" %}', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        }
+                    })
+                );
+            }
+            
+            const responses = await Promise.all(promises);
+            const results = await Promise.all(responses.map(r => r.json()));
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            results.forEach(result => {
+                if (result.success) {
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            });
+            
+            if (errorCount === 0) {
+                alert(`Todas as ${successCount} alterações foram salvas com sucesso!`);
+                editedAbastecimentos.clear();
+                saveAllSection.classList.remove('show');
+            } else {
+                alert(`${successCount} alterações salvas, ${errorCount} com erro. Verifique os dados.`);
+            }
+            
+        } catch (error) {
+            console.error('Erro ao salvar alterações:', error);
+            alert('Erro ao salvar alterações. Tente novamente.');
+        }
+    });
+});
+</script>
+{% endblock %}

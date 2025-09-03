@@ -1,4 +1,4 @@
-from . import connectionFactory as cf
+from copral import connectionFactory as cf
 
 def id_carro(placa):
     if placa.isalpha() == False:
