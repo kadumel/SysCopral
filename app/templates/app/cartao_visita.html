@@ -1,0 +1,340 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Cartão de Visita (vCard QR){% endblock %}
+
+{% block extra_css %}
+<style>
+  .cartao-visita-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 10px;
+  }
+  
+  .content-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 18px;
+    background: #0056b3;
+    border-radius: 10px;
+    color: white;
+    box-shadow: 0 3px 15px rgba(0, 86, 179, 0.15);
+  }
+  
+  .content-header h1 {
+    margin-bottom: 8px;
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: white;
+  }
+  
+  .content-header p {
+    font-size: 1rem;
+    opacity: 0.95;
+    margin: 0;
+    color: white;
+  }
+  
+  .card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    overflow: hidden;
+    background: white;
+  }
+  
+  .card-body {
+    padding: 20px;
+  }
+  
+  .form-row {
+    margin-bottom: 15px;
+  }
+  
+  .form-row .row {
+    margin: 0 -8px;
+  }
+  
+  .form-row .col-md-3,
+  .form-row .col-md-4,
+  .form-row .col-md-6,
+  .form-row .col-md-12 {
+    padding: 0 8px;
+  }
+  
+  .form-label {
+    font-weight: 600;
+    color: white;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+    display: block;
+    background: #0056b3;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+  
+  .form-control {
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+    background: #fafbfc;
+    color: #333;
+  }
+  
+  .form-control:focus {
+    border-color: #0056b3;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  .form-control::placeholder {
+    color: #95a5a6;
+    font-style: italic;
+    font-size: 0.8rem;
+  }
+  
+  .btn-gerar {
+    background: #ff6b00;
+    border: none;
+    border-radius: 20px;
+    padding: 10px 25px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 3px 12px rgba(255, 107, 0, 0.25);
+  }
+  
+  .btn-gerar:hover {
+    background: #e55a00;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(255, 107, 0, 0.3);
+  }
+  
+  .card-footer {
+    background: #0056b3;
+    border-top: 1px solid #004085;
+    padding: 15px 20px;
+    text-align: center;
+    color: white;
+    font-style: italic;
+    font-size: 0.85rem;
+  }
+  
+  .qr-result {
+    margin-top: 20px;
+    text-align: center;
+    padding: 18px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 2px solid #0056b3;
+    display: none;
+  }
+  
+  .qr-result.show {
+    display: block;
+    animation: fadeIn 0.6s ease-out;
+  }
+  
+  .qr-result img {
+    max-width: 180px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin: 12px 0;
+  }
+  
+  .qr-result h4 {
+    color: #0056b3;
+    margin-bottom: 15px;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  
+  .download-btn {
+    background: #ff6b00;
+    border: none;
+    border-radius: 16px;
+    padding: 8px 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    margin-top: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(255, 107, 0, 0.2);
+  }
+  
+  .download-btn:hover {
+    background: #e55a00;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px rgba(255, 107, 0, 0.3);
+  }
+  
+  @keyframes fadeIn {
+    from { 
+      opacity: 0; 
+      transform: translateY(15px); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0); 
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .cartao-visita-container {
+      padding: 8px;
+    }
+    
+    .card-body {
+      padding: 18px;
+    }
+    
+    .content-header {
+      padding: 15px;
+    }
+    
+    .form-row .col-md-3,
+    .form-row .col-md-4,
+    .form-row .col-md-6 {
+      margin-bottom: 12px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cartao-visita-container">
+  <div class="content-header">
+    <h1><i class="fas fa-id-card me-2"></i>Cartão de Visita</h1>
+    <p>Preencha os dados abaixo para gerar o QRCode do seu vCard</p>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form id="cartaoForm" method="post" action="{% url 'cartao_visita' %}">
+        {% csrf_token %}
+        
+        <!-- Primeira linha: Nome, Sobrenome, Empresa -->
+        <div class="form-row">
+          <div class="row">
+            <div class="col-md-4">
+              <label class="form-label">Nome *</label>
+              <input type="text" class="form-control" name="nome" required placeholder="Seu nome">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Sobrenome *</label>
+              <input type="text" class="form-control" name="sobrenome" required placeholder="Seu sobrenome">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Empresa</label>
+              <input type="text" class="form-control" name="empresa" placeholder="Nome da empresa">
+            </div>
+          </div>
+        </div>
+
+        <!-- Segunda linha: Cargo, Telefone, E-mail -->
+        <div class="form-row">
+          <div class="row">
+            <div class="col-md-4">
+              <label class="form-label">Cargo/Título</label>
+              <input type="text" class="form-control" name="titulo" placeholder="Seu cargo ou função">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Telefone</label>
+              <input type="text" class="form-control" name="telefone" placeholder="(xx) xxxxx-xxxx">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">E-mail</label>
+              <input type="email" class="form-control" name="email" placeholder="seu@email.com">
+            </div>
+          </div>
+        </div>
+
+        <!-- Terceira linha: Website e Endereço -->
+        <div class="form-row">
+          <div class="row">
+            <div class="col-md-6">
+              <label class="form-label">Website</label>
+              <input type="url" class="form-control" name="website" placeholder="https://www.seusite.com">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Endereço Completo</label>
+              <input type="text" class="form-control" name="endereco" placeholder="Rua, número, bairro, cidade - UF, CEP">
+            </div>
+          </div>
+        </div>
+
+        <!-- Botão de Envio -->
+        <div class="text-center mt-3">
+          <button type="submit" class="btn btn-gerar">
+            <i class="fas fa-qrcode me-2"></i>Gerar QRCode
+          </button>
+        </div>
+      </form>
+      
+      <!-- Resultado do QR Code -->
+      <div id="qrResult" class="qr-result">
+        <h4><i class="fas fa-qrcode me-2"></i>QR Code Gerado</h4>
+        <div id="qrImage"></div>
+        <button id="downloadBtn" class="download-btn" style="display: none;">
+          <i class="fas fa-download me-2"></i>Download PNG
+        </button>
+      </div>
+    </div>
+    
+    <div class="card-footer">
+      <i class="fas fa-info-circle me-2"></i>
+      O QRCode será gerado na mesma tela para visualização e download.
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('cartaoForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(this);
+  
+  fetch('{% url "cartao_visita" %}', {
+    method: 'POST',
+    body: formData,
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Exibir o QR code na tela
+      const qrResult = document.getElementById('qrResult');
+      const qrImage = document.getElementById('qrImage');
+      const downloadBtn = document.getElementById('downloadBtn');
+      
+      qrImage.innerHTML = `<img src="data:image/png;base64,${data.qr_code}" alt="QR Code">`;
+      qrResult.classList.add('show');
+      downloadBtn.style.display = 'inline-block';
+      
+      // Configurar download
+      downloadBtn.onclick = function() {
+        const link = document.createElement('a');
+        link.download = 'cartao_visita.png';
+        link.href = `data:image/png;base64,${data.qr_code}`;
+        link.click();
+      };
+    } else {
+      alert('Erro ao gerar QR Code: ' + data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Erro:', error);
+    alert('Erro ao gerar QR Code. Tente novamente.');
+  });
+});
+</script>
+{% endblock %}
+
+

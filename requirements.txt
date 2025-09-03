@@ -1,0 +1,17 @@
+Django==5.1.4
+mssql-django==1.6
+django-widget-tweaks==1.4.8
+et_xmlfile==2.0.0
+legacy-cgi==2.6.1
+numpy==2.2.1
+openpyxl==3.0.7
+pandas==2.2.3
+pyodbc==5.2.0
+python-dateutil==2.9.0.post0
+python-dotenv==1.0.0
+pytz==2024.2
+setuptools==75.6.0
+six==1.17.0
+sqlparse==0.4.1
+tzdata==2024.2
+xlrd==2.0.1

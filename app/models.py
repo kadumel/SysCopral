@@ -22,3 +22,27 @@ class OrdemServico(models.Model):
     class Meta:
         managed = False
         db_table = 'OrdemServico'
+
+
+
+class DummyRH(models.Model):
+    pass
+
+    class Meta:
+        managed = False
+        db_table = 'DummyRH'
+        permissions = [('acessar_rh', 'Pode acessar o módulo de RH')]
+
+    def __str__(self):
+        return self.permission
+    
+class DummyDP(models.Model):
+    pass
+
+    class Meta:
+        managed = False
+        db_table = 'DummyDP'
+        permissions = [('acessar_dp', 'Pode acessar o módulo de DP')]
+
+    def __str__(self):
+        return self.permission

@@ -2,15 +2,88 @@ import json
 from datetime import datetime, timedelta, date
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
+import qrcode
+import io
 from .forms import CamposForm, OrdemServicoForm
-from . import connectionFactory as cf
+from copral import connectionFactory as cf
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .processamento  import inserir_dados, processar, deletar_dados, id_carro
 
 from .models import OrdemServico
-
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.views.generic import ListView, TemplateView
 from .analitico import procedure, tempEventos
+
+@login_required
+def home(request):
+    return render(request, 'home.html')
+
+
+class cartao_visita(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """
+    Formulário de vCard e geração de QRCode com a lib qrcode.
+    """
+    permission_required = 'app.acessar_rh'
+    template_name = 'app/cartao_visita.html'
+    
+
+    def post(self, request, *args, **kwargs):
+        nome = request.POST.get('nome', '')
+        sobrenome = request.POST.get('sobrenome', '')
+        empresa = request.POST.get('empresa', '')
+        titulo = request.POST.get('titulo', '')
+        telefone = request.POST.get('telefone', '')
+        email = request.POST.get('email', '')
+        endereco = request.POST.get('endereco', '')
+        website = request.POST.get('website', '')
+
+        # Montar vCard no padrão v3.0
+        vcard = (
+            'BEGIN:VCARD\n'
+            'VERSION:3.0\n'
+            f'N:{sobrenome};{nome};;;\n'
+            f'FN:{nome} {sobrenome}\n'
+            f'ORG:{empresa}\n' if empresa else ''
+        )
+        if titulo:
+            vcard += f'TITLE:{titulo}\n'
+        if telefone:
+            vcard += f'TEL;TYPE=CELL:{telefone}\n'
+        if email:
+            vcard += f'EMAIL;TYPE=INTERNET:{email}\n'
+        if endereco:
+            vcard += f'ADR;TYPE=WORK:;;{endereco};;;;\n'
+        if website:
+            vcard += f'URL:{website}\n'
+        vcard += 'END:VCARD'
+
+        try:
+            # Gerar QRCode em memória
+            img = qrcode.make(vcard)
+            buf = io.BytesIO()
+            img.save(buf, format='PNG')
+            buf.seek(0)
+            
+            # Converter para base64 para envio via JSON
+            import base64
+            qr_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+            
+            return JsonResponse({
+                'success': True,
+                'qr_code': qr_base64,
+                'message': 'QR Code gerado com sucesso!'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            })
+
+        return render(request, self.template_name)
 
 @login_required
 def index(request):

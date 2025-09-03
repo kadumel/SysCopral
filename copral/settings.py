@@ -13,6 +13,10 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from pathlib import Path
 from django.contrib.messages import constants as messages
 import os, sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -21,14 +25,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-jq*_=pnnvmtpduw92d^jpy2v@n%-y3o)*ncq3nhd(u!=i9cd&4'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-jq*_=pnnvmtpduw92d^jpy2v@n%-y3o)*ncq3nhd(u!=i9cd&4')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
-CSRF_TRUSTED_ORIGINS = ['172.16.1.35']
+CSRF_TRUSTED_ORIGINS = os.getenv('TRUSTED_ORIGINS', '').split(',')
 
 # Application definition
 
@@ -39,10 +43,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     'app',
-    'accounts',
     'widget_tweaks',
     'links',
+    'operacional',
 ]
 
 MIDDLEWARE = [
@@ -88,19 +93,18 @@ DATABASES = {
 """
 DATABASES = {
     'default': {
-        'ENGINE': 'sql_server.pyodbc',
-        'NAME': 'DW_COPRAl',
-        'USER': 'sa',
-        'PASSWORD': '123!@#qwe',
-        'HOST': 'localhost',
-        'PORT': '',
-        
+        'ENGINE': 'mssql' if os.getenv('DB_ENGINE') == 'mssql' else 'django.db.backends.sqlite3',
+        'NAME': os.getenv('DB_NAME', str(BASE_DIR / 'db.sqlite3')),
+        'USER': os.getenv('DB_USER', ''),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', ''),
+        'PORT': os.getenv('DB_PORT', ''),
         'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server',
-            'Encrypt': 'No',  # Desabilitar criptografia (não recomendado em produção)
-            'TrustServerCertificate': 'Yes',  # Confiar no certificado do servidor
-        },
-    },
+            'driver': os.getenv('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
+            'Encrypt': os.getenv('DB_ENCRYPT', 'No'),
+            'TrustServerCertificate': os.getenv('DB_TRUST_SERVER_CERTIFICATE', 'Yes'),
+        } if os.getenv('DB_ENGINE') == 'mssql' else {},
+    }
 }
 
 
@@ -126,9 +130,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
 
-LANGUAGE_CODE = 'pt-br'
+LANGUAGE_CODE = os.getenv('LANGUAGE_CODE', 'pt-br')
 
-TIME_ZONE = 'America/Fortaleza'
+TIME_ZONE = os.getenv('TIME_ZONE', 'America/Fortaleza')
 
 USE_I18N = True
 
@@ -141,13 +145,17 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [
+    str(BASE_DIR / 'static'),
+]
+STATIC_ROOT = str(BASE_DIR / 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/home/'
 LOGOUT_REDIRECT_URL = '/accounts/login'
 
 MESSAGE_TAGS = {
@@ -157,3 +165,4 @@ MESSAGE_TAGS = {
         messages.WARNING: 'alert-warning',
         messages.ERROR: 'alert-danger',
 }
+

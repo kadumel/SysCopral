@@ -1,0 +1,703 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copral - Home</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --secondary-color: #ff6b00;
+            --text-color: #333;
+            --light-gray: #f8f9fa;
+            --sidebar-width: 250px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html { overflow-x: hidden; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--light-gray);
+            overflow-x: hidden;
+        }
+
+        /* Navbar Styles */
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), #003366);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 0.8rem 1rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            height: 70px;
+            border-bottom: 3px solid var(--secondary-color);
+        }
+
+        .navbar .container-fluid {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            color: white !important;
+            font-weight: 600;
+            font-size: 1.5rem;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+
+        .navbar-brand:hover {
+            color: var(--secondary-color) !important;
+            transition: color 0.3s ease;
+        }
+
+        .logo {
+            height: 40px;
+            margin-right: 15px;
+            filter: brightness(0) invert(1);
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            color: white;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--secondary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .user-name {
+            font-weight: 500;
+            margin-right: 15px;
+        }
+
+        .dropdown-toggle {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .dropdown-toggle:hover {
+            color: var(--secondary-color);
+        }
+
+        /* Minimal Dropdown Styles (for user menu) */
+        .user-info .dropdown {
+            position: relative;
+        }
+
+        .user-info .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            display: none;
+            min-width: 200px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+            padding: 8px 0;
+            z-index: 2000;
+        }
+
+        .user-info .dropdown-menu.show {
+            display: block;
+        }
+
+        .user-info .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            color: #111827;
+            text-decoration: none;
+            font-size: 0.95rem;
+            white-space: nowrap;
+        }
+
+        .user-info .dropdown-item:hover {
+            background: #f3f4f6;
+        }
+
+        /* Remove blue dots from dropdown menu items */
+        .user-info .dropdown-menu li {
+            list-style: none !important;
+            border-left: none !important;
+            margin-left: 0 !important;
+        }
+
+        .user-info .dropdown-menu li::before {
+            display: none !important;
+        }
+
+        .user-info .dropdown-item {
+            list-style: none !important;
+            border-left: none !important;
+            margin-left: 0 !important;
+        }
+
+        .user-info .dropdown-item::before {
+            display: none !important;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            top: 70px;
+            left: 0;
+            width: var(--sidebar-width);
+            height: calc(100vh - 70px);
+            background: white;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1020;
+            transition: transform 0.3s ease;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background: var(--primary-color);
+            color: white;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .sidebar-menu li {
+            border-bottom: 1px solid #eee;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            color: var(--text-color);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .sidebar-menu a:hover {
+            background: transparent;
+            color: var(--text-color);
+            padding-left: 20px;
+        }
+
+        .sidebar-menu a.active {
+            background: transparent;
+            color: var(--text-color);
+            border-left: none;
+        }
+
+        .sidebar-menu i {
+            margin-right: 15px;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Submenu Styles */
+        .sidebar-submenu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            background: #f8f9fa;
+            display: none;
+        }
+
+        .sidebar-submenu.show {
+            display: block;
+        }
+
+        .sidebar-submenu a {
+            padding: 12px 20px 12px 50px;
+            font-size: 0.9rem;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-submenu a:hover {
+            background: var(--primary-color);
+            color: white;
+            border-left: 3px solid var(--secondary-color);
+            padding-left: 50px;
+        }
+
+        .sidebar-submenu a.active {
+            background: var(--primary-color);
+            color: white;
+            border-left: 3px solid var(--secondary-color);
+            padding-left: 50px;
+        }
+
+        .menu-item-with-submenu {
+            position: relative;
+        }
+
+        .menu-item-with-submenu > a {
+            justify-content: space-between;
+        }
+
+        .submenu-toggle {
+            transition: transform 0.3s ease;
+        }
+
+        .submenu-toggle.rotated {
+            transform: rotate(180deg);
+        }
+
+        /* Nested Submenu Styles (Third Level) */
+        .sidebar-submenu .sidebar-submenu {
+            background: #e9ecef;
+        }
+
+        .sidebar-submenu .sidebar-submenu a {
+            padding: 10px 20px 10px 70px;
+            font-size: 0.85rem;
+        }
+
+        .sidebar-submenu .sidebar-submenu a:hover {
+            background: var(--primary-color);
+            color: white;
+            border-left: 3px solid var(--secondary-color);
+            padding-left: 70px;
+        }
+
+        .sidebar-submenu .sidebar-submenu a.active {
+            background: var(--primary-color);
+            color: white;
+            border-left: 3px solid var(--secondary-color);
+            padding-left: 70px;
+        }
+
+        .sidebar-submenu .menu-item-with-submenu > a {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-submenu .submenu-toggle {
+            font-size: 0.8rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            margin-top: 70px;
+            padding: 20px;
+            min-height: calc(100vh - 70px);
+        }
+
+        .content-header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .content-header h1 {
+            color: var(--primary-color);
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .content-header p {
+            color: #666;
+            margin: 5px 0 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.show {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .navbar-toggler {
+                display: block;
+                background: none;
+                border: none;
+                color: white;
+                font-size: 1.5rem;
+            }
+        }
+
+        .navbar-toggler {
+            display: none;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container-fluid">
+            <button class="navbar-toggler d-md-none" type="button" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <a class="navbar-brand" href="#">
+                <img src="{% static 'img/logo.png' %}" alt="Copral Logo" class="logo">
+            </a>
+            
+            <div class="user-info">
+                <div class="user-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <span class="user-name">{{ user.first_name|default:user.username }}</span>
+                <div class="dropdown">
+                    <button class="dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-user-cog me-2"></i>Perfil</a></li>
+                        <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Configurações</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'admin:logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Sair</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+
+        <ul class="sidebar-menu">
+            <li>
+                <a class="nav-link" href="{% url 'indexLinks' %}">
+                    <i class="fas fa-home"></i>
+                    Dashboard
+                </a>
+            </li>
+            {% if perms.app.acessar_rh %}
+            <li class="menu-item-with-submenu">
+                <a href="#" onclick="toggleSubmenu(event, 'rh-submenu')">
+                    <span>
+                        <i class="fas fa-users"></i>
+                        RH
+                    </span>
+                    <i class="fas fa-chevron-down submenu-toggle"></i>
+                </a>
+                <ul class="sidebar-submenu" id="rh-submenu">
+                    <li>
+                        <a href="{% url 'cartao_visita' %}">
+                            <i class="fas fa-id-card"></i>
+                            Cartão de Visita
+                        </a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+            {% if perms.app.acessar_dp %}
+            <li>
+                <a href="#">
+                    <i class="fas fa-chart-line"></i>
+                    DP
+                </a>
+            </li>
+            {% endif %}
+            {% if perms.operacional.acessar_operacional %}
+            <li class="menu-item-with-submenu">
+                <a href="#" onclick="toggleSubmenu(event, 'operacional-submenu')">
+                    <span>
+                        <i class="fas fa-cogs"></i>
+                        Operacional
+                    </span>
+                    <i class="fas fa-chevron-down submenu-toggle"></i>
+                </a>
+                <ul class="sidebar-submenu" id="operacional-submenu">
+                    <li class="menu-item-with-submenu">
+                        <a href="#" onclick="toggleSubmenu(event, 'cadastros-submenu')">
+                            <span>
+                                <i class="fas fa-plus-circle"></i>
+                                Cadastros
+                            </span>
+                            <i class="fas fa-chevron-down submenu-toggle"></i>
+                        </a>
+                        <ul class="sidebar-submenu" id="cadastros-submenu">
+                            <li>
+                                <a href="{% url 'operacional:veiculos' %}">
+                                    <i class="fas fa-truck"></i>
+                                    Veículos
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{% url 'operacional:servicos' %}">
+                                    <i class="fas fa-tools"></i>
+                                    Serviços
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{% url 'operacional:itens' %}">
+                                    <i class="fas fa-boxes"></i>
+                                    Itens
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="menu-item-with-submenu">
+                        <a href="#" onclick="toggleSubmenu(event, 'movimentos-submenu')">
+                            <span>
+                                <i class="fas fa-exchange-alt"></i>
+                                Movimentos
+                            </span>
+                            <i class="fas fa-chevron-down submenu-toggle"></i>
+                        </a>
+                        <ul class="sidebar-submenu" id="movimentos-submenu">
+                            <li>
+                                <a href="{% url 'operacional:abastecimento' %}">
+                                    <i class="fas fa-gas-pump"></i>
+                                    Abastecimento
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+           
+            {% if perms.admin.acessar_admin %}
+            <li>
+                <a href="#">
+                    <i class="fas fa-shield-alt"></i>
+                    Administração
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+        
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        {% block content %}
+        <div class="content-header">
+            <h1>Bem-vindo ao Sistema Copral</h1>
+            <p>Painel de controle e gestão integrada</p>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Dashboard Principal</h5>
+                        <p class="card-text">Selecione uma opção no menu lateral para começar.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endblock %}
+    </div>
+
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+    <script>
+        (function(){
+            const dropdownToggle = document.querySelector('.user-info .dropdown-toggle');
+            const dropdownMenu = document.querySelector('.user-info .dropdown-menu');
+            if (!dropdownToggle || !dropdownMenu) return;
+
+            function closeMenu(){ dropdownMenu.classList.remove('show'); }
+
+            dropdownToggle.addEventListener('click', function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                dropdownMenu.classList.toggle('show');
+            });
+
+            document.addEventListener('click', function(e){
+                if (!dropdownMenu.contains(e.target) && !dropdownToggle.contains(e.target)) {
+                    closeMenu();
+                }
+            });
+
+            document.addEventListener('keydown', function(e){
+                if (e.key === 'Escape') closeMenu();
+            });
+        })();
+    </script>
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('show');
+        }
+
+        function toggleSubmenu(event, submenuId) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const submenu = document.getElementById(submenuId);
+            const toggleIcon = event.currentTarget.querySelector('.submenu-toggle');
+            const currentMenuItem = event.currentTarget.closest('li');
+            
+            // Close sibling submenus (same level only)
+            const parentMenu = currentMenuItem.parentElement;
+            parentMenu.querySelectorAll(':scope > li > .sidebar-submenu').forEach(menu => {
+                if (menu.id !== submenuId) {
+                    menu.classList.remove('show');
+                    const siblingToggle = menu.previousElementSibling.querySelector('.submenu-toggle');
+                    if (siblingToggle) {
+                        siblingToggle.classList.remove('rotated');
+                    }
+                }
+            });
+            
+            // Toggle current submenu
+            submenu.classList.toggle('show');
+            toggleIcon.classList.toggle('rotated');
+            
+            // Save submenu state to localStorage
+            saveSubmenuState();
+        }
+        
+        // Save current submenu states to localStorage
+        function saveSubmenuState() {
+            const openSubmenus = [];
+            document.querySelectorAll('.sidebar-submenu.show').forEach(submenu => {
+                openSubmenus.push(submenu.id);
+            });
+            localStorage.setItem('openSubmenus', JSON.stringify(openSubmenus));
+        }
+        
+        // Restore submenu states from localStorage
+        function restoreSubmenuState() {
+            const openSubmenus = JSON.parse(localStorage.getItem('openSubmenus') || '[]');
+            openSubmenus.forEach(submenuId => {
+                const submenu = document.getElementById(submenuId);
+                if (submenu) {
+                    submenu.classList.add('show');
+                    const toggleIcon = submenu.previousElementSibling.querySelector('.submenu-toggle');
+                    if (toggleIcon) {
+                        toggleIcon.classList.add('rotated');
+                    }
+                }
+            });
+        }
+        
+        // Save active menu item to localStorage
+        function saveActiveMenuItem(href) {
+            localStorage.setItem('activeMenuItem', href);
+        }
+        
+        // Restore active menu item from localStorage
+        function restoreActiveMenuItem() {
+            const activeHref = localStorage.getItem('activeMenuItem');
+            if (activeHref) {
+                document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === activeHref) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(event) {
+            const sidebar = document.getElementById('sidebar');
+            const toggleBtn = document.querySelector('.navbar-toggler');
+            
+            if (window.innerWidth <= 768) {
+                if (!sidebar.contains(event.target) && !toggleBtn.contains(event.target)) {
+                    sidebar.classList.remove('show');
+                }
+            }
+        });
+
+        // Handle sidebar menu active state
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+            link.addEventListener('click', function(e) {
+                // Only prevent default for placeholder links (#) and submenu toggles
+                if (!this.hasAttribute('onclick') && (this.getAttribute('href') === '#' || this.getAttribute('href') === 'javascript:void(0)')) {
+                    e.preventDefault();
+                }
+                
+                // Remove active class from all links (except submenu toggles)
+                document.querySelectorAll('.sidebar-menu a').forEach(l => {
+                    if (!l.hasAttribute('onclick')) {
+                        l.classList.remove('active');
+                    }
+                });
+                
+                // Add active class to clicked link (except submenu toggles)
+                if (!this.hasAttribute('onclick')) {
+                    this.classList.add('active');
+                    // Save active menu item to localStorage
+                    saveActiveMenuItem(this.getAttribute('href'));
+                }
+            });
+        });
+
+        // Check current page URL and mark corresponding menu item as active
+        function checkCurrentPage() {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                if (link.getAttribute('href') && link.getAttribute('href') !== '#' && !link.hasAttribute('onclick')) {
+                    if (currentPath === link.getAttribute('href')) {
+                        link.classList.add('active');
+                        // Also open parent submenu if exists
+                        const parentSubmenu = link.closest('.sidebar-submenu');
+                        if (parentSubmenu) {
+                            parentSubmenu.classList.add('show');
+                            const toggleIcon = parentSubmenu.previousElementSibling?.querySelector('.submenu-toggle');
+                            if (toggleIcon) {
+                                toggleIcon.classList.add('rotated');
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Initialize page state on load
+        document.addEventListener('DOMContentLoaded', function() {
+            restoreSubmenuState();
+            restoreActiveMenuItem();
+            checkCurrentPage();
+        });
+    </script>
+</body>
+</html>

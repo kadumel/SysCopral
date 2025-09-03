@@ -1,0 +1,1015 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Gestão de Serviços{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --success-color: #28a745;
+        --text-color: #333;
+        --text-light: #666;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --shadow-medium: 0 8px 16px -6px rgba(0, 0, 0, 0.1);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .servicos-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .main-content {
+        margin-left: 250px;
+    }
+
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .header-filters::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-color);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .header-filters .page-title {
+        text-align: left;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .header-filters .page-title i {
+        font-size: 2.2rem;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .form-group {
+        margin-bottom: 0;
+    }
+
+    .form-label {
+        font-size: 0.85rem;
+        margin-bottom: 0.25rem;
+        border-left: none !important;
+        margin-left: 0 !important;
+        list-style: none !important;
+        font-weight: 600;
+        color: var(--text-color);
+        text-transform: none;
+        letter-spacing: 0.05em;
+    }
+
+    .form-label::before {
+        display: none !important;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+        height: 38px;
+        border: 2px solid #e5e7eb;
+        transition: var(--transition);
+        background: white;
+    }
+
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.15);
+        outline: none;
+        transform: translateY(-2px);
+    }
+
+    .btn {
+        border-radius: 8px;
+        padding: 0.5rem 0.9rem;
+        font-size: 0.9rem;
+        line-height: 1.2;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: var(--transition);
+    }
+
+    .btn:hover::before {
+        left: 100%;
+    }
+
+    .btn-primary {
+        background: var(--secondary-color);
+        border-color: var(--secondary-color);
+        border: none;
+        color: white;
+        transition: var(--transition);
+        box-shadow: var(--shadow-deep);
+    }
+
+    .btn-primary:hover {
+        background: #e05e00;
+        border-color: #e05e00;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .btn-outline {
+        color: var(--primary-color);
+        border: 1px solid var(--primary-color);
+        background: transparent;
+        transition: var(--transition);
+    }
+
+    .btn-outline:hover {
+        color: #fff;
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    /* Table Section */
+    .table-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .table-header {
+        background: var(--primary-color);
+        color: white;
+        padding: 1rem 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .table-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+        animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+
+    .table-header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+    }
+
+    .table-title {
+        font-size: 0.95rem;
+        color: #ffffff;
+        margin: 0;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .table-title i {
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    .pagination-info-header {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .table {
+        margin: 0;
+        background: transparent;
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    .table thead th {
+        font-size: 0.85rem;
+        padding: 0.6rem 0.75rem;
+        background: var(--light-gray);
+        color: #374151;
+        font-weight: 600;
+        text-align: left;
+        border-bottom: 2px solid #e5e7eb;
+        text-transform: none;
+        letter-spacing: 0.05em;
+        position: relative;
+    }
+
+    .table thead th::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: var(--primary-gradient);
+        transform: scaleX(0);
+        transition: var(--transition);
+        border-radius: 2px;
+    }
+
+    .table thead th:hover::after {
+        transform: scaleX(1);
+    }
+
+    .table tbody tr {
+        transition: var(--transition);
+        border-bottom: 2px solid #f1f5f9;
+        background: rgba(255, 255, 255, 0.8);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .table tbody tr:hover {
+        background: #f8fafc;
+        transform: scale(1.01);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .table tbody td {
+        font-size: 0.85rem;
+        padding: 0.6rem 0.75rem;
+        color: var(--text-color);
+        vertical-align: middle;
+    }
+
+    /* Pagination Section */
+    .pagination-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-medium);
+        border: 1px solid var(--glass-border);
+        padding: 1rem;
+        display: flex;
+        justify-content: center;  /* ← Centraliza horizontalmente */
+    }
+
+    .pagination {
+        margin: 0;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        justify-content: center;  /* ← Centraliza os itens da paginação */
+        list-style: none !important;
+        padding: 0 !important;
+    }
+
+    .pagination li {
+        list-style: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .pagination li::before,
+    .pagination li::after {
+        display: none !important;
+        content: none !important;
+    }
+
+    .page-link {
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        color: var(--primary-color);
+        text-decoration: none;
+        transition: var(--transition);
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 40px;
+        height: 40px;
+    }
+
+    .page-link:hover {
+        background: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+    }
+
+    .page-item.active .page-link {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+        font-weight: 600;
+    }
+
+    .page-item.disabled .page-link {
+        color: var(--text-light);
+        pointer-events: none;
+        background: var(--light-gray);
+        border-color: #e5e7eb;
+    }
+
+    .page-item.disabled .page-link:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* Save All (matching itens page) */
+    .save-all-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-medium);
+        border: 1px solid var(--glass-border);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .save-all-info {
+        color: var(--text-color);
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .save-all-info i {
+        color: var(--warning-color, #f59e0b);
+    }
+
+    /* Reuse action buttons styling like itens percentage actions */
+    .percentage-actions {
+        display: flex;
+        gap: 0.25rem;
+        margin-top: 0.25rem;
+    }
+
+    .percentage-btn {
+        padding: 0.125rem 0.375rem;
+        font-size: 0.75rem;
+        border-radius: 3px;
+        border: none;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .percentage-btn-save {
+        background: #10b981; /* success */
+        color: white;
+    }
+
+    .percentage-btn-cancel {
+        background: var(--text-light);
+        color: white;
+    }
+
+    .percentage-btn:hover {
+        transform: scale(1.05);
+    }
+
+    /* Valor do Serviço inline edit */
+    .valor-servico-cell { min-width: 140px; }
+    .valor-servico-display {
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        transition: var(--transition);
+        border: 1px solid transparent;
+    }
+    .valor-servico-display:hover {
+        background: rgba(0, 86, 179, 0.1);
+        border-color: var(--primary-color);
+    }
+    .valor-servico-display.editing {
+        background: white;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+    }
+    .valor-servico-input {
+        width: 100%;
+        padding: 0.25rem 0.5rem;
+        border: 1px solid var(--primary-color);
+        border-radius: 4px;
+        font-size: 0.85rem;
+        text-align: right;
+        background: white;
+        outline: none;
+    }
+
+    /* Animation Classes */
+    .bounce-in {
+        animation: bounceIn 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    .slide-up {
+        animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes bounceIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.3);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @keyframes slideUp {
+        0% {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .main-content {
+            margin-left: 0;
+        }
+        
+        .header-filters .page-title {
+            font-size: 1.5rem;
+        }
+        
+        .table-responsive {
+            overflow-x: auto;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="servicos-main-content">
+    <div class="header-filters bounce-in">
+        <h1 class="page-title">
+            <i class="fas fa-tools"></i>
+            Gestão de Serviços
+        </h1>
+        
+        <form method="get" class="filters-grid">
+            <div class="form-group">
+                <label for="cd_servico" class="form-label">Código do serviço</label>
+                <input type="text" class="form-control" id="cd_servico" name="cd_servico" 
+                       value="{{ cd_servico_filtro }}" placeholder="Digite o código">
+            </div>
+            
+            <div class="form-group">
+                <label for="nm_servico" class="form-label">Nome do serviço</label>
+                <input type="text" class="form-control" id="nm_servico" name="nm_servico" 
+                       value="{{ nm_servico_filtro }}" placeholder="Digite o nome">
+            </div>
+            
+            <div class="form-group">
+                <label for="tipo_servico" class="form-label">Tipo de serviço</label>
+                <select class="form-control" id="tipo_servico" name="tipo_servico">
+                    <option value="">Todos os tipos</option>
+                    {% for tipo in tipos_servico_disponiveis %}
+                        <option value="{{ tipo }}" {% if tipo == tipo_servico_filtro %}selected{% endif %}>
+                            {{ tipo }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search"></i>
+                    Filtrar
+                </button>
+                <a href="{% url 'operacional:servicos' %}" class="btn btn-outline">
+                    <i class="fas fa-times"></i>
+                    Limpar
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Save All Section (posicionado acima da tabela, como em Itens) -->
+    <div class="save-all-section" id="saveAllSection" style="display: none;">
+        <div class="save-all-info">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Você tem alterações não salvas. Clique em "Salvar Todas" para persistir as mudanças.</span>
+        </div>
+        <button type="button" class="btn btn-primary" id="saveAllBtn">
+            <i class="fas fa-save"></i>
+            Salvar Todas
+        </button>
+    </div>
+
+    <div class="table-container bounce-in">
+        <div class="table-header">
+            <div class="table-header-content">
+                <h2 class="table-title">
+                    <i class="fas fa-list"></i>
+                    Lista de Serviços
+                </h2>
+                {% if is_paginated %}
+                <div class="pagination-info-header">
+                    <i class="fas fa-info-circle"></i>
+                    Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ total_servicos }} serviços
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nome do Serviço</th>
+                        <th>Tipo de Serviço</th>
+                        <th>Valor do Serviço</th>
+                        <th>Data de Atualização</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for servico in servicos %}
+                    <tr data-servico-id="{{ servico.cd_servico }}">
+                        <td>{{ servico.cd_servico }}</td>
+                        <td>{{ servico.nm_servico }}</td>
+                        <td>{{ servico.nm_tipo_servico|default:"-" }}</td>
+                        <td class="valor-servico-cell">
+                            <div class="valor-servico-display" data-original="{{ servico.valor|default:0 }}">
+                                {% if servico.valor %}
+                                    {{ servico.valor|floatformat:2 }}
+                                {% else %}
+                                    <span class="text-muted">0.00</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>{{ servico.dt_atualizacao|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nenhum serviço encontrado com os filtros aplicados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div> <!-- Fim da table-container -->
+
+    <!-- Pagination Section -->
+    {% if is_paginated %}
+    <div class="pagination-section slide-up">
+        <nav aria-label="Paginação de serviços">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if cd_servico_filtro %}cd_servico={{ cd_servico_filtro }}&{% endif %}{% if nm_servico_filtro %}nm_servico={{ nm_servico_filtro }}&{% endif %}{% if tipo_servico_filtro %}tipo_servico={{ tipo_servico_filtro }}&{% endif %}page=1" title="Primeira página">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if cd_servico_filtro %}cd_servico={{ cd_servico_filtro }}&{% endif %}{% if nm_servico_filtro %}nm_servico={{ nm_servico_filtro }}&{% endif %}{% if tipo_servico_filtro %}tipo_servico={{ tipo_servico_filtro }}&{% endif %}page={{ page_obj.previous_page_number }}" title="Página anterior">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-double-left"></i>
+                        </span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-left"></i>
+                        </span>
+                    </li>
+                {% endif %}
+                
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ num }}</span>
+                        </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?{% if cd_servico_filtro %}cd_servico={{ cd_servico_filtro }}&{% endif %}{% if nm_servico_filtro %}nm_servico={{ nm_servico_filtro }}&{% endif %}{% if tipo_servico_filtro %}tipo_servico={{ tipo_servico_filtro }}&{% endif %}page={{ num }}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if cd_servico_filtro %}cd_servico={{ cd_servico_filtro }}&{% endif %}{% if nm_servico_filtro %}nm_servico={{ nm_servico_filtro }}&{% endif %}{% if tipo_servico_filtro %}tipo_servico={{ tipo_servico_filtro }}&{% endif %}page={{ page_obj.next_page_number }}" title="Próxima página">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if cd_servico_filtro %}cd_servico={{ cd_servico_filtro }}&{% endif %}{% if nm_servico_filtro %}nm_servico={{ nm_servico_filtro }}&{% endif %}{% if tipo_servico_filtro %}tipo_servico={{ tipo_servico_filtro }}&{% endif %}page={{ page_obj.paginator.num_pages }}" title="Última página">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-right"></i>
+                        </span>
+                    </li>
+                    <li class="page-item disabled">
+                        <span class="page-link">
+                            <i class="fas fa-angle-double-right"></i>
+                        </span>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let editedServicos = new Map();
+    const saveAllSection = document.getElementById('saveAllSection');
+    const saveAllBtn = document.getElementById('saveAllBtn');
+
+    function showSaveAllSection() {
+        if (editedServicos.size > 0 && saveAllSection) {
+            saveAllSection.style.display = 'flex';
+        }
+    }
+
+    function makeValorServicoEditable(valorDisplay) {
+        const originalValue = valorDisplay.dataset.original;
+        const currentText = valorDisplay.textContent.trim();
+        const numeric = currentText === '' || currentText === '-' ? '' : currentText.replace(',', '.');
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.01';
+        input.min = '0';
+        input.value = numeric;
+        input.className = 'valor-servico-input';
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'percentage-actions';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'percentage-btn percentage-btn-save';
+        saveBtn.innerHTML = '<i class="fas fa-check"></i>';
+        saveBtn.title = 'Salvar';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'percentage-btn percentage-btn-cancel';
+        cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+        cancelBtn.title = 'Cancelar';
+
+        actionsDiv.appendChild(saveBtn);
+        actionsDiv.appendChild(cancelBtn);
+
+        valorDisplay.innerHTML = '';
+        valorDisplay.appendChild(input);
+        valorDisplay.appendChild(actionsDiv);
+        valorDisplay.classList.add('editing');
+
+        input.focus();
+        input.select();
+
+        saveBtn.addEventListener('click', () => saveValorServico(valorDisplay, input.value));
+        cancelBtn.addEventListener('click', () => cancelValorServico(valorDisplay, originalValue));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                saveValorServico(valorDisplay, input.value);
+            } else if (e.key === 'Escape') {
+                cancelValorServico(valorDisplay, originalValue);
+            }
+        });
+    }
+
+    function saveValorServico(valorDisplay, newValue) {
+        const tr = valorDisplay.closest('tr');
+        if (!tr) return;
+        const servicoId = tr.dataset.servicoId;
+        const originalValue = parseFloat(valorDisplay.dataset.original || '0') || 0;
+        if (newValue === '' || isNaN(newValue) || parseFloat(newValue) < 0) {
+            alert('Por favor, insira um valor válido (>= 0).');
+            return;
+        }
+        const newFloat = parseFloat(newValue);
+        if (Math.abs(newFloat - originalValue) > 0.009) {
+            editedServicos.set(servicoId, { valor: newFloat });
+            showSaveAllSection();
+        }
+        updateValorServicoDisplay(valorDisplay, newFloat);
+    }
+
+    function cancelValorServico(valorDisplay, originalValue) {
+        updateValorServicoDisplay(valorDisplay, parseFloat(originalValue || '0') || 0);
+    }
+
+    function updateValorServicoDisplay(valorDisplay, value) {
+        valorDisplay.innerHTML = value.toFixed(2);
+        valorDisplay.classList.remove('editing');
+        valorDisplay.dataset.original = value.toString();
+    }
+
+    document.addEventListener('click', function(e) {
+        const v = e.target.closest('.valor-servico-display');
+        if (v && !v.classList.contains('editing')) {
+            makeValorServicoEditable(v);
+        }
+    });
+
+    async function saveAllChanges() {
+        if (!saveAllBtn || editedServicos.size === 0) return;
+
+        saveAllBtn.disabled = true;
+        saveAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+
+        const promises = [];
+        let successCount = 0, errorCount = 0;
+
+        for (const [servicoId, payload] of editedServicos) {
+            if (payload.valor !== undefined) {
+                const p = fetch('{% url "operacional:save_servico_valor" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `servico_id=${servicoId}&value=${payload.valor}`
+                }).then(r => r.json()).then(data => {
+                    if (data.success) successCount++; else errorCount++;
+                }).catch(() => { errorCount++; });
+                promises.push(p);
+            }
+        }
+
+        try {
+            await Promise.all(promises);
+            if (errorCount === 0) {
+                alert(`Todas as alterações foram salvas com sucesso! (${successCount} serviços atualizados)`);
+                editedServicos.clear();
+                if (saveAllSection) saveAllSection.style.display = 'none';
+            } else {
+                alert(`Algumas alterações não puderam ser salvas.\nSucessos: ${successCount}\nErros: ${errorCount}`);
+            }
+        } finally {
+            saveAllBtn.disabled = false;
+            saveAllBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Todas';
+        }
+    }
+
+    if (saveAllBtn) saveAllBtn.addEventListener('click', saveAllChanges);
+});
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let editedServicos = new Map();
+    const saveAllSection = document.getElementById('saveAllSection');
+    const saveAllBtn = document.getElementById('saveAllBtn');
+
+    function showSaveAllSection() {
+        if (editedServicos.size > 0) {
+            saveAllSection.style.display = 'flex';
+        }
+    }
+
+    function makeValorServicoEditable(valorDisplay) {
+        const originalValue = valorDisplay.dataset.original;
+        const currentText = valorDisplay.textContent.trim();
+        const numeric = currentText === '' || currentText === '-' ? '' : currentText.replace(',', '.');
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.step = '0.01';
+        input.min = '0';
+        input.value = numeric;
+        input.className = 'valor-servico-input';
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'percentage-actions';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'percentage-btn percentage-btn-save';
+        saveBtn.innerHTML = '<i class="fas fa-check"></i>';
+        saveBtn.title = 'Salvar';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'percentage-btn percentage-btn-cancel';
+        cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+        cancelBtn.title = 'Cancelar';
+
+        actionsDiv.appendChild(saveBtn);
+        actionsDiv.appendChild(cancelBtn);
+
+        valorDisplay.innerHTML = '';
+        valorDisplay.appendChild(input);
+        valorDisplay.appendChild(actionsDiv);
+        valorDisplay.classList.add('editing');
+
+        input.focus();
+        input.select();
+
+        saveBtn.addEventListener('click', () => saveValorServico(valorDisplay, input.value));
+        cancelBtn.addEventListener('click', () => cancelValorServico(valorDisplay, originalValue));
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                saveValorServico(valorDisplay, input.value);
+            } else if (e.key === 'Escape') {
+                cancelValorServico(valorDisplay, originalValue);
+            }
+        });
+    }
+
+    function saveValorServico(valorDisplay, newValue) {
+        const servicoId = valorDisplay.closest('tr').dataset.servicoId;
+        const originalValue = parseFloat(valorDisplay.dataset.original || '0') || 0;
+        if (newValue === '' || isNaN(newValue) || parseFloat(newValue) < 0) {
+            alert('Por favor, insira um valor válido (>= 0).');
+            return;
+        }
+        const newFloat = parseFloat(newValue);
+        if (Math.abs(newFloat - originalValue) > 0.009) {
+            editedServicos.set(servicoId, { valor: newFloat });
+            showSaveAllSection();
+        }
+        updateValorServicoDisplay(valorDisplay, newFloat);
+    }
+
+    function cancelValorServico(valorDisplay, originalValue) {
+        updateValorServicoDisplay(valorDisplay, parseFloat(originalValue || '0') || 0);
+    }
+
+    function updateValorServicoDisplay(valorDisplay, value) {
+        valorDisplay.innerHTML = value.toFixed(2);
+        valorDisplay.classList.remove('editing');
+        valorDisplay.dataset.original = value.toString();
+    }
+
+    document.addEventListener('click', function(e) {
+        const v = e.target.closest('.valor-servico-display');
+        if (v && !v.classList.contains('editing')) {
+            makeValorServicoEditable(v);
+        }
+    });
+
+    async function saveAllChanges() {
+        if (editedServicos.size === 0) return;
+
+        saveAllBtn.disabled = true;
+        saveAllBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+
+        const promises = [];
+        let successCount = 0, errorCount = 0;
+
+        for (const [servicoId, payload] of editedServicos) {
+            if (payload.valor !== undefined) {
+                const p = fetch('{% url "operacional:save_servico_valor" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `servico_id=${servicoId}&value=${payload.valor}`
+                }).then(r => r.json()).then(data => {
+                    if (data.success) successCount++; else errorCount++;
+                });
+                promises.push(p);
+            }
+        }
+
+        try {
+            await Promise.all(promises);
+            if (errorCount === 0) {
+                alert(`Todas as alterações foram salvas com sucesso! (${successCount} serviços atualizados)`);
+                editedServicos.clear();
+                saveAllSection.style.display = 'none';
+            } else {
+                alert(`Algumas alterações não puderam ser salvas.\nSucessos: ${successCount}\nErros: ${errorCount}`);
+            }
+        } catch (err) {
+            alert('Erro ao salvar alterações: ' + err.message);
+        } finally {
+            saveAllBtn.disabled = false;
+            saveAllBtn.innerHTML = '<i class="fas fa-save"></i> Salvar Todas';
+        }
+    }
+
+    saveAllBtn.addEventListener('click', saveAllChanges);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Bootstrap - Copral</title>
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .test-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .bootstrap-test {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="test-card">
+            <h1 class="text-center mb-4">🧪 Teste do Bootstrap</h1>
+            
+            <div class="bootstrap-test">
+                <h3>✅ Classes do Bootstrap funcionando:</h3>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="alert alert-success">
+                            <strong>Coluna 1</strong> - Bootstrap funcionando!
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-info">
+                            <strong>Coluna 2</strong> - Grid system ativo!
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="alert alert-warning">
+                            <strong>Coluna 3</strong> - Responsivo!
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bootstrap-test">
+                <h3>🎨 Componentes do Bootstrap:</h3>
+                <div class="d-flex gap-3 flex-wrap">
+                    <button class="btn btn-primary">Botão Primário</button>
+                    <button class="btn btn-secondary">Botão Secundário</button>
+                    <button class="btn btn-success">Botão Sucesso</button>
+                    <button class="btn btn-danger">Botão Perigo</button>
+                </div>
+            </div>
+
+            <div class="bootstrap-test">
+                <h3>📝 Formulários do Bootstrap:</h3>
+                <form>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="nome" class="form-label">Nome</label>
+                            <input type="text" class="form-control" id="nome" placeholder="Digite seu nome">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" placeholder="Digite seu email">
+                        </div>
+                        <div class="col-12">
+                            <label for="mensagem" class="form-label">Mensagem</label>
+                            <textarea class="form-control" id="mensagem" rows="3" placeholder="Digite sua mensagem"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">Enviar</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="bootstrap-test">
+                <h3>📊 Tabela do Bootstrap:</h3>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Nome</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>João Silva</td>
+                                <td><span class="badge bg-success">Ativo</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary">Editar</button>
+                                    <button class="btn btn-sm btn-outline-danger">Excluir</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>Maria Santos</td>
+                                <td><span class="badge bg-warning">Pendente</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary">Editar</button>
+                                    <button class="btn btn-sm btn-outline-danger">Excluir</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="{% url 'operacional:veiculos' %}" class="btn btn-lg btn-success">
+                    🚗 Ir para Página de Veículos
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

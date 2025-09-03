@@ -1,0 +1,1088 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block content %}
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Relatório Power BI - Portal</title>
+
+  <!-- Biblioteca oficial do Power BI com múltiplos fallbacks -->
+  <script>
+    // Lista de CDNs alternativos para tentar
+    const POWERBI_SOURCES = [
+      'https://cdn.bootcdn.net/ajax/libs/powerbi-client/2.23.1/powerbi.min.js',
+      'https://unpkg.com/powerbi-client@2.23.0/dist/powerbi.min.js',
+      'https://cdn.jsdelivr.net/npm/powerbi-client@2.23.0/dist/powerbi.min.js'
+    ];
+
+    // Função para carregar Power BI SDK de uma fonte específica
+    function loadPowerBIFromSource(src) {
+      return new Promise((resolve, reject) => {
+        // Verificar se já existe um script desta fonte
+        const existingScript = document.querySelector(`script[src="${src}"]`);
+        if (existingScript) {
+          console.log(`Script já existe para: ${src}`);
+          resolve(true);
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        
+        const timer = setTimeout(() => {
+          console.warn(`Timeout ao carregar: ${src}`);
+          cleanup();
+          resolve(false);
+        }, 10000);
+        
+        function cleanup() {
+          clearTimeout(timer);
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+        }
+        
+        script.onload = () => {
+          clearTimeout(timer);
+          console.log(`Script carregado com sucesso: ${src}`);
+          // Aguardar um pouco para o script se inicializar
+          setTimeout(() => {
+            console.log(`Após load - window.powerbi:`, window.powerbi ? 'exists' : 'undefined');
+            resolve(true);
+          }, 100);
+        };
+        
+        script.onerror = () => {
+          console.warn(`Falha ao carregar script: ${src}`);
+          cleanup();
+          resolve(false);
+        };
+        
+        document.head.appendChild(script);
+      });
+    }
+
+    // Função para carregar Power BI SDK com fallbacks
+    async function loadPowerBISDK() {
+      // Verificar se já está carregado
+      if (window.powerbi && window.powerbi.models) {
+        console.log('Power BI SDK já está carregado');
+        return true;
+      }
+
+      // Tentar cada fonte em sequência
+      for (const src of POWERBI_SOURCES) {
+        console.log(`Tentando carregar Power BI SDK de: ${src}`);
+        const success = await loadPowerBIFromSource(src);
+        
+        // Verificar se carregou corretamente após o script
+        if (success) {
+          console.log(`Script carregado, verificando Power BI objects...`);
+          console.log(`window.powerbi:`, window.powerbi ? 'exists' : 'undefined');
+          
+          if (window.powerbi) {
+            console.log(`window.powerbi.models:`, window.powerbi.models ? 'exists' : 'undefined');
+            console.log(`window.powerbi keys:`, Object.keys(window.powerbi));
+          }
+          
+          // Verificação imediata - tentar diferentes estruturas
+          if (window.powerbi) {
+            // Verificar estruturas possíveis
+            const hasModels = window.powerbi.models;
+            const hasEmbed = typeof window.powerbi.embed === 'function';
+            const hasReset = typeof window.powerbi.reset === 'function';
+            
+            console.log(`Power BI verificação:`, {
+              models: hasModels ? 'exists' : 'missing',
+              embed: hasEmbed ? 'function' : 'missing', 
+              reset: hasReset ? 'function' : 'missing'
+            });
+            
+            if (hasModels || (hasEmbed && hasReset)) {
+              console.log(`✅ Power BI SDK carregado e verificado com sucesso de: ${src}`);
+              
+              // Se não tem models mas tem as funções, tentar acessar via window.powerbi-client
+              if (!hasModels && window['powerbi-client']) {
+                console.log(`Tentando usar window['powerbi-client'].models...`);
+                window.powerbi.models = window['powerbi-client'].models;
+              }
+              
+              return true;
+            }
+          }
+          
+          // Se carregou mas não tem models, aguardar mais tempo
+          if (window.powerbi) {
+            console.log(`SDK carregado mas models não disponível ainda, aguardando inicialização...`);
+            
+            // Tentar aguardar até 3 segundos
+            for (let i = 0; i < 6; i++) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              console.log(`Tentativa ${i + 1}/6: window.powerbi.models = ${window.powerbi.models ? 'exists' : 'undefined'}`);
+              
+              if (window.powerbi && window.powerbi.models) {
+                console.log(`✅ Power BI SDK verificado após ${(i + 1) * 500}ms de: ${src}`);
+                return true;
+              }
+            }
+            
+            console.warn(`⚠️ Power BI object existe mas models não inicializou após 3s de: ${src}`);
+          } else {
+            console.warn(`⚠️ Power BI object não foi criado após carregamento de: ${src}`);
+          }
+        }
+        
+        console.warn(`❌ Power BI SDK não funcionou corretamente de: ${src}`);
+      }
+      
+      // Se todas as fontes falharam, criar mock
+      console.warn('Todas as fontes do Power BI SDK falharam, criando mock...');
+      createPowerBIMock();
+      return false;
+    }
+
+    // Criar mock do Power BI SDK
+    function createPowerBIMock() {
+      window.powerbi = {
+        models: {
+          TokenType: { Embed: 0, Aad: 1 },
+          Permissions: { Read: 1, ReadWrite: 2, Copy: 4, Create: 8 },
+          ViewMode: { View: 0, Edit: 1 },
+          DisplayOption: { FitToPage: 0, FitToWidth: 1, ActualSize: 2 }
+        },
+        embed: function(container, config) {
+          const loadingHTML = `
+            <div style="padding: 40px; text-align: center; background: #f8f9fa; border-radius: 8px; margin: 20px; border: 1px solid #dee2e6;">
+              <div style="font-size: 48px; color: #ffc107; margin-bottom: 16px;">⚠️</div>
+              <h3 style="color: #343a40; margin-bottom: 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                Power BI Temporariamente Indisponível
+              </h3>
+              <p style="color: #6c757d; margin-bottom: 16px; line-height: 1.5;">
+                O serviço do Power BI não pode ser carregado no momento. Possíveis causas:
+              </p>
+              <div style="text-align: left; color: #6c757d; max-width: 450px; margin: 0 auto 20px;">
+                <div style="padding: 8px 0;"><strong>🌐</strong> Problemas de conectividade com a internet</div>
+                <div style="padding: 8px 0;"><strong>🔒</strong> Firewall ou proxy corporativo bloqueando acesso</div>
+                <div style="padding: 8px 0;"><strong>🔧</strong> Serviços do Microsoft Power BI em manutenção</div>
+                <div style="padding: 8px 0;"><strong>🏢</strong> Políticas de segurança da rede</div>
+              </div>
+              <div style="background: #e3f2fd; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                <p style="color: #1976d2; margin: 0; font-size: 14px;">
+                  <strong>💡 Soluções:</strong><br>
+                  • Verifique sua conexão com a internet<br>
+                  • Contate o administrador de TI<br>
+                  • Tente novamente em alguns minutos
+                </p>
+              </div>
+              <button onclick="window.location.reload()" 
+                      style="background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 10px;">
+                🔄 Tentar Novamente
+              </button>
+            </div>
+          `;
+          
+          container.innerHTML = loadingHTML;
+          
+          // Retornar objeto mock compatível
+          return {
+            on: function(event, handler) {
+              console.log(`Mock Power BI: Event '${event}' registrado`);
+              // Simular evento de carregamento após um tempo
+              if (event === 'loaded') {
+                setTimeout(() => {
+                  try { handler(); } catch(e) { console.warn('Handler error:', e); }
+                }, 1000);
+              }
+            },
+            off: function(event, handler) {
+              console.log(`Mock Power BI: Event '${event}' removido`);
+            },
+            setAccessToken: function(token) {
+              console.log('Mock Power BI: Token definido');
+              return Promise.resolve();
+            },
+            reload: function() {
+              console.log('Mock Power BI: Reload solicitado');
+              return Promise.resolve();
+            }
+          };
+        },
+        reset: function(container) {
+          if (container) {
+            container.innerHTML = '';
+          }
+          console.log('Mock Power BI: Reset executado');
+        }
+      };
+      
+      console.log('Mock Power BI SDK criado com sucesso');
+    }
+    
+    // Status de carregamento
+    window.powerBILoadStatus = 'loading';
+    
+    // Carregar o SDK imediatamente
+    loadPowerBISDK().then(success => {
+      window.powerBILoadStatus = success ? 'loaded' : 'mock';
+      if (!success) {
+        console.warn('Power BI SDK indisponível - usando mock para desenvolvimento');
+      }
+      
+      // Disparar evento customizado para notificar que está pronto
+      const event = new CustomEvent('powerbiReady', { detail: { success, mock: !success } });
+      document.dispatchEvent(event);
+    }).catch(error => {
+      console.error('Erro ao carregar Power BI SDK:', error);
+      window.powerBILoadStatus = 'error';
+      createPowerBIMock();
+    });
+  </script>
+
+  <style>
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --accent: #0f62fe;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: var(--bg);
+      color: #111827;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 2px auto 24px auto;
+      padding: 16px;
+      width: 95%;
+    }
+    
+    /* Garantir margem superior reduzida mesmo com layout Django */
+    body .container {
+      margin-top: 2px !important;
+    }
+    .header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .title {
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+    .title h1 {
+      margin:0;
+      font-size:20px;
+    }
+    .controls {
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .btn.secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid #e6e7ea;
+    }
+    .btn svg {
+      margin-right: 6px;
+    }
+    
+    /* Estilos para tela cheia */
+    .fullscreen-container {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      z-index: 9999 !important;
+      background: #000 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    
+    .fullscreen-container .header {
+      display: none !important; /* Ocultar header em tela cheia */
+    }
+    
+    .fullscreen-container .card {
+      width: 100vw !important;
+      height: 100vh !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      flex: 1 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      max-height: none !important;
+      min-height: none !important;
+    }
+    
+    .fullscreen-container #reportContainer {
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: none !important;
+      max-height: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      overflow: hidden !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+    }
+    
+    /* Iframe ocupar 100% da tela em fullscreen */
+    .fullscreen-container #reportContainer iframe {
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: none !important;
+      max-height: none !important;
+      border: none !important;
+      border-radius: 0 !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+    }
+    
+    .fullscreen-exit-btn {
+      position: fixed !important;
+      top: 30px !important;
+      right: 30px !important;
+      z-index: 10000 !important;
+      background: rgba(0, 0, 0, 0.8) !important;
+      color: white !important;
+      border: 2px solid rgba(255, 255, 255, 0.2) !important;
+      padding: 12px 16px !important;
+      border-radius: 8px !important;
+      cursor: pointer !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      backdrop-filter: blur(10px) !important;
+      transition: all 0.3s ease !important;
+      min-width: 160px !important;
+      justify-content: center !important;
+    }
+    
+    .fullscreen-exit-btn:hover {
+      background: rgba(255, 255, 255, 0.1) !important;
+      border-color: rgba(255, 255, 255, 0.4) !important;
+      transform: translateY(-2px) !important;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* Responsividade para tela cheia */
+    @media (max-width: 768px) {
+      .fullscreen-container {
+        padding: 0 !important;
+      }
+      
+      .fullscreen-exit-btn {
+        top: 20px !important;
+        right: 20px !important;
+        left: 20px !important;
+        width: auto !important;
+        min-width: auto !important;
+        font-size: 12px !important;
+        padding: 10px 14px !important;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .fullscreen-container {
+        padding: 0 !important;
+      }
+      
+      .fullscreen-exit-btn {
+        top: 15px !important;
+        right: 15px !important;
+        left: 15px !important;
+        font-size: 12px !important;
+        padding: 8px 12px !important;
+      }
+      
+      /* Margem superior ainda menor em mobile */
+      .container {
+        margin-top: 1px !important;
+        padding: 12px !important;
+      }
+    }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(13, 18, 30, 0.06);
+      padding: 12px;
+      min-height: 60vh;
+      max-height: 80vh;
+      overflow: hidden;
+      position: relative;
+      width: 100%;
+    }
+    #reportContainer {
+      width: 105%;
+      max-width: calc(100vw - 40px);
+      height: calc(100vh - 280px);
+      min-height: 400px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      position: relative;
+      margin: 0 -2.5%;
+    }
+    
+    /* Garantir que iframe seja responsivo e não ultrapasse limites */
+    #reportContainer iframe {
+      width: 100% !important;
+      height: 100% !important;
+      border: none !important;
+      border-radius: 8px !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      object-fit: contain !important;
+      display: block !important;
+    }
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .spinner {
+      width:14px;
+      height:14px;
+      border-radius:50%;
+      border:2px solid #e5e7eb;
+      border-top-color: var(--accent);
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Mensagens de erro */
+    .error-box {
+      background: #fff4f4;
+      border: 1px solid #ffd2d2;
+      color: #9b1c1c;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+
+    /* Responsividade */
+    @media (max-width:768px) {
+      .header { flex-direction: column; align-items: flex-start; gap:8px; }
+      .container { width: 98%; max-width: 100%; }
+      #reportContainer { 
+        width: 110%;
+        margin: 0 -5%;
+        height: calc(100vh - 340px);
+        min-height: 350px;
+      }
+      
+      /* Ajustar iframe em mobile */
+      #reportContainer iframe {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 350px !important;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .container { 
+        width: 100%; 
+        padding: 8px; 
+        max-width: 100vw;
+      }
+      #reportContainer {
+        width: 115%;
+        height: calc(100vh - 320px);
+        min-height: 300px;
+        margin: 0 -7.5%; /* Expandir ainda mais para as bordas */
+        border-radius: 4px;
+      }
+      
+      #reportContainer iframe {
+        min-height: 300px !important;
+        border-radius: 4px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  {% csrf_token %}
+  <div class="container">
+    <div class="header">
+      <div class="title">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <rect x="2" y="3" width="8" height="8" rx="1" fill="#0f62fe"/>
+          <rect x="14" y="3" width="8" height="8" rx="1" fill="#60a5fa"/>
+          <rect x="2" y="13" width="8" height="8" rx="1" fill="#7dd3fc"/>
+          <rect x="14" y="13" width="8" height="8" rx="1" fill="#c7f9ff"/>
+        </svg>
+        <div>
+          <h1>Relatório Power BI</h1>
+          <div class="status">
+            <div id="statusSpinner" class="spinner" aria-hidden></div>
+            <div id="statusText">Carregando relatório...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls" role="toolbar" aria-label="Controles do relatório">
+        <!-- Botão para forçar renovar o token (chama backend) -->
+        <button id="btnRefreshToken" class="btn secondary" title="Renovar embed token">Renovar token</button>
+        <button id="btnReloadReport" class="btn" title="Recarregar relatório">Recarregar</button>
+        <button id="btnFullscreen" class="btn" title="Ver em tela cheia">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+          </svg>
+          Tela Cheia
+        </button>
+      </div>
+    </div>
+
+    <div class="card" role="main" aria-live="polite">
+      <div id="reportContainer" aria-label="Contêiner do relatório Power BI"></div>
+
+      <div id="errorBox" class="error-box" style="display:none;" role="alert"></div>
+    </div>
+  </div>
+
+  <!--
+    Este template espera que a sua view Django injete as variáveis:
+      - embed_token: token (string)
+      - embed_url: embedUrl do relatório
+      - report_id: id do relatório
+
+    Exemplo (Django):
+      return render(request, 'powerbi_report.html', {
+        'embed_token': embed_token,
+        'embed_url': embed_url,
+        'report_id': report_id
+      })
+
+    Opcionalmente crie um endpoint POST/GET '/reports/refresh-token/' que retorne:
+      { "embedToken": "...", "expiresIn": 3600 }
+    para permitir renovação automática.
+  -->
+
+  <script>
+    // === VARIÁVEIS INJETADAS PELO BACKEND (Django) ===
+    // Estas tags são renderizadas pelo Django template engine.
+    const EMBED_TOKEN = "{{ embed_token|escapejs }}";
+    const EMBED_URL   = "{{ embed_url|escapejs }}";
+    const REPORT_ID   = "{{ report_id|escapejs }}";
+
+    // Endpoint para renovar token (implemente no backend)
+    const REFRESH_TOKEN_ENDPOINT = "/reports/refresh-token/"; // ajusta conforme sua URL
+
+    // Tempo padrão para refresh automático (ms). Se seu embed token expira em ~3600s,
+    // defina aqui um valor menor, por exemplo 45 minutos = 2700000 ms.
+    const AUTO_REFRESH_MS = 45 * 60 * 1000;
+
+    // Estado local
+    let powerbiReport = null;
+    let currentEmbedToken = EMBED_TOKEN;
+    let refreshTimer = null;
+
+    // Util: pega cookie CSRF (padrão Django)
+    function getCookie(name) {
+      const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+      return v ? v.pop() : '';
+    }
+
+    // Função para exibir erros amigáveis
+    function showError(message) {
+      const box = document.getElementById('errorBox');
+      box.style.display = 'block';
+      box.textContent = message;
+      document.getElementById('statusText').textContent = 'Erro';
+      document.getElementById('statusSpinner').style.display = 'none';
+    }
+
+    // Limpa erro
+    function clearError() {
+      const box = document.getElementById('errorBox');
+      box.style.display = 'none';
+      box.textContent = '';
+    }
+
+    // Configuração do embed
+    function buildEmbedConfig(token) {
+      // Verificar se o Power BI SDK está carregado
+      if (!window.powerbi || !window.powerbi.models) {
+        throw new Error('Power BI SDK não está carregado ainda');
+      }
+      
+      const models = window.powerbi.models;
+      return {
+        type: 'report',
+        tokenType: models.TokenType.Embed,
+        accessToken: token,
+        embedUrl: EMBED_URL,
+        id: REPORT_ID,
+        permissions: models.Permissions.Read,
+        settings: {
+          panes: {
+            filters: { visible: false, expanded: false }
+          },
+          navContentPaneEnabled: true
+        }
+      };
+    }
+
+    // Função para renovar token do Power BI
+    async function refreshPowerBIToken() {
+      try {
+        console.log('Renovando token do Power BI...');
+        
+        const response = await fetch('/links/reports/refresh-token/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+          },
+          credentials: 'same-origin'
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.token) {
+          console.log('Token renovado com sucesso:', data.message);
+          
+          // Atualizar token no relatório Power BI
+          if (window.powerbiReport && typeof window.powerbiReport.setAccessToken === 'function') {
+            await window.powerbiReport.setAccessToken(data.token);
+            console.log('Token atualizado no relatório Power BI');
+          }
+          
+          return data.token;
+        } else {
+          throw new Error(data.error || 'Falha ao renovar token');
+        }
+        
+      } catch (error) {
+        console.error('Erro ao renovar token:', error);
+        
+        // Mostrar notificação de erro
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed; top: 20px; right: 20px; z-index: 10001;
+          background: #dc3545; color: white; padding: 12px 16px;
+          border-radius: 8px; font-size: 14px; max-width: 300px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        `;
+        notification.textContent = `Erro ao renovar token: ${error.message}`;
+        
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 5000);
+        
+        throw error;
+      }
+    }
+
+    // Realiza embed do relatório
+    function embedReport(token) {
+      clearError();
+      document.getElementById('statusText').textContent = 'Carregando relatório...';
+      document.getElementById('statusSpinner').style.display = 'inline-block';
+
+      try {
+        const container = document.getElementById('reportContainer');
+
+        // Se já existe um embed, reset antes de fazer novo embed
+        if (powerbiReport) {
+          window.powerbi.reset(container);
+          powerbiReport = null;
+        }
+
+        const config = buildEmbedConfig(token);
+        powerbiReport = window.powerbi.embed(container, config);
+
+        powerbiReport.on('loaded', function () {
+          document.getElementById('statusText').textContent = 'Relatório carregado';
+          document.getElementById('statusSpinner').style.display = 'none';
+        });
+
+        powerbiReport.on('rendered', function () {
+          document.getElementById('statusText').textContent = 'Relatório renderizado';
+        });
+
+        powerbiReport.on('error', function (event) {
+          console.error('Power BI error', event.detail || event);
+          // Se erro de token, tenta renovar
+          const detail = (event && event.detail) ? event.detail : {};
+          const err = (detail && detail.error) ? detail.error : null;
+          const message = (err && err.message) ? err.message : JSON.stringify(detail);
+          showError('Erro ao renderizar relatório: ' + message);
+          if (message && (message.toLowerCase().includes('token') || message.toLowerCase().includes('401'))) {
+            // tenta renovar token automaticamente
+            renewEmbedToken().catch(e => {
+              console.error('Falha ao renovar token automaticamente', e);
+            });
+          }
+        });
+
+      } catch (e) {
+        console.error(e);
+        showError('Falha ao iniciar o embed: ' + (e.message || e));
+      }
+    }
+
+    // Chama backend para renovar embed token
+    async function renewEmbedToken() {
+      try {
+        document.getElementById('statusText').textContent = 'Renovando token...';
+        document.getElementById('statusSpinner').style.display = 'inline-block';
+
+        const csrftoken = getCookie('csrftoken');
+        const resp = await fetch(REFRESH_TOKEN_ENDPOINT, {
+          method: 'GET', // pode ser POST se preferir
+          headers: {
+            'Accept': 'application/json',
+            'X-CSRFToken': csrftoken
+          },
+          credentials: 'same-origin'
+        });
+
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error('Erro na renovação do token: ' + resp.status + ' - ' + text);
+        }
+
+        const data = await resp.json();
+        if (!data || !data.embedToken) throw new Error('Resposta inválida do servidor ao renovar token');
+
+        currentEmbedToken = data.embedToken;
+        // re-embed com o novo token
+        embedReport(currentEmbedToken);
+
+        // se backend retornar expiresIn (segundos), ajuste timer
+        if (data.expiresIn) {
+          scheduleAutoRefresh(data.expiresIn * 1000);
+        } else {
+          scheduleAutoRefresh(AUTO_REFRESH_MS);
+        }
+
+        clearError();
+        return true;
+      } catch (err) {
+        console.error('renewEmbedToken error', err);
+        showError('Não foi possível renovar token: ' + err.message);
+        return false;
+      }
+    }
+
+    // Agenda refresh automático
+    function scheduleAutoRefresh(milliseconds) {
+      if (refreshTimer) clearTimeout(refreshTimer);
+      // renova 60 segundos antes do expiry (se souber expiry)
+      const margin = 60 * 1000;
+      const ms = Math.max(10 * 1000, milliseconds - margin);
+      refreshTimer = setTimeout(async () => {
+        try {
+          console.log('Renovação automática do token iniciada...');
+          const newToken = await refreshPowerBIToken();
+          currentEmbedToken = newToken;
+          // Reagendar próxima renovação
+          scheduleAutoRefresh(AUTO_REFRESH_MS);
+        } catch (error) {
+          console.error('Erro na renovação automática:', error);
+          // Tentar novamente em 5 minutos se falhar
+          scheduleAutoRefresh(5 * 60 * 1000);
+        }
+      }, ms);
+      
+      console.log(`Próxima renovação automática agendada para ${Math.floor(ms / 1000)} segundos`);
+    }
+
+    // Função para aguardar o carregamento do Power BI SDK
+    function waitForPowerBI(callback) {
+      // Se já está carregado, executar imediatamente
+      if (window.powerbi && window.powerbi.models) {
+        callback();
+        return;
+      }
+      
+      // Se ainda está carregando, aguardar evento
+      if (window.powerBILoadStatus === 'loading') {
+        document.addEventListener('powerbiReady', function(event) {
+          callback();
+        }, { once: true });
+        return;
+      }
+      
+      // Se falhou, tentar callback mesmo assim (pode ser mock)
+      if (window.powerBILoadStatus === 'mock' || window.powerBILoadStatus === 'error') {
+        callback();
+        return;
+      }
+      
+      // Fallback para casos inesperados
+      setTimeout(() => {
+        if (window.powerbi && window.powerbi.models) {
+          callback();
+        } else {
+          showError('Power BI SDK não conseguiu carregar. Verifique sua conexão e tente novamente.');
+        }
+      }, 5000);
+    }
+
+    // Inicialização ao carregar a página
+    window.addEventListener('DOMContentLoaded', function () {
+      // validações iniciais
+      if (!EMBED_TOKEN || !EMBED_URL || !REPORT_ID || EMBED_TOKEN === 'None') {
+        showError('Dados de embed ausentes. Verifique se a view Django injetou embed_token, embed_url e report_id.');
+        return;
+      }
+
+      currentEmbedToken = EMBED_TOKEN;
+      
+      // Aguardar o Power BI SDK carregar antes de fazer embed
+      waitForPowerBI(function() {
+        // embed inicial
+        embedReport(currentEmbedToken);
+        // agenda refresh automático com valor padrão
+        scheduleAutoRefresh(AUTO_REFRESH_MS);
+      });
+    });
+
+    // Botões da UI
+    document.getElementById('btnRefreshToken').addEventListener('click', async function () {
+      this.disabled = true;
+      this.textContent = 'Renovando...';
+      
+      try {
+        const newToken = await refreshPowerBIToken();
+        currentEmbedToken = newToken;
+        this.textContent = 'Renovar token';
+        
+        // Mostrar notificação de sucesso
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed; top: 20px; right: 20px; z-index: 10001;
+          background: #28a745; color: white; padding: 12px 16px;
+          border-radius: 8px; font-size: 14px; max-width: 300px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        `;
+        notification.textContent = 'Token renovado com sucesso!';
+        
+        document.body.appendChild(notification);
+        setTimeout(() => notification.remove(), 3000);
+        
+      } catch (error) {
+        this.textContent = 'Erro - Tentar novamente';
+        setTimeout(() => {
+          this.textContent = 'Renovar token';
+        }, 3000);
+      }
+      
+      this.disabled = false;
+    });
+
+    document.getElementById('btnReloadReport').addEventListener('click', function () {
+      if (currentEmbedToken) {
+        embedReport(currentEmbedToken);
+      }
+    });
+
+    // Funcionalidade de tela cheia
+    let isFullscreen = false;
+    let exitFullscreenBtn = null;
+
+    function enterFullscreen() {
+      const container = document.querySelector('.container');
+      const card = document.querySelector('.card');
+      
+      // Adicionar classes de tela cheia
+      container.classList.add('fullscreen-container');
+      
+      // Criar botão para sair da tela cheia
+      exitFullscreenBtn = document.createElement('button');
+      exitFullscreenBtn.className = 'fullscreen-exit-btn';
+      exitFullscreenBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+        </svg>
+        Sair da Tela Cheia
+      `;
+      exitFullscreenBtn.addEventListener('click', exitFullscreen);
+      document.body.appendChild(exitFullscreenBtn);
+      
+      // Usar Fullscreen API se disponível
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(err => {
+          console.log('Fullscreen API não disponível, usando CSS fallback');
+        });
+      } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+      } else if (container.msRequestFullscreen) {
+        container.msRequestFullscreen();
+      }
+      
+      isFullscreen = true;
+      
+      // Atualizar texto do botão
+      const btnFullscreen = document.getElementById('btnFullscreen');
+      btnFullscreen.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>
+        </svg>
+        Sair da Tela Cheia
+      `;
+      
+      // Forçar redimensionamento do Power BI após um pequeno delay
+      setTimeout(() => {
+        if (powerbiReport && typeof powerbiReport.resizeAndRedraw === 'function') {
+          powerbiReport.resizeAndRedraw()
+            .then(() => console.log('Power BI redimensionado para tela cheia'))
+            .catch(err => console.log('Erro ao redimensionar Power BI:', err));
+        } else if (window.powerbi && window.powerbi.resize) {
+          window.powerbi.resize();
+        }
+      }, 300);
+      
+      console.log('Entrou em modo tela cheia');
+    }
+
+    function exitFullscreen() {
+      const container = document.querySelector('.container');
+      
+      // Remover classes de tela cheia
+      container.classList.remove('fullscreen-container');
+      
+      // Remover botão de sair
+      if (exitFullscreenBtn) {
+        exitFullscreenBtn.remove();
+        exitFullscreenBtn = null;
+      }
+      
+      // Sair da Fullscreen API se disponível
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(err => {
+          console.log('Erro ao sair da fullscreen API');
+        });
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+      
+      isFullscreen = false;
+      
+      // Restaurar texto do botão
+      const btnFullscreen = document.getElementById('btnFullscreen');
+      btnFullscreen.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+        </svg>
+        Tela Cheia
+      `;
+      
+      // Forçar redimensionamento do Power BI após sair da tela cheia
+      setTimeout(() => {
+        if (powerbiReport && typeof powerbiReport.resizeAndRedraw === 'function') {
+          powerbiReport.resizeAndRedraw()
+            .then(() => console.log('Power BI redimensionado após sair da tela cheia'))
+            .catch(err => console.log('Erro ao redimensionar Power BI:', err));
+        } else if (window.powerbi && window.powerbi.resize) {
+          window.powerbi.resize();
+        }
+      }, 300);
+      
+      console.log('Saiu do modo tela cheia');
+    }
+
+    // Event listener para o botão de tela cheia
+    document.getElementById('btnFullscreen').addEventListener('click', function () {
+      if (isFullscreen) {
+        exitFullscreen();
+      } else {
+        enterFullscreen();
+      }
+    });
+
+    // Detectar quando sai da tela cheia via ESC ou F11
+    document.addEventListener('fullscreenchange', function() {
+      if (!document.fullscreenElement && isFullscreen) {
+        exitFullscreen();
+      }
+    });
+
+    document.addEventListener('webkitfullscreenchange', function() {
+      if (!document.webkitFullscreenElement && isFullscreen) {
+        exitFullscreen();
+      }
+    });
+
+    document.addEventListener('msfullscreenchange', function() {
+      if (!document.msFullscreenElement && isFullscreen) {
+        exitFullscreen();
+      }
+    });
+
+    // Atalho de teclado para tela cheia (F11)
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'F11') {
+        event.preventDefault();
+        if (isFullscreen) {
+          exitFullscreen();
+        } else {
+          enterFullscreen();
+        }
+      }
+      
+      // ESC para sair da tela cheia
+      if (event.key === 'Escape' && isFullscreen) {
+        exitFullscreen();
+      }
+    });
+
+    // Segurança: antes de trocar de página, limpa embed
+    window.addEventListener('beforeunload', function () {
+      try {
+        if (powerbiReport) {
+          window.powerbi.reset(document.getElementById('reportContainer'));
+        }
+      } catch (e) { /* ignore */ }
+    });
+  </script>
+</body>
+</html>
+
+{% endblock %}

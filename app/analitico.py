@@ -1,5 +1,5 @@
 import json
-from . import connectionFactory as cf
+from copral import connectionFactory as cf
 from datetime import datetime, timedelta
 
 def procedure(placa, data_inicial, data_final):
