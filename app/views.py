@@ -17,6 +17,7 @@ from .models import OrdemServico
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.views.generic import ListView, TemplateView
 from .analitico import procedure, tempEventos
+from PIL import Image
 
 @login_required
 def home(request):
@@ -37,6 +38,8 @@ class cartao_visita(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
         empresa = request.POST.get('empresa', '')
         titulo = request.POST.get('titulo', '')
         telefone = request.POST.get('telefone', '')
+        celular = request.POST.get('celular', '')
+        tem_whatsapp = request.POST.get('tem_whatsapp') == 'on'
         email = request.POST.get('email', '')
         endereco = request.POST.get('endereco', '')
         website = request.POST.get('website', '')
@@ -52,7 +55,19 @@ class cartao_visita(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
         if titulo:
             vcard += f'TITLE:{titulo}\n'
         if telefone:
-            vcard += f'TEL;TYPE=CELL:{telefone}\n'
+            vcard += f'TEL;TYPE=WORK:{telefone}\n'
+        if celular:
+            if tem_whatsapp:
+                # Limpar número para WhatsApp (remover caracteres especiais)
+                numero_limpo = ''.join(filter(str.isdigit, celular))
+                # Se não começar com código do país, adicionar +55 (Brasil)
+                if not numero_limpo.startswith('55') and len(numero_limpo) == 11:
+                    numero_limpo = '55' + numero_limpo
+                
+                vcard += f'TEL;TYPE=CELL;X-WhatsApp=true:{celular}\n'
+                vcard += f'X-SOCIALPROFILE;TYPE=WhatsApp:https://wa.me/{numero_limpo}\n'
+            else:
+                vcard += f'TEL;TYPE=CELL:{celular}\n'
         if email:
             vcard += f'EMAIL;TYPE=INTERNET:{email}\n'
         if endereco:
@@ -63,9 +78,54 @@ class cartao_visita(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
 
         try:
             # Gerar QRCode em memória
-            img = qrcode.make(vcard)
+            # img = qrcode.make(vcard)
+            # buf = io.BytesIO()
+            # img.save(buf, format='PNG')
+            # buf.seek(0)
+
+             # Criar QR Code com alta tolerância a erros (necessário p/ logo no centro)
+            qr = qrcode.QRCode(
+                version=4,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(vcard)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+
+            # Abrir e redimensionar a logo
+            logo = Image.open("staticfiles/img/logo.png")  # caminho da logo
+            qr_width, qr_height = img.size
+            logo_size = int(qr_width * 0.2)  # máximo 30% do QR
+            
+            # Certificar que a logo está em modo RGBA para preservar transparência
+            if logo.mode != "RGBA":
+                logo = logo.convert("RGBA")
+            
+            # Redimensionar mantendo a proporção
+            logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
+
+            # Criar um fundo branco (escolha uma das opções abaixo)
+            
+            # OPÇÃO 1: Fundo branco simples (quadrado)
+            background = Image.new("RGBA", (logo_size, logo_size), (255, 255, 255, 255))
+            
+            # Calcular posição central
+            pos = ((qr_width - logo_size) // 2, (qr_height - logo_size) // 2)
+
+            # Converter QR para RGBA para suportar transparência
+            img = img.convert("RGBA")
+            
+            # Primeiro, colar o fundo branco
+            img.paste(background, pos, background)
+            
+            # Depois, colar a logo por cima
+            img.paste(logo, pos, logo)
+
+            # Salvar em memória
             buf = io.BytesIO()
-            img.save(buf, format='PNG')
+            img.save(buf, format="PNG")
             buf.seek(0)
             
             # Converter para base64 para envio via JSON
