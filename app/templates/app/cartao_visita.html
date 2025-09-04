@@ -184,6 +184,61 @@
     }
   }
   
+  /* WhatsApp checkbox styles */
+  .whatsapp-container {
+    background: #f8f9fa;
+    border: 2px solid #e1e8ed;
+    border-radius: 8px;
+    padding: 10px;
+    transition: all 0.3s ease;
+  }
+  
+  .whatsapp-container:hover {
+    border-color: #25D366;
+    background: #f0fff4;
+  }
+  
+  .form-check-input:checked {
+    background-color: #25D366;
+    border-color: #25D366;
+  }
+  
+  .form-check-input:focus {
+    border-color: #25D366;
+    box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+  }
+  
+  .form-check-label {
+    cursor: pointer;
+    user-select: none;
+  }
+  
+  .form-check:hover .form-check-label {
+    color: #25D366;
+  }
+  
+  /* Estilos para campos com máscara */
+  input[name="telefone"], 
+  input[name="celular"] {
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+    font-weight: 500;
+  }
+  
+  input[name="telefone"]:focus, 
+  input[name="celular"]:focus {
+    box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+    border-color: #0056b3;
+  }
+  
+  /* Indicador visual para campos com máscara */
+  input[name="telefone"]::placeholder,
+  input[name="celular"]::placeholder {
+    color: #0056b3;
+    font-weight: 500;
+    opacity: 0.7;
+  }
+  
   @media (max-width: 768px) {
     .cartao-visita-container {
       padding: 8px;
@@ -201,6 +256,10 @@
     .form-row .col-md-4,
     .form-row .col-md-6 {
       margin-bottom: 12px;
+    }
+    
+    .whatsapp-container {
+      margin-top: 8px;
     }
   }
 </style>
@@ -230,8 +289,8 @@
               <input type="text" class="form-control" name="sobrenome" required placeholder="Seu sobrenome">
             </div>
             <div class="col-md-4">
-              <label class="form-label">Empresa</label>
-              <input type="text" class="form-control" name="empresa" placeholder="Nome da empresa">
+              <label class="form-label">Empresa *</label>
+              <input type="text" class="form-control" name="empresa" required placeholder="Nome da empresa">
             </div>
           </div>
         </div>
@@ -248,13 +307,39 @@
               <input type="text" class="form-control" name="telefone" placeholder="(xx) xxxxx-xxxx">
             </div>
             <div class="col-md-4">
+              <label class="form-label">Celular</label>
+              <input type="text" class="form-control" name="celular" placeholder="(xx) 9xxxx-xxxx">
+            </div>
+            
+          </div>
+        </div>
+
+        <!-- Terceira linha: Celular e WhatsApp -->
+        <div class="form-row">
+          <div class="row">
+            <div class="col-md-4">
               <label class="form-label">E-mail</label>
               <input type="email" class="form-control" name="email" placeholder="seu@email.com">
+            </div>
+            <div class="col-md-4">
+              
+              <div class="whatsapp-container">
+                <div class="form-check" style="margin-top: 8px;">
+                  <input class="form-check-input" type="checkbox" name="tem_whatsapp" id="temWhatsapp" style="transform: scale(1.2); margin-right: 8px;">
+                  <label class="form-check-label" for="temWhatsapp" style="color: #333; font-weight: 500; background: none; padding: 0; border-radius: 0;">
+                    <i class="fab fa-whatsapp" style="color: #25D366; margin-right: 6px;"></i>
+                    Possui WhatsApp
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <!-- Espaço reservado para expansão futura -->
             </div>
           </div>
         </div>
 
-        <!-- Terceira linha: Website e Endereço -->
+        <!-- Quarta linha: Website e Endereço -->
         <div class="form-row">
           <div class="row">
             <div class="col-md-6">
@@ -294,6 +379,81 @@
 </div>
 
 <script>
+// Função para aplicar máscara de telefone
+function maskPhone(value) {
+  // Remove todos os caracteres não numéricos
+  value = value.replace(/\D/g, '');
+  
+  // Aplica a máscara para telefone fixo (10 dígitos): (xx) xxxx-xxxx
+  if (value.length <= 10) {
+    value = value.replace(/(\d{2})(\d)/, '($1) $2');
+    value = value.replace(/(\d{4})(\d)/, '$1-$2');
+  } 
+  // Aplica a máscara para telefone com 11 dígitos: (xx) xxxxx-xxxx
+  else if (value.length === 11) {
+    value = value.replace(/(\d{2})(\d)/, '($1) $2');
+    value = value.replace(/(\d{5})(\d)/, '$1-$2');
+  }
+  
+  return value;
+}
+
+// Função para aplicar máscara de celular
+function maskCellphone(value) {
+  // Remove todos os caracteres não numéricos
+  value = value.replace(/\D/g, '');
+  
+  // Aplica a máscara para celular (11 dígitos): (xx) 9xxxx-xxxx
+  if (value.length <= 11) {
+    value = value.replace(/(\d{2})(\d)/, '($1) $2');
+    value = value.replace(/(\d{5})(\d)/, '$1-$2');
+  }
+  
+  return value;
+}
+
+// Função genérica para aplicar máscara em tempo real
+function applyMask(input, maskFunction) {
+  input.addEventListener('input', function(e) {
+    const cursorPosition = e.target.selectionStart;
+    const oldValue = e.target.value;
+    const newValue = maskFunction(oldValue);
+    
+    if (oldValue !== newValue) {
+      e.target.value = newValue;
+      
+      // Ajustar posição do cursor
+      const newCursorPosition = cursorPosition + (newValue.length - oldValue.length);
+      e.target.setSelectionRange(newCursorPosition, newCursorPosition);
+    }
+  });
+  
+  // Aplicar máscara também no evento paste
+  input.addEventListener('paste', function(e) {
+    setTimeout(() => {
+      e.target.value = maskFunction(e.target.value);
+    }, 1);
+  });
+}
+
+// Aplicar máscaras quando o DOM estiver carregado
+document.addEventListener('DOMContentLoaded', function() {
+  const telefoneInput = document.querySelector('input[name="telefone"]');
+  const celularInput = document.querySelector('input[name="celular"]');
+  
+  if (telefoneInput) {
+    applyMask(telefoneInput, maskPhone);
+    telefoneInput.setAttribute('maxlength', '15'); // Limitar tamanho
+    telefoneInput.setAttribute('placeholder', '(11) 1234-5678');
+  }
+  
+  if (celularInput) {
+    applyMask(celularInput, maskCellphone);
+    celularInput.setAttribute('maxlength', '15'); // Limitar tamanho
+    celularInput.setAttribute('placeholder', '(11) 91234-5678');
+  }
+});
+
 document.getElementById('cartaoForm').addEventListener('submit', function(e) {
   e.preventDefault();
   

@@ -443,9 +443,34 @@
                 </a>
                 <ul class="sidebar-submenu" id="dp-submenu">
                     <li>
+                        <a href="#">
+                            <i class="fas fa-clock"></i>
+                            Em Desenvolvimento
+                        </a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+            {% if perms.app.acessar_jornada %}
+            <li class="menu-item-with-submenu">
+                <a href="#" onclick="toggleSubmenu(event, 'jornadas-submenu')">
+                    <span>
+                    <i class="fas fa-route"></i>
+                    Jornadas 
+                    </span>
+                    <i class="fas fa-chevron-down submenu-toggle"></i>
+                </a>
+                <ul class="sidebar-submenu" id="jornadas-submenu">
+                    <li>
                         <a href="{% url 'app:controleJornada' %}">
                             <i class="fas fa-clock"></i>
-                            Controle de Jornadas
+                            Controle
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#">
+                            <i class="fas fa-truck"></i>
+                            Mot. e Veículos
                         </a>
                     </li>
                 </ul>
