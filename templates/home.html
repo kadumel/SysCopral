@@ -462,13 +462,19 @@
                 </a>
                 <ul class="sidebar-submenu" id="jornadas-submenu">
                     <li>
+                        <a href="{% url 'app:dashboardJornada' %}">
+                            <i class="fas fa-chart-bar"></i>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li>
                         <a href="{% url 'app:controleJornada' %}">
                             <i class="fas fa-clock"></i>
                             Controle
                         </a>
                     </li>
                     <li>
-                        <a href="#">
+                        <a href="{% url 'trucks:gestao_veiculos' %}">
                             <i class="fas fa-truck"></i>
                             Mot. e Veículos
                         </a>

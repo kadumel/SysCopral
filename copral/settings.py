@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'widget_tweaks',
     'links',
     'operacional',
+    'trucks',
 ]
 
 MIDDLEWARE = [
@@ -103,7 +104,7 @@ DATABASES = {
             'driver': os.getenv('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
             'Encrypt': os.getenv('DB_ENCRYPT', 'No'),
             'TrustServerCertificate': os.getenv('DB_TRUST_SERVER_CERTIFICATE', 'Yes'),
-        } if os.getenv('DB_ENGINE') == 'mssql' else {},
+        }
     }
 }
 
