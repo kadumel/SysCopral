@@ -22,6 +22,7 @@ urlpatterns = [
     path('', include('app.urls')),
     path('links/', include('links.urls')),
     path('operacional/', include('operacional.urls')),
+    path('trucks/', include('trucks.urls')),
     path('accounts/', include('django.contrib.auth.urls')),
     path('test-bootstrap/', TemplateView.as_view(template_name='test_bootstrap.html'), name='test_bootstrap'),
 ]

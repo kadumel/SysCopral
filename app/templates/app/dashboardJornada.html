@@ -1,0 +1,742 @@
+{% extends 'home.html' %}
+{% load static %}
+{% load dict_extras %}
+
+{% block title %}Dashboard Jornadas - Copral{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #dc2626;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .dashboard-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .main-content {
+        margin-left: 250px;
+    }
+
+    /* Header + Filters */
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+
+    .header-filters::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-color);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .header-filters .page-title {
+        text-align: left;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    .header-filters .page-title i {
+        font-size: 2.2rem;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-label {
+        color: var(--text-color);
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        display: block;
+        font-size: 0.95rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        border: 2px solid #e0e7ff;
+        border-radius: var(--border-radius);
+        font-size: 1rem;
+        transition: var(--transition);
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        background: white;
+    }
+
+    .btn {
+        padding: 0.8rem 1.5rem;
+        border: none;
+        border-radius: var(--border-radius);
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        box-shadow: var(--shadow-medium);
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        box-shadow: var(--shadow-hover);
+        transform: translateY(-2px);
+    }
+
+    .btn-secondary {
+        background: var(--text-light);
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6c7d;
+        transform: translateY(-2px);
+    }
+
+    /* Metrics Section */
+    .metrics-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+
+    .metrics-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--success-gradient);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .section-title {
+        color: var(--primary-color);
+        font-weight: 700;
+        font-size: 1.5rem;
+        margin: 0 0 1rem 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .metric-card {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        text-align: center;
+        box-shadow: var(--shadow-medium);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+        transform: translateX(-100%);
+        transition: transform 0.6s;
+    }
+
+    .metric-card:hover::before {
+        transform: translateX(100%);
+    }
+
+    .metric-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .metric-card-warning {
+        background: var(--danger-gradient) !important;
+    }
+
+    .metric-card-warning .metric-value {
+        color: white;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .metric-card-warning .metric-label {
+        color: white;
+        opacity: 0.95;
+    }
+
+    .metric-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        position: relative;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        margin: 0;
+        opacity: 0.9;
+        font-weight: 500;
+        position: relative;
+    }
+
+    /* Table Section */
+    .table-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        overflow: hidden;
+        position: relative;
+    }
+
+    .table-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--warning-gradient);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .table-header {
+        padding: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .table-title {
+        color: var(--primary-color);
+        font-weight: 700;
+        font-size: 1.5rem;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .table-container {
+        overflow-x: auto;
+        background: white;
+    }
+
+    .matrix-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+        min-width: 800px;
+    }
+
+    .matrix-table th {
+        background: var(--primary-color);
+        color: white;
+        padding: 1rem 0.75rem;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.85rem;
+        border: 1px solid rgba(255,255,255,0.2);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .matrix-table th.placa-header {
+        min-width: 120px;
+        text-align: left;
+        position: sticky;
+        left: 0;
+        z-index: 11;
+    }
+
+    .matrix-table th.total-header {
+        background: var(--success-color);
+        min-width: 100px;
+    }
+
+    .matrix-table td {
+        padding: 0.75rem;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+        background: white;
+        transition: background-color 0.2s ease;
+        font-weight: 500;
+    }
+
+    .matrix-table td.placa-cell {
+        font-weight: 600;
+        text-align: left;
+        background: #f8fafc;
+        color: var(--primary-color);
+        position: sticky;
+        left: 0;
+        z-index: 9;
+        border-right: 2px solid #e5e7eb;
+    }
+
+    .matrix-table td.total-cell {
+        font-weight: 700;
+        background: #ecfdf5;
+        color: var(--success-color);
+    }
+
+    .matrix-table td.count-cell {
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .matrix-table td.count-cell:hover {
+        background: #f0f9ff;
+    }
+
+    .count-zero {
+        color: var(--text-light);
+        font-weight: 400;
+    }
+
+    .count-low {
+        color: var(--warning-color);
+        background: #fef3c7;
+    }
+
+    .count-medium {
+        color: var(--primary-color);
+        background: #dbeafe;
+    }
+
+    .count-high {
+        color: var(--success-color);
+        background: #d1fae5;
+    }
+
+    .totals-row {
+        background: #f9fafb !important;
+        font-weight: 700;
+    }
+
+    .totals-row td {
+        background: #f9fafb !important;
+        color: var(--primary-color);
+        border-top: 2px solid var(--primary-color);
+        font-weight: 700;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 4rem 2rem;
+        color: var(--text-light);
+        font-size: 1.1rem;
+    }
+
+    .no-data i {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.3;
+        color: var(--primary-color);
+    }
+
+    /* Animations */
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .header-filters {
+        animation: slideUp 0.6s ease-out;
+    }
+
+    .metrics-section {
+        animation: slideUp 0.6s ease-out 0.1s both;
+    }
+
+    .table-section {
+        animation: slideUp 0.6s ease-out 0.2s both;
+    }
+
+    .metric-card:nth-child(1) { animation: slideUp 0.6s ease-out 0.3s both; }
+    .metric-card:nth-child(2) { animation: slideUp 0.6s ease-out 0.4s both; }
+    .metric-card:nth-child(3) { animation: slideUp 0.6s ease-out 0.5s both; }
+    .metric-card:nth-child(4) { animation: slideUp 0.6s ease-out 0.6s both; }
+    .metric-card:nth-child(5) { animation: slideUp 0.6s ease-out 0.7s both; }
+    .metric-card:nth-child(6) { animation: slideUp 0.6s ease-out 0.8s both; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+        }
+        
+        .dashboard-main-content {
+            padding: 1rem 0.5rem;
+        }
+
+        .header-filters .page-title {
+            font-size: 1.5rem;
+        }
+
+        .metrics-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+        }
+
+        .matrix-table th,
+        .matrix-table td {
+            padding: 0.5rem 0.4rem;
+            font-size: 0.8rem;
+        }
+
+        .btn {
+            padding: 0.7rem 1rem;
+            font-size: 0.9rem;
+        }
+
+        .filters-row {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .header-filters .page-title {
+            font-size: 1.3rem;
+        }
+
+        .metrics-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .metric-value {
+            font-size: 1.6rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-main-content">
+    <!-- Header + Filters -->
+    <div class="header-filters slide-up">
+        <h1 class="page-title">
+            <i class="fas fa-chart-bar"></i>
+            Dashboard de Jornadas
+        </h1>
+        
+        <form method="GET" class="filters-form">
+            <div class="filters-row">
+                <div class="form-group">
+                    <label for="placa" class="form-label">Placa do Veículo</label>
+                    <input type="text" class="form-control" id="placa" name="placa" 
+                           value="{{ placa_filtro }}" placeholder="Digite a placa..." 
+                           list="placas-list">
+                    <datalist id="placas-list">
+                        {% for placa in todas_placas %}
+                            <option value="{{ placa }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="form-group">
+                    <label for="data_inicial" class="form-label">Data Inicial</label>
+                    <input type="date" class="form-control" id="data_inicial" name="data_inicial" 
+                           value="{{ data_inicial }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="data_final" class="form-label">Data Final</label>
+                    <input type="date" class="form-control" id="data_final" name="data_final" 
+                           value="{{ data_final }}" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search"></i>
+                        Filtrar
+                    </button>
+                    <a href="{% url 'app:dashboardJornada' %}" class="btn btn-secondary">
+                        <i class="fas fa-undo"></i>
+                        Limpar
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Metrics Section -->
+    <div class="metrics-section">
+        <h3 class="section-title">
+            <i class="fas fa-chart-line"></i>
+            Métricas do Período
+        </h3>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-value">{{ total_geral|floatformat:0 }}</div>
+                <div class="metric-label">Total de Registros</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ total_veiculos }}</div>
+                <div class="metric-label">Veículos Monitorados</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ dias_periodo }}</div>
+                <div class="metric-label">Dias no Período</div>
+            </div>
+            <div class="metric-card metric-card-warning">
+                <div class="metric-value">{{ dias_zerados }}</div>
+                <div class="metric-label">Dias sem Registros</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ media_registros_dia }}</div>
+                <div class="metric-label">Média Registros/Dia</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">{{ media_registros_veiculo }}</div>
+                <div class="metric-label">Média Registros/Veículo</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Matrix Section -->
+    <div class="table-section">
+        <div class="table-header">
+            <h3 class="table-title">
+                <i class="fas fa-table"></i>
+                Matriz de Registros por Veículo x Data
+            </h3>
+        </div>
+        
+        {% if dados_matriz %}
+        <div class="table-container">
+            <table class="matrix-table">
+                <thead>
+                    <tr>
+                        <th class="placa-header">Placa</th>
+                        {% for dia in dias %}
+                            <th title="{{ dia|date:'d/m/Y - l' }}">
+                                {{ dia|date:'d/m' }}
+                            </th>
+                        {% endfor %}
+                        <th class="total-header">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in dados_matriz %}
+                    <tr>
+                        <td class="placa-cell" title="Veículo ID: {{ linha.veiculo.veiid }}">
+                            {{ linha.veiculo.placa|default:'N/A' }}
+                        </td>
+                        {% for dia_data in linha.dias %}
+                            {% if dia_data.count == 0 %}
+                                <td class="count-cell count-zero" title="{{ dia_data.data|date:'d/m/Y' }} - {{ dia_data.count }} registros">
+                                    -
+                                </td>
+                            {% elif dia_data.count <= 10 %}
+                                <td class="count-cell count-low" title="{{ dia_data.data|date:'d/m/Y' }} - {{ dia_data.count }} registros">
+                                    {{ dia_data.count }}
+                                </td>
+                            {% elif dia_data.count <= 50 %}
+                                <td class="count-cell count-medium" title="{{ dia_data.data|date:'d/m/Y' }} - {{ dia_data.count }} registros">
+                                    {{ dia_data.count }}
+                                </td>
+                            {% else %}
+                                <td class="count-cell count-high" title="{{ dia_data.data|date:'d/m/Y' }} - {{ dia_data.count }} registros">
+                                    {{ dia_data.count }}
+                                </td>
+                            {% endif %}
+                        {% endfor %}
+                        <td class="total-cell" title="Total de registros para {{ linha.veiculo.placa }}">
+                            {{ linha.total }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    
+                    <!-- Linha de totais -->
+                    <tr class="totals-row">
+                        <td class="placa-cell"><strong>TOTAL</strong></td>
+                        {% for dia in dias %}
+                            <td title="{{ dia|date:'d/m/Y' }} - {{ total_por_dia|dict_lookup:dia }} registros">
+                                <strong>{{ total_por_dia|dict_lookup:dia|default:0 }}</strong>
+                            </td>
+                        {% endfor %}
+                        <td class="total-cell">
+                            <strong>{{ total_geral }}</strong>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="no-data">
+            <div>
+                <i class="fas fa-chart-bar"></i>
+            </div>
+            <p>Nenhum veículo com registros encontrado para os filtros selecionados.</p>
+            <p>Tente ajustar os filtros de data ou placa para incluir períodos com atividade.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurar datas padrão
+    const dataInicial = document.getElementById('data_inicial');
+    const dataFinal = document.getElementById('data_final');
+    
+    // Se não há valores, definir últimos 31 dias
+    if (!dataInicial.value || !dataFinal.value) {
+        const hoje = new Date();
+        const umMesAtras = new Date(hoje);
+        umMesAtras.setDate(hoje.getDate() - 30);
+        
+        if (!dataInicial.value) {
+            dataInicial.value = umMesAtras.toISOString().split('T')[0];
+        }
+        if (!dataFinal.value) {
+            dataFinal.value = hoje.toISOString().split('T')[0];
+        }
+    }
+    
+    // Validação de datas
+    dataInicial.addEventListener('change', function() {
+        if (dataFinal.value && dataInicial.value > dataFinal.value) {
+            alert('A data inicial não pode ser maior que a data final.');
+            dataInicial.value = '';
+        }
+    });
+    
+    dataFinal.addEventListener('change', function() {
+        if (dataInicial.value && dataFinal.value < dataInicial.value) {
+            alert('A data final não pode ser menor que a data inicial.');
+            dataFinal.value = '';
+        }
+    });
+    
+    // Tooltip para células da matriz
+    const cells = document.querySelectorAll('.count-cell');
+    cells.forEach(cell => {
+        cell.addEventListener('click', function() {
+            if (this.textContent.trim() !== '-') {
+                // Aqui poderia abrir um modal com detalhes dos registros
+                console.log('Clicou na célula:', this.title);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

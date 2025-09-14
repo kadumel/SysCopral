@@ -1,0 +1,943 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Gestão de Motoristas e Veículos - Copral{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #dc2626;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .veiculos-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .main-content {
+        margin-left: 250px;
+    }
+
+    /* Header + Actions */
+    .header-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+
+    .page-title {
+        margin: 0 0 1rem 0;
+        color: var(--text-color);
+        font-size: 1.4rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .page-title i {
+        color: var(--primary-color);
+        font-size: 1.3rem;
+    }
+
+    .actions-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .btn-novo-veiculo {
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.6rem 1.2rem;
+        font-weight: 600;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .btn-novo-veiculo:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-hover);
+        color: white;
+    }
+
+    .search-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--light-gray);
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.4rem 0.8rem;
+        transition: var(--transition);
+    }
+
+    .search-container:focus-within {
+        border-color: var(--primary-color);
+        background: white;
+    }
+
+    .search-input {
+        border: none;
+        background: transparent;
+        outline: none;
+        padding: 0.2rem;
+        font-size: 0.9rem;
+        color: var(--text-color);
+        min-width: 200px;
+    }
+
+    /* Table Section */
+    .table-section {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        overflow: hidden;
+    }
+
+    .table-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table-title {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .table-stats {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+
+    .table-container {
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .table {
+        margin: 0;
+        border-collapse: collapse;
+        width: 100%;
+    }
+
+    .table th {
+        background: var(--light-gray);
+        color: var(--text-color);
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 0.75rem 0.5rem;
+        text-align: left;
+        border-bottom: 2px solid #e2e8f0;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+
+    .table td {
+        padding: 0.6rem 0.5rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.85rem;
+        color: var(--text-color);
+        vertical-align: middle;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(0, 86, 179, 0.04);
+    }
+
+    /* Editable Input */
+    .editable-input {
+        border: 1px solid transparent;
+        background: transparent;
+        padding: 0.3rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: var(--text-color);
+        transition: var(--transition);
+        width: 100%;
+    }
+
+    .editable-input:hover {
+        border-color: #e2e8f0;
+        background: var(--light-gray);
+    }
+
+    .editable-input:focus {
+        border-color: var(--primary-color);
+        background: white;
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        outline: none;
+    }
+
+    .editable-input.saving {
+        background: #fef3c7;
+        border-color: var(--warning-color);
+    }
+
+    .editable-input.saved {
+        background: #dcfce7;
+        border-color: var(--success-color);
+    }
+
+    .editable-input.error {
+        background: #fee2e2;
+        border-color: var(--danger-color);
+    }
+
+    /* Action Buttons */
+    .btn-action {
+        border: none;
+        padding: 0.3rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .btn-delete {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-delete:hover {
+        background: #b91c1c;
+        transform: translateY(-1px);
+    }
+
+    /* Modal */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        backdrop-filter: blur(5px);
+    }
+
+    .modal {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-deep);
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .modal-title {
+        margin: 0 0 1.5rem 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: var(--text-color);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.4rem;
+        font-weight: 500;
+        color: var(--text-color);
+        font-size: 0.85rem;
+    }
+
+    .form-control {
+        width: 100%;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        background: var(--light-gray);
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        background: white;
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        outline: none;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.8rem;
+        margin-top: 1.5rem;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.6rem 1.2rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.6rem 1.2rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-medium);
+    }
+
+    /* Notifications */
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10001;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        max-width: 300px;
+        box-shadow: var(--shadow-deep);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .notification.success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .notification.error {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(100%);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+        }
+        
+        .veiculos-main-content {
+            padding: 1rem 0.5rem;
+        }
+
+        .actions-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-container {
+            justify-content: center;
+        }
+
+        .search-input {
+            min-width: auto;
+        }
+
+        .table-container {
+            max-height: 60vh;
+        }
+
+        .modal {
+            margin: 1rem;
+            width: auto;
+        }
+    }
+
+    /* Loading animation */
+    .loading {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .loading::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(0, 86, 179, 0.1), transparent);
+        animation: loading 1.5s infinite;
+    }
+
+    @keyframes loading {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="veiculos-main-content">
+    <!-- Header + Actions -->
+    <div class="header-section">
+        <h1 class="page-title">
+            <i class="fas fa-truck"></i>
+            Gestão de Motoristas e Veículos
+        </h1>
+        <div class="actions-bar">
+            <button class="btn-novo-veiculo" onclick="abrirModalNovoVeiculo()">
+                <i class="fas fa-plus"></i>
+                Novo Veículo
+            </button>
+            <div class="search-container">
+                <i class="fas fa-search" style="color: var(--text-light);"></i>
+                <input type="text" class="search-input" placeholder="Buscar por placa ou motorista..." id="searchInput">
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Section -->
+    <div class="table-section">
+        <div class="table-header">
+            <h3 class="table-title">
+                <i class="fas fa-list"></i>
+                Lista de Veículos
+            </h3>
+            <div class="table-stats">
+                Total: <span id="totalVeiculos">{{ veiculos.count }}</span> veículos
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="table" id="veiculosTable">
+                <thead>
+                    <tr>
+                        <th>VeiID</th>
+                        <th>Placa</th>
+                        <th>Motorista</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for veiculo in veiculos %}
+                    <tr data-id="{{ veiculo.id }}">
+                        <td>{{ veiculo.veiid|default:"-" }}</td>
+                        <td>{{ veiculo.placa|default:"-" }}</td>
+                        <td>
+                            <input type="text" 
+                                   class="editable-input" 
+                                   value="{{ veiculo.mot|default:"" }}" 
+                                   data-id="{{ veiculo.id }}"
+                                   data-original="{{ veiculo.mot|default:"" }}"
+                                   placeholder="Digite o nome do motorista...">
+                        </td>
+                        <td>
+                            <button class="btn-action btn-delete" onclick="deletarVeiculo({{ veiculo.id }}, '{{ veiculo.placa }}')">
+                                <i class="fas fa-trash"></i>
+                                Deletar
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-light);">
+                            <i class="fas fa-truck" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                            Nenhum veículo cadastrado. Clique em "Novo Veículo" para adicionar.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo Veículo -->
+<div class="modal-overlay" id="modalNovoVeiculo">
+    <div class="modal">
+        <h2 class="modal-title">
+            <i class="fas fa-plus"></i>
+            Novo Veículo
+        </h2>
+        <form id="formNovoVeiculo">
+            <div class="form-group">
+                <label class="form-label">VeiID</label>
+                <input type="number" class="form-control" id="novoVeiId" placeholder="ID do veículo (opcional)">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Placa *</label>
+                <input type="text" class="form-control" id="novaPlaca" placeholder="ABC1234" maxlength="7" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Motorista</label>
+                <input type="text" class="form-control" id="novoMotorista" placeholder="Nome do motorista">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="fecharModalNovoVeiculo()">Cancelar</button>
+                <button type="submit" class="btn-primary">Criar Veículo</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Variables globais
+let debounceTimer;
+const DEBOUNCE_DELAY = 800;
+
+// Auto-save motorista quando parar de digitar
+document.addEventListener('DOMContentLoaded', function() {
+    // Event listeners para inputs editáveis
+    document.querySelectorAll('.editable-input').forEach(input => {
+        input.addEventListener('input', function() {
+            const input = this;
+            const veiculo_id = input.dataset.id;
+            const originalValue = input.dataset.original;
+            
+            // Converter para maiúsculas
+            const cursorPosition = input.selectionStart;
+            const oldValue = input.value;
+            const newValue = oldValue.toUpperCase();
+            
+            if (oldValue !== newValue) {
+                input.value = newValue;
+                // Manter posição do cursor
+                input.setSelectionRange(cursorPosition, cursorPosition);
+            }
+            
+            // Limpar timer anterior
+            clearTimeout(debounceTimer);
+            
+            // Mostrar estado de salvamento
+            input.classList.remove('saved', 'error');
+            input.classList.add('saving');
+            
+            // Aguardar pausa na digitação
+            debounceTimer = setTimeout(() => {
+                const trimmedValue = input.value.trim();
+                
+                // Só salvar se mudou
+                if (trimmedValue !== originalValue) {
+                    salvarMotorista(veiculo_id, trimmedValue, input);
+                } else {
+                    input.classList.remove('saving');
+                }
+            }, DEBOUNCE_DELAY);
+        });
+        
+        // Salvar quando sair do campo
+        input.addEventListener('blur', function() {
+            clearTimeout(debounceTimer);
+            const veiculo_id = this.dataset.id;
+            
+            // Garantir que está em maiúsculas
+            this.value = this.value.toUpperCase();
+            const newValue = this.value.trim();
+            const originalValue = this.dataset.original;
+            
+            if (newValue !== originalValue) {
+                this.classList.remove('saved', 'error');
+                this.classList.add('saving');
+                salvarMotorista(veiculo_id, newValue, this);
+            }
+        });
+    });
+    
+    // Busca em tempo real
+    document.getElementById('searchInput').addEventListener('input', function() {
+        filtrarTabela(this.value);
+    });
+});
+
+// Função para salvar motorista
+async function salvarMotorista(veiculo_id, motorista, inputElement) {
+    try {
+        const response = await fetch('/trucks/api/atualizar-motorista/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            },
+            body: JSON.stringify({
+                id: veiculo_id,
+                motorista: motorista
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            inputElement.classList.remove('saving', 'error');
+            inputElement.classList.add('saved');
+            inputElement.dataset.original = motorista;
+            
+            // Remover classe saved após 2 segundos
+            setTimeout(() => {
+                inputElement.classList.remove('saved');
+            }, 2000);
+            
+            mostrarNotificacao('Motorista atualizado com sucesso!', 'success');
+        } else {
+            throw new Error(data.error || 'Erro ao salvar');
+        }
+        
+    } catch (error) {
+        inputElement.classList.remove('saving', 'saved');
+        inputElement.classList.add('error');
+        mostrarNotificacao('Erro ao salvar: ' + error.message, 'error');
+        
+        // Reverter para valor original
+        setTimeout(() => {
+            inputElement.value = inputElement.dataset.original;
+            inputElement.classList.remove('error');
+        }, 3000);
+    }
+}
+
+// Modal Novo Veículo
+function abrirModalNovoVeiculo() {
+    document.getElementById('modalNovoVeiculo').style.display = 'block';
+    document.getElementById('novaPlaca').focus();
+}
+
+function fecharModalNovoVeiculo() {
+    document.getElementById('modalNovoVeiculo').style.display = 'none';
+    document.getElementById('formNovoVeiculo').reset();
+}
+
+// Criar novo veículo
+document.getElementById('formNovoVeiculo').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const veiid = document.getElementById('novoVeiId').value;
+    const placa = document.getElementById('novaPlaca').value.trim().toUpperCase();
+    const motorista = document.getElementById('novoMotorista').value.trim();
+    
+    if (!placa) {
+        mostrarNotificacao('Placa é obrigatória', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/trucks/api/criar-veiculo/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            },
+            body: JSON.stringify({
+                veiid: veiid || null,
+                placa: placa,
+                motorista: motorista
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarNotificacao(data.message, 'success');
+            fecharModalNovoVeiculo();
+            
+            // Adicionar nova linha na tabela
+            adicionarLinhaTabela(data.veiculo);
+            atualizarContador();
+            
+        } else {
+            mostrarNotificacao(data.error, 'error');
+        }
+        
+    } catch (error) {
+        mostrarNotificacao('Erro ao criar veículo: ' + error.message, 'error');
+    }
+});
+
+// Deletar veículo
+async function deletarVeiculo(veiculo_id, placa) {
+    if (!confirm(`Tem certeza que deseja deletar o veículo ${placa}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/trucks/api/deletar-veiculo/${veiculo_id}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            mostrarNotificacao(data.message, 'success');
+            
+            // Remover linha da tabela
+            document.querySelector(`tr[data-id="${veiculo_id}"]`).remove();
+            atualizarContador();
+            
+        } else {
+            mostrarNotificacao(data.error, 'error');
+        }
+        
+    } catch (error) {
+        mostrarNotificacao('Erro ao deletar veículo: ' + error.message, 'error');
+    }
+}
+
+// Filtrar tabela
+function filtrarTabela(termo) {
+    const rows = document.querySelectorAll('#veiculosTable tbody tr');
+    termo = termo.toLowerCase();
+    
+    rows.forEach(row => {
+        const placa = row.cells[1]?.textContent.toLowerCase() || '';
+        const motorista = row.cells[2]?.querySelector('input')?.value.toLowerCase() || '';
+        
+        if (placa.includes(termo) || motorista.includes(termo)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Adicionar linha na tabela
+function adicionarLinhaTabela(veiculo) {
+    const tbody = document.querySelector('#veiculosTable tbody');
+    
+    // Remover linha de "nenhum veículo" se existir
+    const emptyRow = tbody.querySelector('td[colspan="4"]');
+    if (emptyRow) {
+        emptyRow.parentElement.remove();
+    }
+    
+    const row = document.createElement('tr');
+    row.dataset.id = veiculo.id;
+    row.innerHTML = `
+        <td>${veiculo.veiid || '-'}</td>
+        <td>${veiculo.placa}</td>
+        <td>
+            <input type="text" 
+                   class="editable-input" 
+                   value="${veiculo.mot || ''}" 
+                   data-id="${veiculo.id}"
+                   data-original="${veiculo.mot || ''}"
+                   placeholder="Digite o nome do motorista...">
+        </td>
+        <td>
+            <button class="btn-action btn-delete" onclick="deletarVeiculo(${veiculo.id}, '${veiculo.placa}')">
+                <i class="fas fa-trash"></i>
+                Deletar
+            </button>
+        </td>
+    `;
+    
+    tbody.appendChild(row);
+    
+    // Adicionar event listeners para o novo input
+    const newInput = row.querySelector('.editable-input');
+    newInput.addEventListener('input', function() {
+        const input = this;
+        const veiculo_id = input.dataset.id;
+        const originalValue = input.dataset.original;
+        
+        // Converter para maiúsculas
+        const cursorPosition = input.selectionStart;
+        const oldValue = input.value;
+        const newValue = oldValue.toUpperCase();
+        
+        if (oldValue !== newValue) {
+            input.value = newValue;
+            // Manter posição do cursor
+            input.setSelectionRange(cursorPosition, cursorPosition);
+        }
+        
+        clearTimeout(debounceTimer);
+        input.classList.remove('saved', 'error');
+        input.classList.add('saving');
+        
+        debounceTimer = setTimeout(() => {
+            const trimmedValue = input.value.trim();
+            if (trimmedValue !== originalValue) {
+                salvarMotorista(veiculo_id, trimmedValue, input);
+            } else {
+                input.classList.remove('saving');
+            }
+        }, DEBOUNCE_DELAY);
+    });
+    
+    newInput.addEventListener('blur', function() {
+        clearTimeout(debounceTimer);
+        const veiculo_id = this.dataset.id;
+        
+        // Garantir que está em maiúsculas
+        this.value = this.value.toUpperCase();
+        const newValue = this.value.trim();
+        const originalValue = this.dataset.original;
+        
+        if (newValue !== originalValue) {
+            this.classList.remove('saved', 'error');
+            this.classList.add('saving');
+            salvarMotorista(veiculo_id, newValue, this);
+        }
+    });
+}
+
+// Atualizar contador
+function atualizarContador() {
+    const total = document.querySelectorAll('#veiculosTable tbody tr').length;
+    document.getElementById('totalVeiculos').textContent = total;
+}
+
+// Mostrar notificação
+function mostrarNotificacao(mensagem, tipo) {
+    const notification = document.createElement('div');
+    notification.className = `notification ${tipo}`;
+    
+    const icon = tipo === 'success' ? 'fas fa-check' : 'fas fa-exclamation-triangle';
+    notification.innerHTML = `
+        <i class="${icon}"></i>
+        ${mensagem}
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 4000);
+}
+
+// Fechar modal clicando fora
+document.getElementById('modalNovoVeiculo').addEventListener('click', function(e) {
+    if (e.target === this) {
+        fecharModalNovoVeiculo();
+    }
+});
+
+// Fechar modal com ESC
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        fecharModalNovoVeiculo();
+    }
+});
+
+// Formatação automática da placa
+document.getElementById('novaPlaca').addEventListener('input', function() {
+    this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+});
+
+// Formatação automática do motorista no modal
+document.getElementById('novoMotorista').addEventListener('input', function() {
+    const cursorPosition = this.selectionStart;
+    const oldValue = this.value;
+    const newValue = oldValue.toUpperCase();
+    
+    if (oldValue !== newValue) {
+        this.value = newValue;
+        // Manter posição do cursor
+        this.setSelectionRange(cursorPosition, cursorPosition);
+    }
+});
+</script>
+
+{% csrf_token %}
+{% endblock %}
