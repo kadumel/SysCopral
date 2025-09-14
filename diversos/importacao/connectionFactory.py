@@ -11,9 +11,9 @@ def conexao():
         conn = pyodbc.connect(
             f'Driver={{{os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")}}};'
             f'Server={os.getenv("DB_HOST", "localhost")};'
-            f'uid={os.getenv("DB_USER", "")};'
-            f'pwd={os.getenv("DB_PASSWORD", "")};'
-            f'Database={os.getenv("DB_NAME", "")};'
+            f'uid={os.getenv("DB_USER", "sa")};'
+            f'pwd={os.getenv("DB_PASSWORD", "123!@#qwe")};'
+            f'Database={os.getenv("DB_NAME", "SysCopralPrd")};'
             f'Encrypt={os.getenv("DB_ENCRYPT", "yes")};'
             f'TrustServerCertificate={os.getenv("DB_TRUST_SERVER_CERTIFICATE", "yes")};'
         )
