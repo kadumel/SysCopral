@@ -1,0 +1,208 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <title>Copral - Logout</title>
+    <style>
+        :root {
+            --primary-color: #0056b3;
+            --secondary-color: #ff6b00;
+            --text-color: #333;
+            --light-gray: #f8f9fa;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+            min-height: 100vh;
+            font-family: 'Poppins', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 107, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .logout-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 450px;
+            width: 90%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            animation: slideUp 0.8s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            width: 100px;
+            height: auto;
+            margin-bottom: 2rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .logout-title {
+            color: var(--primary-color);
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .logout-message {
+            color: var(--text-color);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            color: #10b981;
+            margin-bottom: 1.5rem;
+            animation: bounce 1s ease-in-out;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+
+        .btn-login {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 86, 179, 0.3);
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 86, 179, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+
+        .logout-footer {
+            margin-top: 2rem;
+            color: var(--text-color);
+            opacity: 0.6;
+            font-size: 0.9rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .logout-container {
+                padding: 2rem;
+                margin: 1rem;
+            }
+
+            .logout-title {
+                font-size: 1.5rem;
+            }
+
+            .success-icon {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="logout-container">
+        <img src="{% static 'img/logo.png' %}" alt="Copral Logo" class="logo">
+        
+        <div class="success-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        
+        <h1 class="logout-title">Logout Realizado</h1>
+        
+        <p class="logout-message">
+            Você foi desconectado com sucesso do sistema. <br>
+            Obrigado por usar o sistema Copral!
+        </p>
+        
+        <a href="{% url 'login' %}" class="btn-login">
+            <i class="fas fa-sign-in-alt"></i>
+            Fazer Login Novamente
+        </a>
+        
+        <div class="logout-footer">
+            <p>© 2024 Copral. Todos os direitos reservados.</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Redirecionar automaticamente após 30 segundos
+        setTimeout(function() {
+            window.location.href = "{% url 'login' %}";
+        }, 30000);
+        
+        // Adicionar efeito de parallax suave
+        document.addEventListener('mousemove', function(e) {
+            const container = document.querySelector('.logout-container');
+            const x = (e.clientX / window.innerWidth - 0.5) * 20;
+            const y = (e.clientY / window.innerHeight - 0.5) * 20;
+            
+            container.style.transform = `translateX(${x}px) translateY(${y}px)`;
+        });
+    </script>
+</body>
+</html>
