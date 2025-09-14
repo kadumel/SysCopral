@@ -93,7 +93,7 @@ class TrucksPosicaoCarroApi(models.Model):
     veiid = models.IntegerField(db_column='veiID', blank=True, null=True)  # Field name made lowercase.
     dt = models.DateTimeField(blank=True, null=True)
     lat = models.CharField(max_length=10, blank=True, null=True)
-    lon = models.CharField(max_length=10, blank=True, null=True)que 
+    lon = models.CharField(max_length=10, blank=True, null=True) 
     mun = models.CharField(max_length=50, blank=True, null=True)
     uf = models.CharField(max_length=2, blank=True, null=True)
     rod = models.CharField(max_length=50, blank=True, null=True)
