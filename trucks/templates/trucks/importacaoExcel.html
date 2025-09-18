@@ -1,0 +1,1167 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Importação Excel - Copral{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #dc2626;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .importacao-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 800px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .main-content {
+        margin-left: 250px;
+    }
+
+    /* Header + Upload Section */
+    .upload-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        margin-bottom: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .upload-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-gradient);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .page-title {
+        text-align: center;
+        margin-bottom: 2rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+
+    .page-title i {
+        font-size: 2.2rem;
+        color: var(--secondary-color);
+    }
+
+    .upload-area {
+        border: 2px dashed #cbd5e1;
+        border-radius: var(--border-radius);
+        padding: 3rem 2rem;
+        text-align: center;
+        transition: var(--transition);
+        background: #f8fafc;
+        margin-bottom: 2rem;
+    }
+
+    .upload-area:hover {
+        border-color: var(--primary-color);
+        background: #f0f9ff;
+    }
+
+    .upload-area.dragover {
+        border-color: var(--primary-color);
+        background: #eff6ff;
+        transform: scale(1.02);
+    }
+
+    /* Transições suaves para limpeza visual */
+    .results-section {
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .alert {
+        transition: opacity 0.3s ease;
+    }
+
+    .upload-area {
+        transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    .upload-icon {
+        font-size: 3rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+    }
+
+    .upload-text {
+        font-size: 1.1rem;
+        color: var(--text-color);
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .upload-hint {
+        font-size: 0.9rem;
+        color: var(--text-light);
+        margin-bottom: 1.5rem;
+    }
+
+    .file-input-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    .file-input {
+        position: absolute;
+        left: -9999px;
+        opacity: 0;
+    }
+
+    .btn-file-select {
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+    }
+
+    .btn-file-select:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+    }
+
+    .selected-files {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background: #f1f5f9;
+        border-radius: 8px;
+        display: none;
+    }
+
+    .selected-files.show {
+        display: block;
+    }
+
+    .selected-files h4 {
+        margin: 0 0 1rem 0;
+        color: var(--text-color);
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    .file-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .file-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .file-item:last-child {
+        border-bottom: none;
+    }
+
+    .file-name {
+        font-size: 0.9rem;
+        color: var(--text-color);
+    }
+
+    .file-size {
+        font-size: 0.8rem;
+        color: var(--text-light);
+    }
+
+    .btn-upload {
+        background: var(--success-gradient);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+        margin-top: 1rem;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .btn-upload:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+    }
+
+    .btn-upload:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Results Section */
+    .results-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        margin-bottom: 1rem;
+        display: none;
+    }
+
+    .results-section.show {
+        display: block;
+        animation: slideUp 0.6s ease-out;
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .results-title {
+        text-align: center;
+        margin-bottom: 2rem;
+        color: var(--success-color);
+        font-size: 1.5rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+
+    .results-summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .summary-card {
+        background: var(--success-gradient);
+        color: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        text-align: center;
+        box-shadow: var(--shadow-medium);
+    }
+
+    .summary-value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .summary-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .files-details {
+        background: #f8fafc;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .files-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .files-table th {
+        background: var(--primary-color);
+        color: white;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .files-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 0.9rem;
+    }
+
+    .files-table tbody tr:hover {
+        background: #f0f9ff;
+    }
+
+    .status-success {
+        color: var(--success-color);
+        font-weight: 600;
+    }
+
+    .status-error {
+        color: var(--danger-color);
+        font-weight: 600;
+    }
+
+    /* Messages */
+    .alert {
+        border-radius: 8px;
+        border: none;
+        padding: 1rem 1.5rem;
+        margin: 1rem 0;
+        box-shadow: var(--shadow-medium);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+        color: #065f46;
+        border-left: 4px solid var(--success-color);
+    }
+
+    .alert-warning {
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        color: #92400e;
+        border-left: 4px solid var(--warning-color);
+    }
+
+    .alert-danger {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #dc2626;
+        border-left: 4px solid var(--danger-color);
+    }
+
+    /* Animações para notificações */
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+
+    /* Modal de Progresso */
+    .progress-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(5px);
+    }
+
+    .progress-modal-content {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        width: 90%;
+        max-width: 600px;
+        max-height: 80vh;
+        overflow: hidden;
+        animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .progress-modal-header {
+        background: var(--primary-gradient);
+        color: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .progress-modal-header h3 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .progress-modal-body {
+        padding: 2rem;
+    }
+
+    .progress-info {
+        margin-bottom: 1.5rem;
+    }
+
+    .progress-status {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .progress-numbers {
+        font-size: 0.9rem;
+        color: var(--text-light);
+    }
+
+    .progress-bar-container {
+        position: relative;
+        margin-bottom: 2rem;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 20px;
+        background: #e5e7eb;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: var(--success-gradient);
+        border-radius: 10px;
+        transition: width 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .progress-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+            45deg,
+            transparent 35%,
+            rgba(255, 255, 255, 0.3) 50%,
+            transparent 65%
+        );
+        animation: progressShine 2s infinite;
+    }
+
+    @keyframes progressShine {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(100%);
+        }
+    }
+
+    .progress-percentage {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-color);
+        text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+    }
+
+    .progress-details {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .current-file {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+    }
+
+    .current-file i {
+        color: var(--success-color);
+    }
+
+    .progress-log {
+        max-height: 150px;
+        overflow-y: auto;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    .progress-log-item {
+        padding: 0.25rem 0;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .progress-log-item:last-child {
+        border-bottom: none;
+    }
+
+    .progress-log-item.success {
+        color: var(--success-color);
+    }
+
+    .progress-log-item.error {
+        color: var(--danger-color);
+    }
+
+    .progress-modal-footer {
+        padding: 1rem 2rem;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+    }
+
+    .btn-cancel, .btn-close {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-cancel {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-cancel:hover {
+        background: #b91c1c;
+        transform: translateY(-1px);
+    }
+
+    .btn-close {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-close:hover {
+        background: #059669;
+        transform: translateY(-1px);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+        }
+        
+        .importacao-main-content {
+            padding: 1rem 0.5rem;
+        }
+
+        .upload-section {
+            padding: 1.5rem;
+        }
+
+        .upload-area {
+            padding: 2rem 1rem;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+        }
+
+        .results-summary {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="importacao-main-content">
+    <!-- Upload Section -->
+    <div class="upload-section">
+        <h1 class="page-title">
+            <i class="fas fa-file-excel"></i>
+            Importação de Arquivos Excel
+        </h1>
+        
+        <form method="POST" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div class="upload-text">Selecione os arquivos Excel para importação</div>
+                <div class="upload-hint">Ou arraste e solte os arquivos aqui</div>
+                
+                <div class="file-input-wrapper">
+                    <input type="file" id="fileInput" name="excel_files" multiple accept=".xlsx,.xls,.xlsm" class="file-input">
+                    <button type="button" id="btnFileSelect" class="btn-file-select">
+                        <i class="fas fa-folder-open"></i>
+                        Selecionar Arquivos
+                    </button>
+                </div>
+            </div>
+            
+            <div class="selected-files" id="selectedFiles">
+                <h4>Arquivos Selecionados:</h4>
+                <ul class="file-list" id="fileList"></ul>
+                <button type="submit" class="btn-upload" id="uploadBtn" disabled>
+                    <i class="fas fa-upload"></i>
+                    Importar Arquivos
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {% if message.tags == 'success' %}
+                    <i class="fas fa-check-circle"></i>
+                {% elif message.tags == 'warning' %}
+                    <i class="fas fa-exclamation-triangle"></i>
+                {% elif message.tags == 'error' %}
+                    <i class="fas fa-times-circle"></i>
+                {% endif %}
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Results Section -->
+    {% if import_results %}
+    <div class="results-section show">
+        <h2 class="results-title">
+            <i class="fas fa-check-circle"></i>
+            Importação Concluída
+        </h2>
+        
+        <div class="results-summary">
+            <div class="summary-card">
+                <div class="summary-value">{{ import_results.total_arquivos }}</div>
+                <div class="summary-label">Arquivos Processados</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-value">{{ import_results.total_registros }}</div>
+                <div class="summary-label">Total de Registros</div>
+            </div>
+        </div>
+        
+        {% if import_results.detalhes_arquivos %}
+        <div class="files-details">
+            <table class="files-table">
+                <thead>
+                    <tr>
+                        <th>Arquivo</th>
+                        <th>Status</th>
+                        <th>Registros</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for arquivo in import_results.detalhes_arquivos %}
+                    <tr>
+                        <td>{{ arquivo.nome }}</td>
+                        <td>
+                            {% if arquivo.sucesso %}
+                                <span class="status-success">
+                                    <i class="fas fa-check"></i> Sucesso
+                                </span>
+                            {% else %}
+                                <span class="status-error">
+                                    <i class="fas fa-times"></i> Erro
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ arquivo.registros|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Progresso -->
+<div id="progressModal" class="progress-modal" style="display: none;">
+    <div class="progress-modal-content">
+        <div class="progress-modal-header">
+            <h3>
+                <i class="fas fa-upload"></i>
+                Importando Arquivos Excel
+            </h3>
+        </div>
+        
+        <div class="progress-modal-body">
+            <div class="progress-info">
+                <div class="progress-status">
+                    <span id="progressText">Preparando importação...</span>
+                </div>
+                <div class="progress-numbers">
+                    <span id="progressCount">0 de 0</span> arquivos processados
+                </div>
+            </div>
+            
+            <div class="progress-bar-container">
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+                <div id="progressPercentage" class="progress-percentage">0%</div>
+            </div>
+            
+            <div class="progress-details">
+                <div id="currentFile" class="current-file">
+                    <i class="fas fa-file-excel"></i>
+                    <span>Aguardando...</span>
+                </div>
+                <div id="progressLog" class="progress-log"></div>
+            </div>
+        </div>
+        
+        <div class="progress-modal-footer">
+            <button id="cancelImportBtn" class="btn-cancel" style="display: none;">
+                <i class="fas fa-times"></i>
+                Cancelar
+            </button>
+            <button id="closeProgressBtn" class="btn-close" style="display: none;">
+                <i class="fas fa-check"></i>
+                Fechar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('fileInput');
+    const uploadArea = document.getElementById('uploadArea');
+    const selectedFiles = document.getElementById('selectedFiles');
+    const fileList = document.getElementById('fileList');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadForm = document.getElementById('uploadForm');
+
+    // Drag and drop functionality
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        handleFiles(files);
+    });
+
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        handleFiles(e.target.files);
+    });
+
+    // Interceptar clique no botão de seleção para limpar dados anteriores
+    document.getElementById('btnFileSelect').addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Apenas limpar visualmente (sem requisição ao servidor)
+        limparResultadosVisuais();
+        
+        // Abrir seletor de arquivos diretamente
+        setTimeout(() => {
+            fileInput.click();
+        }, 100);
+    });
+
+    function handleFiles(files) {
+        if (files.length === 0) {
+            selectedFiles.classList.remove('show');
+            uploadBtn.disabled = true;
+            return;
+        }
+
+        // Filter Excel files
+        const excelFiles = Array.from(files).filter(file => {
+            const extension = file.name.toLowerCase().split('.').pop();
+            return ['xlsx', 'xls', 'xlsm'].includes(extension);
+        });
+
+        if (excelFiles.length === 0) {
+            alert('Por favor, selecione apenas arquivos Excel (.xlsx, .xls, .xlsm)');
+            return;
+        }
+
+        // Update file input with filtered files
+        const dt = new DataTransfer();
+        excelFiles.forEach(file => dt.items.add(file));
+        fileInput.files = dt.files;
+
+        // Display selected files
+        fileList.innerHTML = '';
+        excelFiles.forEach(file => {
+            const li = document.createElement('li');
+            li.className = 'file-item';
+            li.innerHTML = `
+                <span class="file-name">
+                    <i class="fas fa-file-excel" style="color: var(--success-color); margin-right: 0.5rem;"></i>
+                    ${file.name}
+                </span>
+                <span class="file-size">${formatFileSize(file.size)}</span>
+            `;
+            fileList.appendChild(li);
+        });
+
+        selectedFiles.classList.add('show');
+        uploadBtn.disabled = false;
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+   
+
+    function limparResultadosVisuais() {
+        // Remover seção de resultados da importação anterior se existir
+        const resultsSection = document.querySelector('.results-section');
+        if (resultsSection) {
+            resultsSection.style.opacity = '0';
+            resultsSection.style.transform = 'translateY(-20px)';
+            setTimeout(() => {
+                resultsSection.style.display = 'none';
+            }, 300);
+        }
+
+        // Limpar arquivos selecionados
+        if (selectedFiles) {
+            selectedFiles.classList.remove('show');
+        }
+        
+        if (fileList) {
+            fileList.innerHTML = '';
+        }
+        
+        if (uploadBtn) {
+            uploadBtn.disabled = true;
+        }
+
+        // Resetar input de arquivo
+        if (fileInput) {
+            fileInput.value = '';
+        }
+
+        // Remover mensagens anteriores
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            alert.style.opacity = '0';
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.parentNode.removeChild(alert);
+                }
+            }, 300);
+        });
+
+        // Adicionar efeito visual de limpeza
+        const uploadArea = document.getElementById('uploadArea');
+        if (uploadArea) {
+            uploadArea.style.transform = 'scale(0.98)';
+            uploadArea.style.opacity = '0.7';
+            setTimeout(() => {
+                uploadArea.style.transform = 'scale(1)';
+                uploadArea.style.opacity = '1';
+            }, 200);
+        }
+    }
+
+    function mostrarNotificacao(mensagem, tipo) {
+        // Criar elemento de notificação
+        const notificacao = document.createElement('div');
+        notificacao.className = `alert alert-${tipo === 'success' ? 'success' : tipo === 'error' ? 'danger' : 'warning'}`;
+        notificacao.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            animation: slideIn 0.3s ease-out;
+        `;
+        
+        notificacao.innerHTML = `
+            <i class="fas fa-${tipo === 'success' ? 'check-circle' : tipo === 'error' ? 'times-circle' : 'info-circle'}"></i>
+            ${mensagem}
+        `;
+        
+        // Adicionar ao documento
+        document.body.appendChild(notificacao);
+        
+        // Remover após 5 segundos
+        setTimeout(() => {
+            notificacao.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => {
+                if (notificacao.parentNode) {
+                    notificacao.parentNode.removeChild(notificacao);
+                }
+            }, 300);
+        }, 5000);
+    }
+
+    // Form submission - interceptar para usar processamento individual
+    uploadForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const files = fileInput.files;
+        if (files.length === 0) {
+            mostrarNotificacao('Por favor, selecione pelo menos um arquivo', 'error');
+            return;
+        }
+        
+        // Iniciar processamento com modal de progresso
+        iniciarImportacaoComProgresso(files);
+    });
+
+    // Variáveis globais para controle de progresso
+    let importacaoAtiva = false;
+    let importacaoCancelada = false;
+
+    function iniciarImportacaoComProgresso(files) {
+        importacaoAtiva = true;
+        importacaoCancelada = false;
+        
+        // Mostrar modal de progresso
+        const progressModal = document.getElementById('progressModal');
+        const progressText = document.getElementById('progressText');
+        const progressCount = document.getElementById('progressCount');
+        const progressFill = document.getElementById('progressFill');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const currentFile = document.getElementById('currentFile');
+        const progressLog = document.getElementById('progressLog');
+        const cancelBtn = document.getElementById('cancelImportBtn');
+        const closeBtn = document.getElementById('closeProgressBtn');
+        
+        // Resetar estado
+        progressText.textContent = 'Iniciando importação...';
+        progressCount.textContent = `0 de ${files.length}`;
+        progressFill.style.width = '0%';
+        progressPercentage.textContent = '0%';
+        currentFile.querySelector('span').textContent = 'Preparando...';
+        progressLog.innerHTML = '';
+        cancelBtn.style.display = 'inline-flex';
+        closeBtn.style.display = 'none';
+        
+        // Mostrar modal
+        progressModal.style.display = 'flex';
+        
+        // Event listeners do modal
+        cancelBtn.onclick = function() {
+            importacaoCancelada = true;
+            importacaoAtiva = false;
+            progressText.textContent = 'Importação cancelada';
+            cancelBtn.style.display = 'none';
+            closeBtn.style.display = 'inline-flex';
+        };
+        
+        closeBtn.onclick = function() {
+            progressModal.style.display = 'none';
+            // Recarregar página para mostrar resultados
+            if (!importacaoCancelada) {
+                location.reload();
+            }
+        };
+        
+        // Processar arquivos sequencialmente
+        processarArquivosSequencialmente(files, 0, {
+            totalFiles: files.length,
+            processedFiles: 0,
+            totalRecords: 0,
+            errors: []
+        });
+    }
+
+    async function processarArquivosSequencialmente(files, index, stats) {
+        if (index >= files.length || importacaoCancelada) {
+            // Importação concluída ou cancelada
+            finalizarImportacao(stats);
+            return;
+        }
+        
+        const file = files[index];
+        const progressText = document.getElementById('progressText');
+        const progressCount = document.getElementById('progressCount');
+        const progressFill = document.getElementById('progressFill');
+        const progressPercentage = document.getElementById('progressPercentage');
+        const currentFile = document.getElementById('currentFile');
+        const progressLog = document.getElementById('progressLog');
+        
+        // Atualizar interface
+        progressText.textContent = `Processando arquivo ${index + 1} de ${files.length}`;
+        currentFile.querySelector('span').textContent = file.name;
+        
+        // Criar FormData para o arquivo atual
+        const formData = new FormData();
+        formData.append('arquivo', file);
+        formData.append('index', index);
+        formData.append('total', files.length);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        try {
+            const response = await fetch('{% url "trucks:processar_arquivo_individual" %}', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Sucesso
+                stats.processedFiles++;
+                stats.totalRecords += data.registros_importados;
+                
+                // Atualizar progresso
+                const percentage = data.progresso_percentual;
+                progressFill.style.width = `${percentage}%`;
+                progressPercentage.textContent = `${percentage}%`;
+                progressCount.textContent = `${data.index_atual} de ${data.total_arquivos}`;
+                
+                // Adicionar ao log
+                adicionarLogItem(progressLog, 'success', `${file.name}: ${data.registros_importados} registros importados`);
+                
+            } else {
+                // Erro
+                stats.errors.push(`${file.name}: ${data.error}`);
+                adicionarLogItem(progressLog, 'error', `${file.name}: Erro - ${data.error}`);
+            }
+            
+        } catch (error) {
+            // Erro de conexão
+            stats.errors.push(`${file.name}: Erro de conexão`);
+            adicionarLogItem(progressLog, 'error', `${file.name}: Erro de conexão`);
+        }
+        
+        // Processar próximo arquivo após delay
+        setTimeout(() => {
+            processarArquivosSequencialmente(files, index + 1, stats);
+        }, 500);
+    }
+
+    function adicionarLogItem(logContainer, type, message) {
+        const logItem = document.createElement('div');
+        logItem.className = `progress-log-item ${type}`;
+        logItem.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check' : 'times'}"></i>
+            <span>${message}</span>
+        `;
+        logContainer.appendChild(logItem);
+        
+        // Scroll para o final
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function finalizarImportacao(stats) {
+        const progressText = document.getElementById('progressText');
+        const cancelBtn = document.getElementById('cancelImportBtn');
+        const closeBtn = document.getElementById('closeProgressBtn');
+        
+        importacaoAtiva = false;
+        
+        if (importacaoCancelada) {
+            progressText.textContent = 'Importação cancelada pelo usuário';
+        } else if (stats.errors.length === 0) {
+            progressText.textContent = `Importação concluída com sucesso! ${stats.totalRecords} registros importados`;
+        } else if (stats.processedFiles > 0) {
+            progressText.textContent = `Importação concluída com ${stats.errors.length} erro(s). ${stats.totalRecords} registros importados`;
+        } else {
+            progressText.textContent = 'Importação falhou - nenhum arquivo processado';
+        }
+        
+        cancelBtn.style.display = 'none';
+        closeBtn.style.display = 'inline-flex';
+    }
+});
+</script>
+{% endblock %}

@@ -413,6 +413,18 @@
         </h2>
         <div class="metrics-grid">
             <div class="metric-card">
+                <div class="metric-title">Placas Distintas</div>
+                <div class="metric-value">{{total_placas_distintas|default:"0"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Veículos Não Identificados</div>
+                <div class="metric-value">{{veiculos_nao_identificados|default:"0"}}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-title">Veículos sem Motoristas</div>
+                <div class="metric-value">{{placas_sem_motorista|default:"0"}}</div>
+            </div>
+            <div class="metric-card">
                 <div class="metric-title">Tempo de Jornada</div>
                 <div class="metric-value">{{tJornada|default:"--:--"}}</div>
             </div>

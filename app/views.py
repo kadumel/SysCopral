@@ -19,9 +19,14 @@ from django.views.generic import ListView, TemplateView
 from .analitico import procedure, tempEventos
 from PIL import Image
 from django.db.models import Count, Q
-from trucks.models import TrucksPosicaoCarroApi, TrucksVeiculos
+from trucks.models import TrucksPosicaoCarroApi, TrucksVeiculos, TrucksImportadosExcel
 from django.utils import timezone
 from collections import defaultdict, OrderedDict
+import pandas as pd
+import os
+from django.conf import settings
+from datetime import datetime
+import logging
 
 @login_required
 def home(request):
@@ -150,55 +155,6 @@ class cartao_visita(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
         return render(request, self.template_name)
 
 @login_required
-def controleJornada(request):
-    query_motorista = 'select distinct motoristaRAS from vw_consolidado'
-    query_placa = 'select distinct placa from vw_consolidado'
-    placas = cf.getAll(query_placa)
-    motoristas = cf.getAll(query_motorista)
-
-    form = CamposForm(request.POST)
-    if request.method == 'POST':
-        print(request.POST.get('nome_placa'))
-        print(request.POST.get('data_inicial'))
-        print(request.POST.get('data_final'))
-        print(request.POST.get('selecao'))
-        np = request.POST.get('nome_placa')
-        da = request.POST.get('data_inicial')
-        df = request.POST.get('data_final')
-        slc = request.POST.get('selecao')
-
-        global query, sql
-        sql = f"set dateformat dmy select * from vw_consolidado where convert(date, data)  between '{da}' and '{df}'"
-        query_placa = 'select distinct placa from vw_consolidado'
-        query_motorista = 'select distinct motoristaRAS from vw_consolidado'
-        
-        if slc == 'todos':
-            query = f"{sql}"
-        elif slc == 'placa':
-            query = f"{sql} and placa = '{np}'"
-            print(query)
-        elif slc == 'motorista':
-            query = f"{sql} and motoristaRas = '{np}' "
-        result = cf.getAll(query)
-        if len(result) == 0:
-            messages.info(request, "Ops... Nenhum registro encontrado :(")
-
-        totais = procHoras(result)
-        return render(request, 'app/controleJornada.html', {'sqlConnect': result, 'form': form,
-                                              'tJornada': totais[0],
-                                              'paradoLigado': totais[1],
-                                              'veiMovimento': totais[2],
-                                              'horarioAlmoco': totais[3],
-                                              'tempoEspera': totais[4],
-                                              'tempoDescanso': totais[5],
-                                              'tempoNoturno': totais[6],
-                                              'extrasDiurnas': totais[7],
-                                              'extraNoturno': totais[8],
-                                              'result_placa': placas,
-                                              'result_motorista': motoristas,
-                                              })
-    else:
-        return render(request, 'app/controleJornada.html', {'form': form, 'result_placa': placas, 'result_motorista': motoristas})
 
 
 @login_required
@@ -869,138 +825,3 @@ def relatorio_movimento(request):
         }
         return render(request, template_name, context)
 
-
-class DashboardJornadaView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
-    """
-    Dashboard para acompanhamento das importações de posições dos veículos.
-    Mostra uma matriz com veículos nas linhas e dias nas colunas.
-    """
-    permission_required = 'app.acessar_jornada'
-    template_name = 'app/dashboardJornada.html'
-    
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        
-        # Obter parâmetros de filtro
-        placa_filtro = self.request.GET.get('placa', '')
-        data_inicial = self.request.GET.get('data_inicial', '')
-        data_final = self.request.GET.get('data_final', '')
-        
-        # Configurar datas padrão (últimos 31 dias)
-        if not data_inicial or not data_final:
-            data_final_default = timezone.now().date()
-            data_inicial_default = data_final_default - timedelta(days=30)
-            data_inicial = data_inicial or data_inicial_default.strftime('%Y-%m-%d')
-            data_final = data_final or data_final_default.strftime('%Y-%m-%d')
-        
-        # Converter strings para objetos de data
-        try:
-            data_inicial_obj = datetime.strptime(data_inicial, '%Y-%m-%d').date()
-            data_final_obj = datetime.strptime(data_final, '%Y-%m-%d').date()
-        except ValueError:
-            # Se houver erro na conversão, usar padrão
-            data_final_obj = timezone.now().date()
-            data_inicial_obj = data_final_obj - timedelta(days=30)
-            data_inicial = data_inicial_obj.strftime('%Y-%m-%d')
-            data_final = data_final_obj.strftime('%Y-%m-%d')
-        
-        # Obter lista de veículos
-        veiculos_query = TrucksVeiculos.objects.all()
-        if placa_filtro:
-            veiculos_query = veiculos_query.filter(placa__icontains=placa_filtro)
-        
-        veiculos = list(veiculos_query.order_by('placa'))
-        
-        # Gerar lista de dias no período
-        dias = []
-        current_date = data_inicial_obj
-        while current_date <= data_final_obj:
-            dias.append(current_date)
-            current_date += timedelta(days=1)
-        
-        # Consultar dados de posições agrupados por veiid e data
-        posicoes_data = TrucksPosicaoCarroApi.objects.filter(
-            dt__date__gte=data_inicial_obj,
-            dt__date__lte=data_final_obj
-        )
-        
-        # Se há filtro de placa, filtrar também as posições
-        if placa_filtro:
-            veiids_filtrados = [v.veiid for v in veiculos if v.veiid]
-            posicoes_data = posicoes_data.filter(veiid__in=veiids_filtrados)
-        
-        # Agrupar por veiid e data, contando registros
-        from django.db.models import DateField
-        from django.db.models.functions import Cast
-        
-        posicoes_agrupadas = (
-            posicoes_data
-            .annotate(data=Cast('dt', DateField()))
-            .values('veiid', 'data')
-            .annotate(count=Count('id'))
-            .order_by('veiid', 'data')
-        )
-        
-        # Criar matriz de dados
-        matriz = defaultdict(lambda: defaultdict(int))
-        for item in posicoes_agrupadas:
-            matriz[item['veiid']][item['data']] = item['count']
-        
-        # Preparar dados para o template
-        dados_matriz = []
-        total_por_dia = defaultdict(int)
-        
-        for veiculo in veiculos:
-            linha = {
-                'veiculo': veiculo,
-                'dias': []
-            }
-            total_veiculo = 0
-            
-            for dia in dias:
-                count = matriz[veiculo.veiid].get(dia, 0) if veiculo.veiid else 0
-                linha['dias'].append({
-                    'data': dia,
-                    'count': count
-                })
-                total_veiculo += count
-                total_por_dia[dia] += count
-            
-            linha['total'] = total_veiculo
-            
-            # Só adicionar veículos que têm pelo menos 1 registro no período
-            if total_veiculo > 0:
-                dados_matriz.append(linha)
-        
-        # Calcular totais
-        total_geral = sum(total_por_dia.values())
-        total_veiculos = len(dados_matriz)  # Apenas veículos com registros
-        
-        # Calcular métricas
-        dias_periodo = (data_final_obj - data_inicial_obj).days + 1
-        media_registros_dia = total_geral / dias_periodo if dias_periodo > 0 else 0
-        media_registros_veiculo = total_geral / total_veiculos if total_veiculos > 0 else 0
-        
-        # Calcular dias com total zerado
-        dias_zerados = 0
-        for dia in dias:
-            if total_por_dia.get(dia, 0) == 0:
-                dias_zerados += 1
-        
-        context.update({
-            'dados_matriz': dados_matriz,
-            'dias': dias,
-            'total_por_dia': total_por_dia,
-            'total_geral': total_geral,
-            'total_veiculos': total_veiculos,
-            'dias_periodo': dias_periodo,
-            'dias_zerados': dias_zerados,
-            'media_registros_dia': round(media_registros_dia, 1),
-            'media_registros_veiculo': round(media_registros_veiculo, 1),
-            'placa_filtro': placa_filtro,
-            'data_inicial': data_inicial,
-            'data_final': data_final,
-            'todas_placas': TrucksVeiculos.objects.values_list('placa', flat=True).order_by('placa')
-        })
-        
-        return context
