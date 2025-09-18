@@ -469,13 +469,13 @@
                 </a>
                 <ul class="sidebar-submenu" id="jornadas-submenu">
                     <li>
-                        <a href="{% url 'app:dashboardJornada' %}">
+                        <a href="{% url 'trucks:dashboardJornada' %}">
                             <i class="fas fa-chart-bar"></i>
                             Dashboard
                         </a>
                     </li>
                     <li>
-                        <a href="{% url 'app:controleJornada' %}">
+                        <a href="{% url 'trucks:controleJornada' %}">
                             <i class="fas fa-clock"></i>
                             Controle
                         </a>
@@ -484,6 +484,18 @@
                         <a href="{% url 'trucks:gestao_veiculos' %}">
                             <i class="fas fa-truck"></i>
                             Mot. e Veículos
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'trucks:importacaoExcel' %}">
+                            <i class="fas fa-file-excel"></i>
+                            Importação Excel
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{% url 'trucks:processamentoExcel' %}">
+                            <i class="fas fa-cogs"></i>
+                            Processamento Excel
                         </a>
                     </li>
                 </ul>

@@ -1,0 +1,694 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Processamento Excel - Copral{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --success-color: #10b981;
+        --warning-color: #f59e0b;
+        --danger-color: #dc2626;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: -1;
+    }
+
+    .processamento-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 1400px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .main-content {
+        margin-left: 250px;
+    }
+
+    /* Header + Filters */
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 0.75rem;
+        position: relative;
+    }
+
+    .header-filters::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-color);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .header-filters .page-title {
+        text-align: left;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .page-subtitle {
+        color: var(--text-light);
+        font-size: 1rem;
+        margin: 0 0 1.5rem 0;
+    }
+
+    .filters-form {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        align-items: end;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: var(--text-color);
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .form-label .required {
+        color: var(--danger-color);
+        font-size: 1.1em;
+    }
+
+    .form-control {
+        padding: 0.75rem 1rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        background: white;
+        color: var(--text-color);
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+    }
+
+    .form-control:disabled {
+        background-color: #f9fafb;
+        opacity: 0.7;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        justify-content: center;
+        min-width: 120px;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        color: white;
+        box-shadow: var(--shadow-medium);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .btn-primary:disabled {
+        background: #95a5a6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    /* Resultado */
+    .resultado-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-top: 0.75rem;
+        border-left: 4px solid var(--success-color);
+    }
+
+    .resultado-section h3 {
+        color: var(--success-color);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .resultado-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .info-item {
+        background: var(--light-gray);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #e5e7eb;
+    }
+
+    .info-item .label {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.5px;
+    }
+
+    .info-item .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .radio-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 15px;
+        background: white;
+        border-radius: var(--border-radius);
+        border: 2px solid var(--border-color);
+    }
+
+    .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border-radius: 6px;
+        transition: background-color 0.3s ease;
+        cursor: pointer;
+    }
+
+    .radio-option:hover {
+        background-color: rgba(52, 152, 219, 0.1);
+    }
+
+    .radio-option input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--secondary-color);
+    }
+
+    .radio-option label {
+        margin: 0;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+    .button-section {
+        display: flex;
+        justify-content: center;
+        margin-top: 30px;
+    }
+
+    .btn-processar {
+        background: linear-gradient(135deg, var(--success-color), #2ecc71);
+        color: white;
+        border: none;
+        padding: 15px 40px;
+        border-radius: var(--border-radius);
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: var(--shadow);
+    }
+
+    .btn-processar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .btn-processar:active {
+        transform: translateY(0);
+    }
+
+    .btn-processar:disabled {
+        background: #95a5a6;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .resultado-section {
+        background: var(--light-bg);
+        padding: 25px;
+        border-radius: var(--border-radius);
+        margin-top: 25px;
+        border-left: 4px solid var(--success-color);
+    }
+
+    .resultado-section h3 {
+        color: var(--success-color);
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .resultado-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+
+    .info-item {
+        background: white;
+        padding: 15px;
+        border-radius: 6px;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .info-item .label {
+        font-size: 12px;
+        color: #7f8c8d;
+        text-transform: uppercase;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .info-item .value {
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    }
+
+    .loading-content {
+        background: white;
+        padding: 30px;
+        border-radius: var(--border-radius);
+        text-align: center;
+        box-shadow: var(--shadow);
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid var(--light-bg);
+        border-top: 4px solid var(--secondary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+        .main-content {
+            margin-left: 0;
+        }
+        
+        .processamento-main-content {
+            padding: 1rem;
+        }
+
+        .filters-row {
+            grid-template-columns: 1fr;
+            gap: 1rem;
+        }
+
+        .header-filters .page-title {
+            font-size: 1.5rem;
+        }
+
+        .resultado-info {
+            grid-template-columns: 1fr;
+        }
+        
+        .btn {
+            width: 100%;
+        }
+    }
+
+    /* Mensagens Django */
+    .messages {
+        margin-bottom: 20px;
+    }
+
+    .alert {
+        padding: 15px 20px;
+        margin-bottom: 15px;
+        border-radius: var(--border-radius);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+
+    .alert-error {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .alert-warning {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="processamento-main-content">
+    <!-- Header + Filters -->
+    <div class="header-filters slide-up">
+        <h1 class="page-title">
+            <i class="fas fa-cogs"></i>
+            Processamento Excel
+        </h1>
+        <p class="page-subtitle">Execute procedures no banco de dados para processar dados Excel</p>
+        
+        <!-- Mensagens Django -->
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">
+                        {% if message.tags == 'success' %}
+                            <i class="fas fa-check-circle"></i>
+                        {% elif message.tags == 'error' %}
+                            <i class="fas fa-exclamation-circle"></i>
+                        {% elif message.tags == 'warning' %}
+                            <i class="fas fa-exclamation-triangle"></i>
+                        {% endif %}
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <!-- Formulário de Processamento -->
+        <form method="post" id="processamentoForm" class="filters-form">
+            {% csrf_token %}
+            
+            <div class="filters-row">
+                <div class="form-group">
+                    <label for="data_inicial" class="form-label">
+                        <i class="fas fa-calendar-day"></i>
+                        Data Inicial <span class="required">*</span>
+                    </label>
+                    <input type="date" 
+                           class="form-control" 
+                           id="data_inicial" 
+                           name="data_inicial" 
+                           value="{{ data_inicial|default:'' }}"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="data_final" class="form-label">
+                        <i class="fas fa-calendar-day"></i>
+                        Data Final <span class="required">*</span>
+                    </label>
+                    <input type="date" 
+                           class="form-control" 
+                           id="data_final" 
+                           name="data_final" 
+                           value="{{ data_final|default:'' }}"
+                           required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-filter"></i>
+                        Tipo de Processamento
+                    </label>
+                    <select class="form-control" name="tipo_processamento" id="tipo_processamento" onchange="togglePlacaField()">
+                        <option value="todos" {% if not tipo_processamento or tipo_processamento == 'todos' %}selected{% endif %}>
+                            Processar Todos
+                        </option>
+                        <option value="por_placa" {% if tipo_processamento == 'por_placa' %}selected{% endif %}>
+                            Por Placa Específica
+                        </option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="placaGroup" style="{% if not tipo_processamento or tipo_processamento == 'todos' %}display: none;{% endif %}">
+                    <label for="placa_especifica" class="form-label">
+                        <i class="fas fa-truck"></i>
+                        Placa do Veículo <span class="required">*</span>
+                    </label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="placa_especifica" 
+                           name="placa_especifica" 
+                           placeholder="Ex: ABC1234"
+                           value="{{ placa_especifica|default:'' }}"
+                           maxlength="7"
+                           style="text-transform: uppercase;">
+                </div>
+
+                <div class="form-group" style="align-self: end;">
+                    <button type="submit" class="btn btn-primary" id="btnProcessar">
+                        <i class="fas fa-play"></i>
+                        Executar Processamento
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Resultado do Processamento -->
+    {% if resultado_processamento %}
+    <div class="resultado-section">
+        <h3>
+            <i class="fas fa-check-circle"></i>
+            Resultado do Processamento
+        </h3>
+        
+        <div class="resultado-info">
+            <div class="info-item">
+                <div class="label">Placas Processadas</div>
+                <div class="value">{{ total_processados|default:0 }}</div>
+            </div>
+            
+            <div class="info-item">
+                <div class="label">Tempo (segundos)</div>
+                <div class="value">{{ tempo_processamento|default:0 }}s</div>
+            </div>
+            
+            <div class="info-item">
+                <div class="label">Período</div>
+                <div class="value">{{ data_inicial }} a {{ data_final }}</div>
+            </div>
+            
+            {% if placa_especifica %}
+            <div class="info-item">
+                <div class="label">Placa</div>
+                <div class="value">{{ placa_especifica }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+        <div class="spinner"></div>
+        <h4>Processando dados...</h4>
+        <p>Aguarde enquanto a procedure é executada no banco de dados.</p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('processamentoForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const btnProcessar = document.getElementById('btnProcessar');
+    const dataInicial = document.getElementById('data_inicial');
+    const dataFinal = document.getElementById('data_final');
+    const placaInput = document.getElementById('placa_especifica');
+
+    // Submissão do formulário
+    form.addEventListener('submit', function(e) {
+        if (!validarFormulario()) {
+            e.preventDefault();
+            return;
+        }
+
+        // Mostrar loading
+        loadingOverlay.style.display = 'flex';
+        btnProcessar.disabled = true;
+    });
+
+    // Validação do formulário
+    function validarFormulario() {
+        const inicial = new Date(dataInicial.value);
+        const final = new Date(dataFinal.value);
+        const tipoProcessamento = document.getElementById('tipo_processamento').value;
+
+        if (!dataInicial.value || !dataFinal.value) {
+            alert('Data inicial e final são obrigatórias');
+            return false;
+        }
+
+        if (inicial > final) {
+            alert('Data inicial deve ser menor ou igual à data final');
+            return false;
+        }
+
+        if (tipoProcessamento === 'por_placa' && !placaInput.value.trim()) {
+            alert('Placa deve ser informada quando selecionado "Por Placa"');
+            return false;
+        }
+
+        return true;
+    }
+
+    // Formatação da placa
+    placaInput.addEventListener('input', function(e) {
+        e.target.value = e.target.value.toUpperCase();
+    });
+
+    // Definir data inicial padrão (último mês)
+    if (!dataInicial.value) {
+        const hoje = new Date();
+        const mesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+        dataInicial.value = mesPassado.toISOString().split('T')[0];
+    }
+
+    // Definir data final padrão (hoje)
+    if (!dataFinal.value) {
+        const hoje = new Date();
+        dataFinal.value = hoje.toISOString().split('T')[0];
+    }
+});
+
+function togglePlacaField() {
+    const tipoProcessamento = document.getElementById('tipo_processamento').value;
+    const placaGroup = document.getElementById('placaGroup');
+    const placaInput = document.getElementById('placa_especifica');
+    
+    if (tipoProcessamento === 'por_placa') {
+        placaGroup.style.display = 'block';
+        placaInput.required = true;
+    } else {
+        placaGroup.style.display = 'none';
+        placaInput.required = false;
+        placaInput.value = '';
+    }
+}
+
+// Esconder loading se houver erro
+window.addEventListener('load', function() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+});
+</script>
+{% endblock %}

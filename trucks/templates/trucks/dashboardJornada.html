@@ -419,6 +419,17 @@
         background: #d1fae5;
     }
 
+    .count-from-import {
+        color: #dc2626 !important;
+        background: #fef2f2 !important;
+        font-weight: 600;
+        border: 1px solid #fca5a5 !important;
+    }
+
+    .count-from-import:hover {
+        background: #fee2e2 !important;
+    }
+
     .totals-row {
         background: #f9fafb !important;
         font-weight: 700;
@@ -568,7 +579,7 @@
                         <i class="fas fa-search"></i>
                         Filtrar
                     </button>
-                    <a href="{% url 'app:dashboardJornada' %}" class="btn btn-secondary">
+                    <a href="{% url 'trucks:dashboardJornada' %}" class="btn btn-secondary">
                         <i class="fas fa-undo"></i>
                         Limpar
                     </a>
@@ -618,6 +629,13 @@
                 <i class="fas fa-table"></i>
                 Matriz de Registros por Veículo x Data
             </h3>
+            <div style="margin-top: 0.5rem; font-size: 0.85rem; color: #6b7280;">
+                <strong>Legenda:</strong>
+                <span style="color: #f59e0b; margin-left: 1rem;">● Baixo (≤10)</span>
+                <span style="color: #0056b3; margin-left: 1rem;">● Médio (11-50)</span>
+                <span style="color: #10b981; margin-left: 1rem;">● Alto (>50)</span>
+                <span style="color: #dc2626; margin-left: 1rem;">● Dados da Importação Excel</span>
+            </div>
         </div>
         
         {% if dados_matriz %}
@@ -644,6 +662,10 @@
                             {% if dia_data.count == 0 %}
                                 <td class="count-cell count-zero" title="{{ dia_data.data|date:'d/m/Y' }} - {{ dia_data.count }} registros">
                                     -
+                                </td>
+                            {% elif dia_data.is_from_import %}
+                                <td class="count-cell count-from-import" title="{{ dia_data.data|date:'d/m/Y' }} - {{ dia_data.count }} registros (dados da importação Excel)">
+                                    {{ dia_data.count }}
                                 </td>
                             {% elif dia_data.count <= 10 %}
                                 <td class="count-cell count-low" title="{{ dia_data.data|date:'d/m/Y' }} - {{ dia_data.count }} registros">

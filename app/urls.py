@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import controleJornada, painel, relatorio, atualizarDados, ordemServicoList, ordemServicoCreate, ordemServicoUpdate, ordemServicoDelete, relatorio_movimento, home, cartao_visita, DashboardJornadaView
+from .views import painel, relatorio, atualizarDados, ordemServicoList, ordemServicoCreate, ordemServicoUpdate, ordemServicoDelete, relatorio_movimento, home, cartao_visita
 
 app_name = 'app'
 
@@ -17,6 +17,4 @@ urlpatterns = [
     path('ordem_servico/atualiza_os/<int:id>', ordemServicoUpdate, name="os_update"),
     path('ordem_servico/deleta_os/<int:id>', ordemServicoDelete, name="os_delete"),
     path('rh/cartao-visita/', cartao_visita.as_view(), name='cartao_visita'),
-    path('controle-jornada/', controleJornada, name='controleJornada'),
-    path('dashboard-jornada/', DashboardJornadaView.as_view(), name='dashboardJornada'),
 ]
