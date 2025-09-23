@@ -130,5 +130,19 @@ class Abastecimento(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
+
+
+class Atualizações(models.Model):
+    id = models.AutoField(primary_key=True)
+    objeto = models.CharField(max_length=150)
+    dt_atualizacao = models.DateTimeField()
+
+    class Meta:
+        db_table = 'atualizacoes'
+        verbose_name = 'atualização'
+        verbose_name_plural = 'atualizações'
+        permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
+    def __str__(self):
+        return self.objeto
     
 

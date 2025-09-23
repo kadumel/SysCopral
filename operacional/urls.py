@@ -8,6 +8,10 @@ urlpatterns = [
     path('servicos/', views.ServicosListView.as_view(), name='servicos'),
     path('itens/', views.ItensListView.as_view(), name='itens'),
     path('abastecimento/', views.AbastecimentoListView.as_view(), name='abastecimento'),
+    path('servicos-movimentos/', views.ServicosMovimentosListView.as_view(), name='servicos_movimentos'),
+    # URL para Atualizar Dados
+    path('atualizar-dados/', views.AtualizarDadosView.as_view(), name='atualizar_dados'),
+    # URLs existentes
     path('itens/sistemas-by-grupo/', views.get_sistemas_by_grupo, name='sistemas_by_grupo'),
     path('itens/save-percentages/', views.save_item_percentages, name='save_item_percentages'),
     path('itens/save-valor-sistema/', views.save_item_valor_sistema, name='save_item_valor_sistema'),

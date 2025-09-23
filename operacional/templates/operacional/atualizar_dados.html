@@ -1,0 +1,568 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Atualizar Dados - Operacional{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --success-color: #28a745;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .atualizar-main-content {
+        position: relative;
+        z-index: 1;
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+
+    .page-title {
+        text-align: left;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    .page-title i {
+        font-size: 2.2rem;
+        animation: pulse 2s ease-in-out infinite;
+        color: var(--primary-color);
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+    .header-filters:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .header-filters::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: rotate-glow 20s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes rotate-glow {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-medium);
+        border: 1px solid var(--glass-border);
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-8px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        transition: var(--transition);
+    }
+
+    .stat-card:hover::before {
+        left: 100%;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        background: var(--primary-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .stat-label {
+        color: var(--text-light);
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+
+    .last-updates-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-medium);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .last-updates-section:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .last-updates-section::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(from 0deg, transparent, rgba(0, 86, 179, 0.05), transparent);
+        animation: rotate-glow 15s linear infinite;
+        pointer-events: none;
+    }
+
+    .updates-header {
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+        position: relative;
+    }
+
+    .updates-header::after {
+        content: '';
+        position: absolute;
+        bottom: -2px;
+        left: 0;
+        width: 60px;
+        height: 2px;
+        background: var(--primary-gradient);
+        border-radius: 1px;
+    }
+
+    .updates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .update-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        border-left: 4px solid var(--primary-color);
+        transition: var(--transition);
+        position: relative;
+    }
+
+    .update-card:hover {
+        transform: translateX(5px);
+        border-left-color: var(--secondary-color);
+    }
+
+    .update-card.no-data {
+        border-left-color: #6c757d;
+        background: linear-gradient(135deg, #f8f9fa 0%, #dee2e6 100%);
+    }
+
+    .update-title {
+        font-weight: 600;
+        color: var(--text-color);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .update-title i {
+        color: var(--primary-color);
+    }
+
+    .update-date {
+        color: var(--text-light);
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .update-status {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+
+    .update-status.success {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+    }
+
+    .update-status.warning {
+        background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+        color: #856404;
+    }
+
+    .action-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        text-align: center;
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .action-section::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(from 180deg, transparent, rgba(40, 167, 69, 0.05), transparent);
+        animation: rotate-glow 25s linear infinite reverse;
+        pointer-events: none;
+    }
+
+
+    .btn-update {
+        background: var(--success-gradient);
+        border: none;
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 1.1rem;
+        transition: var(--transition);
+        position: relative;
+        overflow: hidden;
+        z-index: 1;
+    }
+
+    .btn-update:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 20px rgba(40, 167, 69, 0.3);
+        color: white;
+    }
+
+    .btn-update:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .loading-spinner {
+        display: none;
+    }
+
+    .loading .loading-spinner {
+        display: inline-block;
+    }
+
+    .loading .btn-text {
+        display: none;
+    }
+
+
+    .fade-in {
+        animation: fadeIn 0.8s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-up {
+        animation: slideUp 0.6s ease-out;
+    }
+
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Mensagens de alerta */
+    .alert {
+        border-radius: var(--border-radius);
+        border: none;
+        box-shadow: var(--shadow-medium);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .alert::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+        background: currentColor;
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .page-title {
+            font-size: 1.5rem;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .updates-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="atualizar-main-content">
+    <div class="header-filters fade-in">
+        <h1 class="page-title">
+            <i class="fas fa-sync-alt"></i>
+            Atualizar Dados do Sistema
+        </h1>
+        
+        <!-- Estatísticas atuais -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ total_veiculos|default:0 }}</div>
+                <div class="stat-label">Total de Veículos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ total_servicos|default:0 }}</div>
+                <div class="stat-label">Total de Serviços</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ total_itens|default:0 }}</div>
+                <div class="stat-label">Total de Itens</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ total_abastecimentos|default:0 }}</div>
+                <div class="stat-label">Total de Abastecimentos</div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Mensagens do sistema -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Informações das últimas atualizações -->
+    <div class="last-updates-section slide-up">
+        <div class="updates-header">
+            <h5><i class="fas fa-clock me-2"></i>Últimas Atualizações</h5>
+        </div>
+        
+        <div class="updates-grid">
+            <!-- Cadastros -->
+            <div class="update-card {% if not ultima_atualizacao_cadastros %}no-data{% endif %}">
+                <h6 class="update-title">
+                    <i class="fas fa-database"></i>
+                    Cadastros
+                </h6>
+                {% if ultima_atualizacao_cadastros %}
+                    <div class="update-date">
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        {{ ultima_atualizacao_cadastros.dt_atualizacao|date:"d/m/Y" }} às {{ ultima_atualizacao_cadastros.dt_atualizacao|time:"H:i" }}
+                    </div>
+                    <span class="update-status success">
+                        <i class="fas fa-check-circle me-1"></i>Executado com sucesso
+                    </span>
+                {% else %}
+                    <div class="update-date">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Nenhuma atualização registrada
+                    </div>
+                    <span class="update-status warning">
+                        <i class="fas fa-clock me-1"></i>Aguardando primeira execução
+                    </span>
+                {% endif %}
+            </div>
+
+            <!-- Abastecimentos -->
+            <div class="update-card {% if not ultima_atualizacao_abastecimentos %}no-data{% endif %}">
+                <h6 class="update-title">
+                    <i class="fas fa-gas-pump"></i>
+                    Abastecimentos
+                </h6>
+                {% if ultima_atualizacao_abastecimentos %}
+                    <div class="update-date">
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        {{ ultima_atualizacao_abastecimentos.dt_atualizacao|date:"d/m/Y" }} às {{ ultima_atualizacao_abastecimentos.dt_atualizacao|time:"H:i" }}
+                    </div>
+                    <span class="update-status success">
+                        <i class="fas fa-check-circle me-1"></i>Executado com sucesso
+                    </span>
+                {% else %}
+                    <div class="update-date">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Nenhuma atualização registrada
+                    </div>
+                    <span class="update-status warning">
+                        <i class="fas fa-clock me-1"></i>Aguardando primeira execução
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Botão de ação -->
+    <div class="action-section fade-in">
+        <form method="post" id="updateForm">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-update btn-lg" id="updateBtn">
+                <span class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin me-2"></i>Processando...
+                </span>
+                <span class="btn-text">
+                    <i class="fas fa-sync-alt me-2"></i>Executar Atualização
+                </span>
+            </button>
+        </form>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('updateForm');
+    const btn = document.getElementById('updateBtn');
+    
+    form.addEventListener('submit', function() {
+        btn.classList.add('loading');
+        btn.disabled = true;
+        
+        // Reabilitar o botão após 30 segundos para evitar travamento
+        setTimeout(function() {
+            if (btn.classList.contains('loading')) {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }, 30000);
+    });
+    
+    // Animações suaves para os cards
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+    
+    // Observar elementos para animação
+    document.querySelectorAll('.stat-card, .update-card').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(el);
+    });
+});
+</script>
+{% endblock %}

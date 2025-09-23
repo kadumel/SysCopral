@@ -1,14 +1,16 @@
 from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.views.generic import ListView
+from django.views.generic import ListView, TemplateView
 from django.db.models import Q, Sum, F
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from .models import Veiculo, Servico, Item, Abastecimento
-from datetime import date, timedelta
-
+from django.db import connection, transaction
+from django.contrib import messages
+from .models import Veiculo, Servico, Item, Abastecimento, Atualizações
+from datetime import date, timedelta, datetime
+from django.utils import timezone
 # Create your views here.
 
 class VeiculosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -592,6 +594,130 @@ class AbastecimentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
             'total_quilometragem': total_quilometragem,
             'total_litros': total_litros,
             'total_gasto': total_gasto,
+        })
+        
+        return context
+
+
+# View para Atualizar Dados
+
+class AtualizarDadosView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """
+    View para executar procedures de atualização de dados
+    """
+    template_name = 'operacional/atualizar_dados.html'
+    permission_required = 'operacional.acessar_operacional'
+    
+    def post(self, request, *args, **kwargs):
+        """
+        Executa as procedures de atualização quando o formulário é submetido
+        """
+        # Executar procedure de cadastros
+        try:
+            # Usar autocommit para evitar problemas de transação
+            with connection.cursor() as cursor:
+                # Garantir autocommit
+                cursor.execute("SET IMPLICIT_TRANSACTIONS OFF")
+                cursor.execute("EXEC sp_cadastros")
+                
+            # Registrar atualização
+            Atualizações.objects.update_or_create(
+                objeto="Cadastros", 
+                defaults={'dt_atualizacao': timezone.now() - timedelta(hours=3)}
+            )
+            messages.success(request, 'Cadastros atualizados com sucesso!')
+                
+        except Exception as e1:
+            messages.error(request, f'Erro na atualização de cadastros: {str(e1)}')
+        
+        # Executar procedure de abastecimentos
+        try:
+            # Usar autocommit para evitar problemas de transação
+            with connection.cursor() as cursor:
+                # Garantir autocommit
+                cursor.execute("SET IMPLICIT_TRANSACTIONS OFF")
+                cursor.execute("EXEC sp_abastecimento")
+                
+            # Registrar atualização
+            Atualizações.objects.update_or_create(
+                objeto="Abastecimentos", 
+                defaults={'dt_atualizacao': timezone.now() - timedelta(hours=3)}
+            )
+            messages.success(request, 'Abastecimentos atualizados com sucesso!')
+                
+        except Exception as e2:
+            messages.error(request, f'Erro na atualização de abastecimentos: {str(e2)}')
+            
+        return self.get(request, *args, **kwargs)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Adicionar informações sobre última atualização, contadores, etc.
+        # Buscar últimas atualizações
+        try:
+            ultima_atualizacao_cadastros = Atualizações.objects.filter(objeto="Cadastros").order_by('-dt_atualizacao').first()
+            ultima_atualizacao_abastecimentos = Atualizações.objects.filter(objeto="Abastecimentos").order_by('-dt_atualizacao').first()
+        except:
+            ultima_atualizacao_cadastros = None
+            ultima_atualizacao_abastecimentos = None
+        
+        context.update({
+            'total_veiculos': Veiculo.objects.count(),
+            'total_servicos': Servico.objects.count(),
+            'total_itens': Item.objects.count(),
+            'total_abastecimentos': Abastecimento.objects.count(),
+            'ultima_atualizacao_cadastros': ultima_atualizacao_cadastros,
+            'ultima_atualizacao_abastecimentos': ultima_atualizacao_abastecimentos,
+        })
+        
+        return context
+
+
+class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    """
+    View para listar serviços relacionados a movimentações
+    """
+    model = Servico
+    template_name = 'operacional/servicos_movimentos.html'
+    permission_required = 'operacional.acessar_operacional'
+    context_object_name = 'servicos'
+    paginate_by = 10
+    ordering = ['nm_servico']
+    
+    def get_queryset(self):
+        """
+        Retorna queryset de serviços com filtros aplicados
+        """
+        queryset = super().get_queryset()
+        
+        nm_servico_filtro = self.request.GET.get('nm_servico', '')
+        tipo_servico_filtro = self.request.GET.get('tipo_servico', '')
+        cd_servico_filtro = self.request.GET.get('cd_servico', '')
+        
+        if nm_servico_filtro:
+            queryset = queryset.filter(nm_servico__icontains=nm_servico_filtro)
+        
+        if tipo_servico_filtro:
+            queryset = queryset.filter(nm_tipo_servico__icontains=tipo_servico_filtro)
+            
+        if cd_servico_filtro:
+            queryset = queryset.filter(cd_servico__icontains=cd_servico_filtro)
+        
+        return queryset
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Obter valores distintos para os filtros
+        tipos_servico_disponiveis = Servico.objects.values_list('nm_tipo_servico', flat=True).distinct().exclude(nm_tipo_servico__isnull=True).exclude(nm_tipo_servico__exact='').order_by('nm_tipo_servico')
+        
+        context.update({
+            'nm_servico_filtro': self.request.GET.get('nm_servico', ''),
+            'tipo_servico_filtro': self.request.GET.get('tipo_servico', ''),
+            'cd_servico_filtro': self.request.GET.get('cd_servico', ''),
+            'tipos_servico_disponiveis': tipos_servico_disponiveis,
+            'total_servicos': self.get_queryset().count(),
         })
         
         return context

@@ -1,0 +1,451 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Serviços de Movimentação - Operacional{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --success-color: #28a745;
+        --text-color: #333;
+        --text-light: #666;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --shadow-medium: 0 8px 16px -6px rgba(0, 0, 0, 0.1);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .servicos-main-content {
+        position: relative;
+        z-index: 1;
+        padding: 2rem 0;
+        min-height: 100vh;
+    }
+
+    .page-title {
+        text-align: left;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    .page-title i {
+        font-size: 2.2rem;
+        animation: pulse 2s ease-in-out infinite;
+        color: var(--primary-color);
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+    .header-filters:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .header-filters::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: rotate-glow 20s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes rotate-glow {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-group {
+        position: relative;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: var(--text-color);
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .form-control {
+        border: 2px solid #e1e5e9;
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+        background: white;
+        transition: var(--transition);
+        width: 100%;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        outline: none;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--border-radius);
+        font-weight: 600;
+        transition: var(--transition);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0, 86, 179, 0.3);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--border-radius);
+        font-weight: 600;
+        transition: var(--transition);
+    }
+
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(108, 117, 125, 0.3);
+        color: white;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 1rem;
+        align-items: end;
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .page-title {
+            font-size: 1.5rem;
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .filter-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .filter-actions button {
+            width: 100%;
+        }
+    }
+
+    .bounce-in {
+        animation: bounceIn 0.8s ease-out;
+    }
+
+    @keyframes bounceIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.3);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Tabela de resultados */
+    .results-section {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-medium);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 2rem;
+    }
+
+    .table-responsive {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-medium);
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background: var(--primary-gradient);
+        color: white;
+        border: none;
+        font-weight: 600;
+        padding: 1rem;
+    }
+
+    .table tbody td {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(0, 86, 179, 0.05);
+    }
+
+    .stats-card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-medium);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+
+    .stats-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .stats-label {
+        color: var(--text-light);
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="servicos-main-content">
+    <div class="header-filters bounce-in">
+        <h1 class="page-title">
+            <i class="fas fa-wrench"></i>
+            Serviços de Movimentação
+        </h1>
+        
+        <!-- Stats Card -->
+        <div class="stats-card">
+            <div class="stats-number">{{ total_servicos }}</div>
+            <div class="stats-label">Total de Serviços</div>
+        </div>
+        
+        <form method="get" class="filters-grid">
+            <div class="form-group">
+                <label for="cd_servico" class="form-label">Código do Serviço</label>
+                <input type="text" class="form-control" id="cd_servico" name="cd_servico" 
+                       value="{{ cd_servico_filtro }}" placeholder="Digite o código">
+            </div>
+            
+            <div class="form-group">
+                <label for="nm_servico" class="form-label">Nome do Serviço</label>
+                <input type="text" class="form-control" id="nm_servico" name="nm_servico" 
+                       value="{{ nm_servico_filtro }}" placeholder="Digite o nome">
+            </div>
+            
+            <div class="form-group">
+                <label for="tipo_servico" class="form-label">Tipo de Serviço</label>
+                <select class="form-control" id="tipo_servico" name="tipo_servico">
+                    <option value="">Todos os tipos</option>
+                    {% for tipo in tipos_servico_disponiveis %}
+                        <option value="{{ tipo }}" {% if tipo == tipo_servico_filtro %}selected{% endif %}>{{ tipo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>Filtrar
+                </button>
+                <a href="{% url 'operacional:servicos_movimentos' %}" class="btn btn-secondary">
+                    <i class="fas fa-undo me-2"></i>Limpar
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Resultados -->
+    <div class="results-section">
+        <h5 class="mb-3">
+            <i class="fas fa-list me-2"></i>
+            Lista de Serviços ({{ servicos|length }} {% if servicos|length == 1 %}resultado{% else %}resultados{% endif %})
+        </h5>
+        
+        {% if servicos %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nome do Serviço</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for servico in servicos %}
+                        <tr>
+                            <td><strong>{{ servico.cd_servico }}</strong></td>
+                            <td>{{ servico.nm_servico }}</td>
+                            <td>{{ servico.nm_tipo_servico|default:"-" }}</td>
+                            <td>
+                                {% if servico.valor %}
+                                    R$ {{ servico.valor|floatformat:2 }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Paginação -->
+            {% if is_paginated %}
+                <nav aria-label="Navegação da página" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if nm_servico_filtro %}&nm_servico={{ nm_servico_filtro }}{% endif %}{% if tipo_servico_filtro %}&tipo_servico={{ tipo_servico_filtro }}{% endif %}{% if cd_servico_filtro %}&cd_servico={{ cd_servico_filtro }}{% endif %}">Primeira</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if nm_servico_filtro %}&nm_servico={{ nm_servico_filtro }}{% endif %}{% if tipo_servico_filtro %}&tipo_servico={{ tipo_servico_filtro }}{% endif %}{% if cd_servico_filtro %}&cd_servico={{ cd_servico_filtro }}{% endif %}">Anterior</a>
+                            </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                        </li>
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if nm_servico_filtro %}&nm_servico={{ nm_servico_filtro }}{% endif %}{% if tipo_servico_filtro %}&tipo_servico={{ tipo_servico_filtro }}{% endif %}{% if cd_servico_filtro %}&cd_servico={{ cd_servico_filtro }}{% endif %}">Próxima</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if nm_servico_filtro %}&nm_servico={{ nm_servico_filtro }}{% endif %}{% if tipo_servico_filtro %}&tipo_servico={{ tipo_servico_filtro }}{% endif %}{% if cd_servico_filtro %}&cd_servico={{ cd_servico_filtro }}{% endif %}">Última</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Nenhum serviço encontrado</h5>
+                <p class="text-muted">Tente ajustar os filtros ou verificar os critérios de busca.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animações suaves para os elementos
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+            }
+        });
+    }, observerOptions);
+    
+    // Observar elementos para animação
+    document.querySelectorAll('.results-section').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(20px)';
+        el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+        observer.observe(el);
+    });
+});
+</script>
+{% endblock %}

@@ -511,6 +511,12 @@
                     <i class="fas fa-chevron-down submenu-toggle"></i>
                 </a>
                 <ul class="sidebar-submenu" id="operacional-submenu">
+                    <li>
+                        <a href="{% url 'operacional:atualizar_dados' %}">
+                            <i class="fas fa-sync-alt"></i>
+                            Atualizar Dados
+                        </a>
+                    </li>
                     <li class="menu-item-with-submenu">
                         <a href="#" onclick="toggleSubmenu(event, 'cadastros-submenu')">
                             <span>
@@ -553,6 +559,12 @@
                                 <a href="{% url 'operacional:abastecimento' %}">
                                     <i class="fas fa-gas-pump"></i>
                                     Abastecimento
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{% url 'operacional:servicos_movimentos' %}">
+                                    <i class="fas fa-wrench"></i>
+                                    Serviços
                                 </a>
                             </li>
                         </ul>
