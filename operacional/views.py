@@ -8,7 +8,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.db import connection, transaction
 from django.contrib import messages
-from .models import Veiculo, Servico, Item, Abastecimento, Atualizações
+from .models import Veiculo, Servico, Item, Abastecimento, Atualizações, Lancamento
 from datetime import date, timedelta, datetime
 from django.utils import timezone
 # Create your views here.
@@ -721,3 +721,14 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
         })
         
         return context
+
+class LancamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    """
+    View para listar lançamentos com filtros e paginação
+    """
+    model = Lancamento
+    template_name = 'operacional/lancamentos.html'
+    permission_required = 'operacional.acessar_operacional'
+    context_object_name = 'lancamentos'
+    paginate_by = 10
+    ordering = ['-data']

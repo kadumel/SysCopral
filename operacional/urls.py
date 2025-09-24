@@ -17,4 +17,5 @@ urlpatterns = [
     path('itens/save-valor-sistema/', views.save_item_valor_sistema, name='save_item_valor_sistema'),
     path('servicos/save-valor/', views.save_servico_valor, name='save_servico_valor'),
     path('abastecimento/save-litros/', views.save_abastecimento_litros, name='save_abastecimento_litros'),
-]
+    path('lancamentos/', views.LancamentosListView.as_view(), name='lancamentos'),
+]   

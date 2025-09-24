@@ -1,5 +1,5 @@
 from django.db import models
-
+from django.contrib.auth.models import User
 
 
 
@@ -18,7 +18,7 @@ class Agregado(models.Model):
         permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
     
     def __str__(self):
-        return self.nm_agregado
+        return str(self.nm_agregado) if self.nm_agregado else f"Agregado {self.placa}"
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -42,7 +42,7 @@ class Veiculo(models.Model):
         verbose_name_plural = 'veículos'
         permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
     def __str__(self):
-        return self.placa
+        return str(self.placa) if self.placa else f"Veículo {self.id}"
     def save(self, *args, **kwargs):
         self.placa = self.placa.upper()
         super().save(*args, **kwargs)
@@ -69,7 +69,7 @@ class Item(models.Model):
         verbose_name_plural = 'itens'
         permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
     def __str__(self):
-        return self.nm_item
+        return str(self.nm_item) if self.nm_item else f"Item {self.cd_item}"
     def save(self, *args, **kwargs):
         self.nm_item = self.nm_item.upper()
         super().save(*args, **kwargs)
@@ -88,7 +88,7 @@ class Servico(models.Model):
         verbose_name_plural = 'serviços'
         permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
     def __str__(self):
-        return self.nm_servico
+        return str(self.nm_servico) if self.nm_servico else f"Serviço {self.cd_servico}"
     def save(self, *args, **kwargs):
         self.nm_servico = self.nm_servico.upper()
         super().save(*args, **kwargs)
@@ -125,7 +125,9 @@ class Abastecimento(models.Model):
         ]
     
     def __str__(self):
-        return f"{self.id_veiculo.placa} - {self.id_item.nm_item} - {self.id_abastecimento}"
+        veiculo_str = str(self.id_veiculo.placa) if self.id_veiculo and self.id_veiculo.placa else "Sem veículo"
+        item_str = str(self.id_item.nm_item) if self.id_item and self.id_item.nm_item else "Sem item"
+        return f"{veiculo_str} - {item_str} - {self.id_abastecimento}"
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -143,6 +145,39 @@ class Atualizações(models.Model):
         verbose_name_plural = 'atualizações'
         permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
     def __str__(self):
-        return self.objeto
+        return str(self.objeto) if self.objeto else f"Atualização {self.id}"
     
+class OpeCategoria(models.Model):
+    nome = models.CharField(max_length=150)
 
+    class Meta:
+        db_table = 'ope_categoria'
+        verbose_name = 'categoria de lançamento'
+        verbose_name_plural = 'categorias de lançamento'
+        permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
+    def __str__(self):
+        return str(self.nome) if self.nome else f"Categoria {self.id}"
+
+class Lancamento(models.Model):
+    veiculo = models.ForeignKey(Veiculo, on_delete=models.CASCADE, db_column='id_veiculo', related_name='lancamentos_id_veiculo')
+    categoria = models.ForeignKey(OpeCategoria, on_delete=models.CASCADE, db_column='id_categoria', related_name='lancamentos_id_categoria')
+    data = models.DateField()
+    periodo = models.CharField(max_length=10, choices=[('M', 'Mensal'), ('S', 'Semanal'), ('Q', 'Quinzenal')], default='M')
+    parcela = models.IntegerField(default=1)
+    valor = models.FloatField()
+    obs = models.TextField(blank=True, null=True)
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, db_column='id_usuario', related_name='lancamentos_id_usuario')
+    dt_atualizacao = models.DateTimeField(auto_now=True)
+    dt_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'ope_lancamento'
+        verbose_name = 'lancamento'
+        verbose_name_plural = 'lancamentos'
+        permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
+    def __str__(self):
+        veiculo_str = str(self.veiculo.placa.placa) if self.veiculo and self.veiculo.placa else "Sem veículo"
+        categoria_str = str(self.categoria.nome) if self.categoria else "Sem categoria"
+        usuario_str = str(self.usuario.username) if self.usuario else "Sem usuário"
+        return f"{veiculo_str} - {categoria_str} - {self.data} - R$ {self.valor} - {usuario_str}"
+    
