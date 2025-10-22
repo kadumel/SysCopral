@@ -9,6 +9,14 @@ urlpatterns = [
     path('itens/', views.ItensListView.as_view(), name='itens'),
     path('abastecimento/', views.AbastecimentoListView.as_view(), name='abastecimento'),
     path('servicos-movimentos/', views.ServicosMovimentosListView.as_view(), name='servicos_movimentos'),
+    # Fechamento de caixa (serviços movimentos)
+    path('servicos-movimentos/fechamento/check/', views.check_fechamento, name='check_fechamento'),
+    path('servicos-movimentos/fechamento/fechar/', views.fechar_caixa, name='fechar_caixa'),
+    path('fechamentos/', views.FechamentosListView.as_view(), name='fechamentos'),
+    path('fechamentos/<int:fechamento_id>/itens/', views.get_fechamento_itens, name='fechamento_itens'),
+    path('fechamentos/<int:fechamento_id>/excluir/', views.excluir_fechamento, name='excluir_fechamento'),
+    path('fechamentos/<int:fechamento_id>/alterar-data/', views.alterar_data_fechamento, name='alterar_data_fechamento'),
+    path('fechamentos/itens/<int:item_id>/excluir/', views.excluir_item_fechamento, name='excluir_item_fechamento'),
     # URL para Atualizar Dados
     path('atualizar-dados/', views.AtualizarDadosView.as_view(), name='atualizar_dados'),
     # URLs existentes
@@ -17,5 +25,10 @@ urlpatterns = [
     path('itens/save-valor-sistema/', views.save_item_valor_sistema, name='save_item_valor_sistema'),
     path('servicos/save-valor/', views.save_servico_valor, name='save_servico_valor'),
     path('abastecimento/save-litros/', views.save_abastecimento_litros, name='save_abastecimento_litros'),
+    # URLs para gestão de lançamentos
     path('lancamentos/', views.LancamentosListView.as_view(), name='lancamentos'),
-]   
+    path('lancamentos/criar/', views.criar_lancamento, name='criar_lancamento'),
+    path('lancamentos/<int:lancamento_id>/editar/', views.editar_lancamento, name='editar_lancamento'),
+    path('lancamentos/<int:lancamento_id>/excluir/', views.excluir_lancamento, name='excluir_lancamento'),
+    path('lancamentos/<int:lancamento_id>/obter/', views.obter_lancamento, name='obter_lancamento'),
+]

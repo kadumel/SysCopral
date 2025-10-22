@@ -1,5 +1,6 @@
 {% extends 'home.html' %}
 {% load static %}
+{% load l10n %}
 
 {% block title %}Serviços de Movimentação - Operacional{% endblock %}
 
@@ -55,13 +56,15 @@
     .servicos-main-content {
         position: relative;
         z-index: 1;
-        padding: 2rem 0;
+        padding: 1.25rem 1rem;
         min-height: 100vh;
+        max-width: 100%;
+        margin: 0 auto;
     }
 
     .page-title {
         text-align: left;
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
         color: var(--primary-color);
         font-size: 2rem;
         font-weight: 700;
@@ -128,6 +131,14 @@
         margin-bottom: 2rem;
     }
 
+    /* Padronização com demais páginas */
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
     .form-group {
         position: relative;
     }
@@ -148,7 +159,22 @@
         width: 100%;
     }
 
+    .form-select {
+        border: 2px solid #e1e5e9;
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+        background: white;
+        transition: var(--transition);
+        width: 100%;
+    }
+
     .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        outline: none;
+    }
+
+    .form-select:focus {
         border-color: var(--primary-color);
         box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
         outline: none;
@@ -235,13 +261,11 @@
     }
 
     /* Tabela de resultados */
-    .results-section {
+    .table-container {
         background: white;
         border-radius: var(--border-radius);
-        padding: 2rem;
-        box-shadow: var(--shadow-medium);
-        border: 1px solid var(--glass-border);
-        margin-bottom: 2rem;
+        box-shadow: var(--shadow-deep);
+        overflow: hidden;
     }
 
     .table-responsive {
@@ -255,17 +279,19 @@
     }
 
     .table thead th {
-        background: var(--primary-gradient);
+        background: var(--primary-color);
         color: white;
         border: none;
         font-weight: 600;
         padding: 1rem;
+        text-align: center;
     }
 
     .table tbody td {
         padding: 1rem;
         border-bottom: 1px solid #e9ecef;
         vertical-align: middle;
+        text-align: center;
     }
 
     .table tbody tr:hover {
@@ -273,36 +299,58 @@
     }
 
     .stats-card {
-        background: white;
-        border-radius: var(--border-radius);
+        background: linear-gradient(135deg, var(--primary-color), #003366);
+        color: white;
         padding: 1.5rem;
-        box-shadow: var(--shadow-medium);
-        border: 1px solid var(--glass-border);
-        margin-bottom: 1rem;
+        border-radius: var(--border-radius);
         text-align: center;
+        box-shadow: var(--shadow-medium);
     }
 
     .stats-number {
         font-size: 2rem;
         font-weight: 700;
-        color: var(--primary-color);
+        color: #fff;
         margin-bottom: 0.5rem;
     }
 
     .stats-label {
-        color: var(--text-light);
+        color: rgba(255,255,255,0.9);
         font-size: 0.9rem;
         font-weight: 500;
     }
+
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Paginação padronizada */
+    .pagination { justify-content: center; margin-top: 2rem; }
+    .page-link { color: var(--primary-color); border: 1px solid #dee2e6; padding: 0.75rem 1rem; }
+    .page-link:hover { background-color: var(--primary-color); border-color: var(--primary-color); color: white; }
+    .page-item.active .page-link { background-color: var(--primary-color); border-color: var(--primary-color); }
+
+    /* Override do header para padronizar topo colorido */
+    .header-filters { padding: 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow-deep); }
+    .header-filters::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--primary-color); border-radius: var(--border-radius) var(--border-radius) 0 0; animation: none; }
+    .header-filters:hover { transform: none; box-shadow: var(--shadow-deep); }
+
+    /* Hierarquia: expand/collapse */
+    .toggle { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: .5rem; }
+    .collapsed { display: none; }
+    .text-start { text-align: left; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="servicos-main-content">
-    <div class="header-filters bounce-in">
+    <div class="header-filters">
         <h1 class="page-title">
             <i class="fas fa-wrench"></i>
-            Serviços de Movimentação
+            Movimentações
         </h1>
         
         <!-- Stats Card -->
@@ -311,110 +359,205 @@
             <div class="stats-label">Total de Serviços</div>
         </div>
         
-        <form method="get" class="filters-grid">
-            <div class="form-group">
-                <label for="cd_servico" class="form-label">Código do Serviço</label>
-                <input type="text" class="form-control" id="cd_servico" name="cd_servico" 
-                       value="{{ cd_servico_filtro }}" placeholder="Digite o código">
+        <form method="get" class="filters-form">
+            <div class="filters-row">
+                <div class="form-group">
+                    <label for="placa" class="form-label">Placa</label>
+                    <input type="text" class="form-control" id="placa" name="placa" 
+                           value="{{ placa_filtro }}" placeholder="Digite a placa">
+                </div>
+
+                <div class="form-group">
+                    <label for="agregado" class="form-label">Agregado</label>
+                    <input type="text" class="form-control" id="agregado" name="agregado" 
+                           value="{{ agregado_filtro }}" placeholder="Nome do agregado">
+                </div>
+
+                <div class="form-group">
+                    <label for="data_inicio" class="form-label">Data Início</label>
+                    <input type="date" class="form-control" id="data_inicio" name="data_inicio" value="{{ data_inicio }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="data_fim" class="form-label">Data Fim</label>
+                    <input type="date" class="form-control" id="data_fim" name="data_fim" value="{{ data_fim }}">
+                </div>
+
+                
             </div>
-            
-            <div class="form-group">
-                <label for="nm_servico" class="form-label">Nome do Serviço</label>
-                <input type="text" class="form-control" id="nm_servico" name="nm_servico" 
-                       value="{{ nm_servico_filtro }}" placeholder="Digite o nome">
-            </div>
-            
-            <div class="form-group">
-                <label for="tipo_servico" class="form-label">Tipo de Serviço</label>
-                <select class="form-control" id="tipo_servico" name="tipo_servico">
-                    <option value="">Todos os tipos</option>
-                    {% for tipo in tipos_servico_disponiveis %}
-                        <option value="{{ tipo }}" {% if tipo == tipo_servico_filtro %}selected{% endif %}>{{ tipo }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="filter-actions">
+            <div class="d-flex gap-2 mt-3 align-items-center justify-content-between">
+                <div></div>
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-search me-2"></i>Filtrar
+                    <i class="fas fa-search"></i> Filtrar
                 </button>
                 <a href="{% url 'operacional:servicos_movimentos' %}" class="btn btn-secondary">
-                    <i class="fas fa-undo me-2"></i>Limpar
+                    <i class="fas fa-times"></i> Limpar
                 </a>
+                <div class="ms-auto text-end">
+                    <label class="form-label mb-0 me-2">Data de Fechamento:</label>
+                    <input type="text" id="fechamentoDisplay" class="form-control d-inline-block" style="width: 160px;" value="{{ data_fechamento_calculada }}" readonly>
+                </div>
             </div>
         </form>
     </div>
 
-    <!-- Resultados -->
-    <div class="results-section">
-        <h5 class="mb-3">
-            <i class="fas fa-list me-2"></i>
-            Lista de Serviços ({{ servicos|length }} {% if servicos|length == 1 %}resultado{% else %}resultados{% endif %})
-        </h5>
-        
-        {% if servicos %}
+    <div class="table-container">
+        {% if grupos %}
             <div class="table-responsive">
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Código</th>
-                            <th>Nome do Serviço</th>
-                            <th>Tipo</th>
+                            <th class="text-start">Placa</th>
+                            <th class="text-start">Tipo</th>
+                            <th>Data</th>
+                            <th>OS</th>
+                            <th>Cód. Item</th>
+                            <th>Item</th>
+                            <th>Quantidade</th>
                             <th>Valor</th>
+                            <th>Total</th>
+                            <th>Perc.</th>
+                            <th>Cobrar</th>
+                            <th>Período</th>
+                            <th>Parcelas</th>
+                            <th>Status</th>
+                            <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for servico in servicos %}
-                        <tr>
-                            <td><strong>{{ servico.cd_servico }}</strong></td>
-                            <td>{{ servico.nm_servico }}</td>
-                            <td>{{ servico.nm_tipo_servico|default:"-" }}</td>
+                        {% for g in grupos %}
+                        <tr class="row-placa" data-placa-index="{{ forloop.counter0 }}" style="background:#f3f6fb;font-weight:700;">
+                            <td class="text-start">
+                                <span class="toggle" data-toggle-target="placa-{{ forloop.counter0 }}">
+                                    <i class="fas fa-chevron-right"></i> {{ g.placa }}
+                                </span>
+                            </td>
+                            <td class="text-start"></td>
+                            <td></td>
+                            <td colspan="3" class="text-muted text-start">Total da Placa</td>
+                            <td></td>  
+                            <td></td>  
+                            <td>R$ {{ g.total_placa|floatformat:2 }}</td>
+                            <td></td> <!-- Perc. -->
+                            <td>R$ {{ g.cobrar_placa|floatformat:2 }}</td> <!-- Cobrar -->
+                            <td></td> <!-- Período -->
+                            <td></td> <!-- Parcelas -->
                             <td>
-                                {% if servico.valor %}
-                                    R$ {{ servico.valor|floatformat:2 }}
+                                {% if g.status_placa == 'mixed' %}
+                                    <span class="badge bg-warning" title="Há itens em aberto"><i class="fas fa-circle"></i></span>
+                                {% elif g.status_placa == 'all_closed' %}
+                                    <span class="badge bg-danger" title="Todos fechados"><i class="fas fa-check-circle"></i></span>
                                 {% else %}
-                                    -
+                                    <span class="badge bg-success" title="Todos abertos"><i class="fas fa-circle"></i></span>
                                 {% endif %}
                             </td>
+                            <td> <!-- Ações -->
+                                <button type="button" class="btn btn-success btn-sm btn-fechar-placa" data-placa="{{ g.placa }}" data-placa-index="{{ forloop.counter0 }}" title="Fechamento de caixa" {% if g.status_placa == 'all_closed' %}disabled{% endif %}>
+                                    <i class="fas fa-cash-register"></i>
+                                </button>
+                            </td>
                         </tr>
+                        {% for t in g.tipos %}
+                        <tr class="row-tipo collapsed placa-{{ forloop.parentloop.counter0 }}" style="background:#fafbfd;font-weight:600;">
+                            <td class="text-start"></td>
+                            <td class="text-start">
+                                <span class="toggle" data-toggle-target="tipo-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}">
+                                    <i class="fas fa-chevron-right"></i> {{ t.tipo }}
+                                </span>
+                            </td>
+                            <td></td>
+                            <td colspan="3" class="text-muted text-start">Total do Tipo</td>
+                            <td></td> 
+                            <td></td> 
+                            <td>R$ {{ t.total_tipo|floatformat:2 }}</td>
+                            <td></td> <!-- Perc. -->
+                            <td>R$ {{ t.cobrar_tipo|floatformat:2 }}</td> <!-- Cobrar -->
+                            <td></td> <!-- Período -->
+                            <td></td> <!-- Parcelas -->
+                            <td>
+                                {% if t.status_tipo == 'mixed' %}
+                                    <span class="badge bg-warning" title="Há itens em aberto"><i class="fas fa-circle"></i></span>
+                                {% elif t.status_tipo == 'all_closed' %}
+                                    <span class="badge bg-danger" title="Todos fechados"><i class="fas fa-check-circle"></i></span>
+                                {% else %}
+                                    <span class="badge bg-success" title="Todos abertos"><i class="fas fa-circle"></i></span>
+                                {% endif %}
+                            </td>
+                            <td></td> <!-- Ações -->
+                        </tr>
+                            {% for it in t.itens %}
+                            <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-status="{{ it.status }}">
+                                <td class="text-start"></td>
+                                <td class="text-start"></td>
+                                <td>{{ it.data|date:"d/m/Y" }}</td>
+                                <td>{{ it.ordem_servico }}</td>
+                                <td>{{ it.cd_item }}</td>
+                                <td class="text-start">{{ it.nm_item }}</td>
+                                <td>{{ it.quantidade }}</td>
+                                <td>R$ {{ it.valor|floatformat:2 }}</td>
+                                <td>R$ {{ it.total|floatformat:2 }}</td>
+                            <td>
+                                <span class="perc-display" data-val="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">{{ it.perc|default_if_none:0|floatformat:2 }}%</span>
+                                <div class="input-group input-group-sm d-none">
+                                    <input type="number" class="form-control form-control-sm perc-input" min="0" step="0.01" value="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}" data-original="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </td>
+                            <td>R$ {{ it.cobrar|floatformat:2 }}</td>
+                            <td>
+                                <select name="periodo_{{ forloop.parentloop.parentloop.counter0 }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" class="form-select form-select-sm">
+                                    {% for key,label in periodos_choices %}
+                                        <option value="{{ key }}" {% if periodo_selecionado == key %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" min="1" class="form-control form-control-sm" name="parcela_{{ forloop.parentloop.parentloop.counter0 }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="{{ parcela_selecionada }}">
+                            </td>
+                            <td>
+                                {% if it.status == 'fechado' %}
+                                    <span class="badge bg-danger">Fechado</span>
+                                {% else %}
+                                    <span class="badge bg-success">Aberto</span>
+                                {% endif %}
+                            </td>
+                            <td></td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            
-            <!-- Paginação -->
             {% if is_paginated %}
-                <nav aria-label="Navegação da página" class="mt-4">
-                    <ul class="pagination justify-content-center">
+                <nav aria-label="Paginação">
+                    <ul class="pagination">
                         {% if page_obj.has_previous %}
                             <li class="page-item">
-                                <a class="page-link" href="?page=1{% if nm_servico_filtro %}&nm_servico={{ nm_servico_filtro }}{% endif %}{% if tipo_servico_filtro %}&tipo_servico={{ tipo_servico_filtro }}{% endif %}{% if cd_servico_filtro %}&cd_servico={{ cd_servico_filtro }}{% endif %}">Primeira</a>
+                                <a class="page-link" href="?page=1{% if placa_filtro %}&placa={{ placa_filtro }}{% endif %}{% if agregado_filtro %}&agregado={{ agregado_filtro }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}"><i class="fas fa-angle-double-left"></i></a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if nm_servico_filtro %}&nm_servico={{ nm_servico_filtro }}{% endif %}{% if tipo_servico_filtro %}&tipo_servico={{ tipo_servico_filtro }}{% endif %}{% if cd_servico_filtro %}&cd_servico={{ cd_servico_filtro }}{% endif %}">Anterior</a>
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if placa_filtro %}&placa={{ placa_filtro }}{% endif %}{% if agregado_filtro %}&agregado={{ agregado_filtro }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}"><i class="fas fa-angle-left"></i></a>
                             </li>
                         {% endif %}
-                        
                         <li class="page-item active">
                             <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
                         </li>
-                        
                         {% if page_obj.has_next %}
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if nm_servico_filtro %}&nm_servico={{ nm_servico_filtro }}{% endif %}{% if tipo_servico_filtro %}&tipo_servico={{ tipo_servico_filtro }}{% endif %}{% if cd_servico_filtro %}&cd_servico={{ cd_servico_filtro }}{% endif %}">Próxima</a>
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if placa_filtro %}&placa={{ placa_filtro }}{% endif %}{% if agregado_filtro %}&agregado={{ agregado_filtro }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}"><i class="fas fa-angle-right"></i></a>
                             </li>
                             <li class="page-item">
-                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if nm_servico_filtro %}&nm_servico={{ nm_servico_filtro }}{% endif %}{% if tipo_servico_filtro %}&tipo_servico={{ tipo_servico_filtro }}{% endif %}{% if cd_servico_filtro %}&cd_servico={{ cd_servico_filtro }}{% endif %}">Última</a>
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if placa_filtro %}&placa={{ placa_filtro }}{% endif %}{% if agregado_filtro %}&agregado={{ agregado_filtro }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}"><i class="fas fa-angle-double-right"></i></a>
                             </li>
                         {% endif %}
                     </ul>
                 </nav>
             {% endif %}
         {% else %}
-            <div class="text-center py-5">
-                <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                <h5 class="text-muted">Nenhum serviço encontrado</h5>
-                <p class="text-muted">Tente ajustar os filtros ou verificar os critérios de busca.</p>
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                Nenhum serviço encontrado
             </div>
         {% endif %}
     </div>
@@ -424,28 +567,258 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Animações suaves para os elementos
-    const observerOptions = {
-        threshold: 0.1,
-        rootMargin: '0px 0px -50px 0px'
-    };
-    
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-            }
+    // Toggle hierarquia
+    document.addEventListener('click', function(e){
+        const btn = e.target.closest('.toggle');
+        if (!btn) return;
+        const targetKey = btn.getAttribute('data-toggle-target');
+        if (!targetKey) return;
+        const icon = btn.querySelector('i');
+        const rows = document.querySelectorAll('.'+CSS.escape(targetKey));
+        let anyVisible = false;
+        rows.forEach(r => { if (!r.classList.contains('collapsed')) anyVisible = true; });
+        rows.forEach(r => {
+            if (anyVisible) r.classList.add('collapsed'); else r.classList.remove('collapsed');
         });
-    }, observerOptions);
-    
-    // Observar elementos para animação
-    document.querySelectorAll('.results-section').forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(20px)';
-        el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-        observer.observe(el);
+        if (icon) { icon.classList.toggle('fa-chevron-right'); icon.classList.toggle('fa-chevron-down'); }
     });
+
+    // Clique no botão de fechamento: verificar existência via API e, se não existir, efetivar
+    document.addEventListener('click', async function(e){
+        const fecharBtn = e.target.closest('.btn-fechar-placa');
+        if (!fecharBtn) return;
+        const placa = fecharBtn.getAttribute('data-placa') || '';
+        const dataFech = document.getElementById('fechamentoDisplay')?.value || '';
+        const dataInicio = document.getElementById('data_inicio')?.value || '';
+        const dataFim = document.getElementById('data_fim')?.value || '';
+        const periodoSel = document.querySelector('[name="periodo"]')?.value || 'M';
+        const parcelaSel = document.querySelector('[name="parcela"]')?.value || '1';
+        if (!placa || !dataFech) {
+            alert('Defina a Data Fim para calcular a Data de Fechamento.');
+            return;
+        }
+        try {
+            // Montar payload dos itens ABERTOS visíveis na tabela para evitar nova consulta no banco
+            const payloadItens = [];
+            // Coleta linhas de item pertencentes à placa por varredura sequencial
+            const idx = fecharBtn.getAttribute('data-placa-index');
+            // Como as classes têm indices compostos, vamos coletar por proximidade na DOM dentro desta placa
+            const placaRow = fecharBtn.closest('tr.row-placa');
+            let next = placaRow.nextElementSibling;
+            while (next && !next.classList.contains('row-placa')){
+                if (next.classList.contains('row-item')){
+                    const tds = next.querySelectorAll('td');
+                    // usar atributo data-status para decidir
+                    const rowStatus = (next.getAttribute('data-status')||'').toLowerCase();
+                    if (rowStatus === 'fechado') { next = next.nextElementSibling; continue; }
+                    const percInput = tds[9]?.querySelector('.perc-input');
+                    payloadItens.push({
+                        data: tds[2]?.textContent?.trim(),
+                        ordem_servico: tds[3]?.textContent?.trim(),
+                        cd_item: tds[4]?.textContent?.trim(),
+                        nm_item: tds[5]?.textContent?.trim(),
+                        quantidade: Number((tds[6]?.textContent||'0').replace(',', '.')),
+                        valor_unitario: Number(((tds[7]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
+                        valor: Number(((tds[8]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')), // total/bruto
+                        perc: Number((percInput?.value||'0').replace(',', '.')),
+                        cobrar: Number(((tds[10]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
+                        tipo: (next.getAttribute('data-tipo')||'')
+                    });
+                }
+                next = next.nextElementSibling;
+            }
+            if (!payloadItens.length) { alert('Nenhum item aberto para fechar.'); return; }
+
+            // Verificar existência (não bloqueante)
+            let exists = false;
+            try {
+                const url = new URL(window.location.origin + '/operacional/servicos-movimentos/fechamento/check/');
+                url.searchParams.set('placa', placa);
+                url.searchParams.set('data', dataFech);
+                const resp = await fetch(url.toString());
+                const data = await resp.json();
+                if (resp.ok) exists = !!data.exists;
+            } catch(_e) {}
+
+            const msg = exists ? 'Já existe fechamento para esta placa e data. Deseja fechar apenas os itens em aberto?' : 'Deseja efetivar o fechamento agora?';
+            if (!confirm(msg)) return;
+
+            const efetiva = await fetch('/operacional/servicos-movimentos/fechamento/fechar/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({
+                    placa: placa,
+                    data_inicio: dataInicio,
+                    data_fim: dataFim,
+                    data_fechamento: dataFech,
+                    periodo: periodoSel,
+                    parcela: parcelaSel,
+                    itens_tabela: payloadItens
+                })
+            });
+            const resEf = await efetiva.json();
+            if (!efetiva.ok || !resEf.success) {
+                alert(resEf.error || 'Falha ao efetivar fechamento.');
+            } else {
+                alert(resEf.message || 'Fechamento criado/atualizado com sucesso.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Falha ao efetivar fechamento.');
+        }
+    });
+
+    // utilitário CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Toggle edição do percentual ao clicar no valor
+    document.addEventListener('click', function(e){
+        const span = e.target.closest('.perc-display');
+        if (!span) return;
+        const td = span.parentElement;
+        const group = td.querySelector('.input-group');
+        if (!group) return;
+        span.classList.add('d-none');
+        group.classList.remove('d-none');
+        const inp = group.querySelector('.perc-input');
+        if (inp) { inp.focus(); inp.select(); }
+    });
+
+    // Ao pressionar Enter no input, confirma; Esc cancela
+    document.addEventListener('keydown', function(e){
+        const input = e.target.closest('.perc-input');
+        if (!input) return;
+        if (e.key === 'Escape') {
+            const group = input.closest('.input-group');
+            const td = group.parentElement;
+            const span = td.querySelector('.perc-display');
+            input.value = input.getAttribute('data-original') || '0.00';
+            group.classList.add('d-none');
+            span.textContent = (parseFloat(input.value)||0).toFixed(2).replace('.', ',') + '%';
+            span.classList.remove('d-none');
+        }
+        if (e.key === 'Enter') {
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+
+    // Inline edição de Percentual e recálculo do Cobrar
+    document.addEventListener('change', function(e){
+        const input = e.target.closest('.perc-input');
+        if (!input) return;
+        const tr = input.closest('tr.row-item');
+        if (!tr) return;
+        const oldVal = parseFloat((input.getAttribute('data-original')||'0').replace(',', '.')) || 0;
+        const newVal = parseFloat((input.value||'0').replace(',', '.')) || 0;
+        if (newVal === oldVal) return;
+        if (!confirm('Confirmar alteração do percentual?')) { input.value = oldVal.toFixed(2); return; }
+        input.setAttribute('data-original', newVal.toFixed(2));
+        // Atualiza display
+        const tdPerc = input.closest('td');
+        const spanDisplay = tdPerc.querySelector('.perc-display');
+        const grp = input.closest('.input-group');
+        if (spanDisplay && grp) {
+            spanDisplay.textContent = newVal.toFixed(2).replace('.', ',') + '%';
+            grp.classList.add('d-none');
+            spanDisplay.classList.remove('d-none');
+        }
+
+        const tds = tr.querySelectorAll('td');
+        const tipoTxt = (tr.getAttribute('data-tipo')||'').toLowerCase();
+        const totalTxt = (tds[8]?.textContent||'').replace('R$','').trim();
+        const totalVal = parseFloat(totalTxt.replace('.', '').replace(',', '.')) || 0;
+
+        // regra: serviços usam valor base do serviço (já refletido em cobrar), demais tipos: cobrar = total + total*fator
+        let cobrarVal = 0;
+        if (tipoTxt.includes('servic')) {
+            // para serviço, manter o cobrar atual, não depende do percentual
+            const cobrarTxt = (tds[10]?.textContent||'').replace('R$','').trim();
+            cobrarVal = parseFloat(cobrarTxt.replace('.', '').replace(',', '.')) || totalVal;
+        } else {
+            const fator = newVal <= 1 ? newVal : newVal/100.0;
+            cobrarVal = totalVal + (fator * totalVal);
+        }
+
+        // Atualiza célula Cobrar do item
+        if (tds[10]) tds[10].textContent = 'R$ ' + cobrarVal.toFixed(2).replace('.', ',');
+
+        // Recalcular totais do tipo e da placa
+        function parseMoney(td){ return parseFloat((td?.textContent||'').replace('R$','').trim().replace('.', '').replace(',', '.'))||0; }
+
+        // Encontrar cabeçalhos (linha tipo e placa) superiores
+        // Varre para cima até achar row-tipo e row-placa correspondentes
+        let cursor = tr.previousElementSibling;
+        let tipoRow = null; let placaRow = null;
+        while (cursor) {
+            if (!tipoRow && cursor.classList.contains('row-tipo')) tipoRow = cursor;
+            if (cursor.classList.contains('row-placa')) { placaRow = cursor; break; }
+            cursor = cursor.previousElementSibling;
+        }
+
+        // Somar cobrar dos itens pertencentes ao mesmo tipo (até a próxima row-tipo/row-placa)
+        if (tipoRow) {
+            let sumTipo = 0; let sumTipoTotal = 0;
+            let nxt = tipoRow.nextElementSibling;
+            while (nxt && !nxt.classList.contains('row-tipo') && !nxt.classList.contains('row-placa')){
+                if (nxt.classList.contains('row-item')){
+                    const cells = nxt.querySelectorAll('td');
+                    sumTipo += parseMoney(cells[10]); // cobrar
+                    sumTipoTotal += parseMoney(cells[8]); // total
+                }
+                nxt = nxt.nextElementSibling;
+            }
+            const tipoCells = tipoRow.querySelectorAll('td');
+            if (tipoCells[10]) tipoCells[10].textContent = 'R$ ' + sumTipo.toFixed(2).replace('.', ','); // coluna Cobrar do tipo
+            if (tipoCells[8]) tipoCells[8].textContent = 'R$ ' + sumTipoTotal.toFixed(2).replace('.', ','); // coluna Total do tipo
+        }
+
+        // Somar cobrar dos itens da placa (até a próxima row-placa)
+        if (placaRow) {
+            let sumPlaca = 0; let sumPlacaTotal = 0;
+            let nxt = placaRow.nextElementSibling;
+            while (nxt && !nxt.classList.contains('row-placa')){
+                if (nxt.classList.contains('row-item')){
+                    const cells = nxt.querySelectorAll('td');
+                    sumPlaca += parseMoney(cells[10]);
+                    sumPlacaTotal += parseMoney(cells[8]);
+                }
+                nxt = nxt.nextElementSibling;
+            }
+            const placaCells = placaRow.querySelectorAll('td');
+            if (placaCells[10]) placaCells[10].textContent = 'R$ ' + sumPlaca.toFixed(2).replace('.', ','); // coluna Cobrar da placa
+            if (placaCells[8]) placaCells[8].textContent = 'R$ ' + sumPlacaTotal.toFixed(2).replace('.', ','); // coluna Total da placa
+        }
+    });
+    // Atualiza a data de fechamento em tempo real ao mudar Data Fim
+    const dataFimInput = document.getElementById('data_fim');
+    if (dataFimInput) {
+        dataFimInput.addEventListener('change', function(){
+            const v = this.value; // yyyy-mm-dd
+            const out = document.getElementById('fechamentoDisplay');
+            if (!out) return;
+            if (!v) { out.value=''; return; }
+            const dt = new Date(v);
+            if (isNaN(dt.getTime())) { out.value=''; return; }
+            dt.setDate(dt.getDate() + 15);
+            const dd = String(dt.getDate()).padStart(2,'0');
+            const mm = String(dt.getMonth()+1).padStart(2,'0');
+            const yyyy = dt.getFullYear();
+            out.value = `${dd}/${mm}/${yyyy}`;
+        });
+    }
 });
 </script>
 {% endblock %}

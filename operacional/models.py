@@ -69,7 +69,7 @@ class Item(models.Model):
         verbose_name_plural = 'itens'
         permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
     def __str__(self):
-        return str(self.nm_item) if self.nm_item else f"Item {self.cd_item}"
+        return str(self.nm_item) if self.nm_item else f"Item {self.id_item}"
     def save(self, *args, **kwargs):
         self.nm_item = self.nm_item.upper()
         super().save(*args, **kwargs)
@@ -158,11 +158,18 @@ class OpeCategoria(models.Model):
     def __str__(self):
         return str(self.nome) if self.nome else f"Categoria {self.id}"
 
+
+tipo_periodo = [
+    ('M', 'Mensal'),
+    ('S', 'Semanal'),
+    ('Q', 'Quinzenal')
+]
+
 class Lancamento(models.Model):
     veiculo = models.ForeignKey(Veiculo, on_delete=models.CASCADE, db_column='id_veiculo', related_name='lancamentos_id_veiculo')
     categoria = models.ForeignKey(OpeCategoria, on_delete=models.CASCADE, db_column='id_categoria', related_name='lancamentos_id_categoria')
     data = models.DateField()
-    periodo = models.CharField(max_length=10, choices=[('M', 'Mensal'), ('S', 'Semanal'), ('Q', 'Quinzenal')], default='M')
+    periodo = models.CharField(max_length=10, choices=tipo_periodo, default='S')
     parcela = models.IntegerField(default=1)
     valor = models.FloatField()
     obs = models.TextField(blank=True, null=True)
@@ -181,3 +188,55 @@ class Lancamento(models.Model):
         usuario_str = str(self.usuario.username) if self.usuario else "Sem usuário"
         return f"{veiculo_str} - {categoria_str} - {self.data} - R$ {self.valor} - {usuario_str}"
     
+
+class Fechamento(models.Model):
+   placa = models.ForeignKey(Veiculo, on_delete=models.CASCADE, db_column='id_veiculo', related_name='fechamentos_id_veiculo')
+   datafechamento = models.DateTimeField(db_column='DATAFECHAMENTO')
+   cod_ag = models.CharField(max_length=20, db_column='COD_AG', blank=True, null=True)
+   valor_cargas = models.FloatField(db_column='VALOR', blank=True, null=True)
+   usuario = models.ForeignKey(User, on_delete=models.CASCADE, db_column='id_usuario', related_name='fechamentos_id_usuario')
+   dt_atualizacao = models.DateTimeField(auto_now=True)
+   dt_criacao = models.DateTimeField(auto_now_add=True)
+
+   class Meta:
+        db_table = 'ope_fechamento'
+        verbose_name = 'fechamento'
+        verbose_name_plural = 'fechamentos'
+        permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
+
+   def __str__(self):
+        return str(self.cod_ag) if self.cod_ag else f"Fechamento {self.datafechamento.strftime('%d/%m/%Y')}"
+
+
+
+
+
+
+class ItensFechamento(models.Model):
+    fechamento = models.ForeignKey(Fechamento, on_delete=models.CASCADE, db_column='id_fechamento', related_name='itens_fechamento_id_fechamento')
+    ordemServico = models.IntegerField(db_column='CDORDERSERVICO')
+    cdServico = models.IntegerField(db_column='CDSERVICO')
+    nmServico = models.CharField(max_length=255, db_column='NMSERVICO')
+    data = models.DateTimeField(db_column='DATA')
+    tipo = models.CharField(max_length=50, db_column='TIPO')
+    cdItem = models.IntegerField(db_column='CDITEM')
+    nmItem = models.CharField(max_length=255, db_column='NMITEM')
+    qtde = models.FloatField(db_column='QTDE')
+    unidade = models.CharField(max_length=20, db_column='UNIDADE')
+    valor_unitario = models.FloatField(db_column='VALOR_UNITARIO')
+    percentual = models.FloatField(db_column='PERCENTUAL')
+    valor = models.FloatField(db_column='VALOR')
+    total = models.FloatField(db_column='TOTAL')
+    periodo = models.CharField(max_length=10)
+    parcela = models.IntegerField()
+
+
+    class Meta:
+        db_table = 'ope_itens_fechamento'
+        verbose_name = 'itens de fechamento'
+        verbose_name_plural = 'itens de fechamento'
+        permissions = [('acessar_operacional', 'Pode acessar o módulo de operações')]
+
+    def __str__(self):
+        return f"OS {self.cdorderservico} - {self.nmservico} - {self.placa} - {self.data.strftime('%Y-%m-%d') if self.data else ''}"
+

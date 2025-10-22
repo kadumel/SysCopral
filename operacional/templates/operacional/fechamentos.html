@@ -1,0 +1,279 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Gestão de Fechamentos - Copral{% endblock %}
+
+{% block extra_css %}
+<style>
+    .fechamentos-main-content { padding: 1.25rem 1rem; max-width: 1400px; margin: 0 auto; }
+    .header-filters { background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 12px 24px -8px rgba(0,0,0,0.18); margin-bottom: 1rem; position: relative; }
+    .header-filters::before { content: ''; position: absolute; top:0; left:0; right:0; height:4px; background:#0056b3; border-radius:12px 12px 0 0; }
+    .page-title { color:#0056b3; font-weight:700; font-size:1.75rem; display:flex; gap:.5rem; align-items:center; }
+    .stats-card { background: linear-gradient(135deg, #0056b3, #003366); color:#fff; border-radius:12px; padding:1rem; text-align:center; }
+    .table-container { background:#fff; border-radius:12px; box-shadow: 0 12px 24px -8px rgba(0,0,0,0.18); overflow:hidden; }
+    .table thead th { background:#0056b3; color:#fff; text-align:center; padding:1rem; border:none; }
+    .table tbody td { text-align:center; padding:1rem; border-bottom:1px solid #e9ecef; }
+    .filters-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; }
+
+    /* Ajustes do modal de itens: mais largo e com altura controlada */
+    #modalItens .modal-dialog { max-width: 100vw; width: 100vw; margin: .5rem auto; }
+    #modalItens .modal-content { max-height: 85vh; }
+    #modalItens .modal-body { max-height: 70vh; overflow: auto; }
+    @media (min-width: 1400px) {
+        /* ampliar mais um pouco: 1760px */
+        #modalItens .modal-dialog { max-width: 1760px; width: 1760px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fechamentos-main-content">
+    <div class="header-filters">
+        <h1 class="page-title">
+            <i class="fas fa-cash-register"></i>
+            Gestão de Fechamentos
+        </h1>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="h3 m-0">{{ total_registros }}</div>
+                    <small>Total de Registros</small>
+                </div>
+            </div>
+        </div>
+
+        <form method="get" class="filters-form">
+            <div class="filters-row">
+                <div>
+                    <label class="form-label">Cod AG</label>
+                    <input type="text" class="form-control" name="cod_ag" value="{{ cod_ag_filtro }}" placeholder="Código AG">
+                </div>
+                <div>
+                    <label class="form-label">Agregado</label>
+                    <select class="form-control" name="agregado">
+                        <option value="">Todos</option>
+                        {% for ag in agregados_disponiveis %}
+                            <option value="{{ ag }}" {% if agregado_filtro == ag %}selected{% endif %}>{{ ag }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Placa</label>
+                    <select class="form-control" name="placa">
+                        <option value="">Todas</option>
+                        {% for p in placas_disponiveis %}
+                            <option value="{{ p }}" {% if placa_filtro == p %}selected{% endif %}>{{ p }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label">Data de Fechamento</label>
+                    <select class="form-control" name="data_fechamento">
+                        <option value="">Todas</option>
+                        {% for d in datas_fechamento_opcoes %}
+                            <option value="{{ d }}" {% if data_fechamento == d %}selected{% endif %}>{{ d }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Filtrar</button>
+                <a href="{% url 'operacional:fechamentos' %}" class="btn btn-secondary"><i class="fas fa-times"></i> Limpar</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Data Fechamento</th>
+                        <th>Cod AG</th>
+                        <th>Placa</th>
+                        <th>Agregado</th>
+                        <th>Total</th>
+                        <th>Usuário</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in fechamentos %}
+                    <tr>
+                        <td>{{ f.id }}</td>
+                        <td>{{ f.datafechamento|date:"d/m/Y H:i" }}</td>
+                        <td>{{ f.cod_ag|default:"—" }}</td>
+                        <td>{{ f.placa.placa.placa|default:"—" }}</td>
+                        <td>{{ f.placa.placa.nm_agregado|default:"—" }}</td>
+                        <td>R$ {{ f.valor_cargas|floatformat:2 }}</td>
+                        <td>{{ f.usuario.username }}</td>
+                        <td>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="abrirItens({{ f.id }})" title="Itens">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                                <button type="button" class="btn btn-warning btn-sm" onclick="alterarData({{ f.id }}, '{{ f.datafechamento|date:"d/m/Y" }}', {% if f.cod_ag %}true{% else %}false{% endif %})" title="Alterar Data">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="excluirFechamento({{ f.id }}, {% if f.cod_ag %}true{% else %}false{% endif %})" title="Excluir">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">Nenhum fechamento encontrado</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+    <!-- Modal Itens do Fechamento -->
+    <div class="modal fade" id="modalItens" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Itens do Fechamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>OS</th>
+                                    <th>Tipo</th>
+                                    <th>Serviço</th>
+                                    <th>Cód. Item</th>
+                                    <th>Item</th>
+                                    <th>Qtde</th>
+                                    <th>Vlr Unit.</th>
+                                    <th>%</th>
+                                    <th>Valor</th>
+                                    <th>Total</th>
+                                    <th>Período</th>
+                                    <th>Parcela</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyItens"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function abrirItens(fechamentoId){
+    try{
+        const resp = await fetch(`/operacional/fechamentos/${fechamentoId}/itens/`);
+        const data = await resp.json();
+        if(!resp.ok || !data.success){
+            alert(data.error || 'Falha ao carregar itens');
+            return;
+        }
+        const tbody = document.getElementById('tbodyItens');
+        tbody.innerHTML = '';
+        for (const it of data.itens){
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${it.data}</td>
+                <td>${it.ordem_servico}</td>
+                <td>${it.tipo || ''}</td>
+                <td class="text-start">${it.nm_servico || ''}</td>
+                <td>${it.cd_item}</td>
+                <td class="text-start">${it.nm_item}</td>
+                <td>${it.qtde}</td>
+                <td>R$ ${Number(it.valor_unitario||0).toFixed(2)}</td>
+                <td>${typeof it.percentual !== 'undefined' && it.percentual !== null ? Number(it.percentual).toFixed(2) : '0.00'}%</td>
+                <td>R$ ${Number(it.valor||0).toFixed(2)}</td>
+                <td>R$ ${Number(it.total||0).toFixed(2)}</td>
+                <td>${it.periodo || ''}</td>
+                <td>${it.parcela || ''}</td>
+                <td><button type="button" class="btn btn-danger btn-sm" onclick="excluirItem(${it.id})"><i class="fas fa-trash"></i></button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+        const modalEl = document.getElementById('modalItens');
+        const modal = (typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalEl) : null;
+        if (modal) modal.show();
+        else modalEl.style.display = 'block';
+    }catch(err){
+        console.error(err);
+        alert('Erro ao carregar itens');
+    }
+}
+
+async function excluirItem(itemId){
+    if (!confirm('Confirma excluir este item?')) return;
+    try{
+        const resp = await fetch(`/operacional/fechamentos/itens/${itemId}/excluir/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
+        const data = await resp.json();
+        if (!resp.ok || !data.success){ alert(data.error || 'O item não pode ser excluído: já lançado no AG.'); return; }
+        const btn = document.querySelector(`button[onclick="excluirItem(${itemId})"]`);
+        if (btn){ const tr = btn.closest('tr'); if (tr) tr.remove(); }
+    }catch(err){ console.error(err); alert('Erro ao excluir item'); }
+}
+
+async function excluirFechamento(fechamentoId, bloqueado){
+    if (bloqueado){
+        alert('Registro já gerou um Contas a Pagar e não pode ser excluído.');
+        return;
+    }
+    if (!confirm('Confirma excluir este fechamento? Esta ação não pode ser desfeita.')) return;
+    try{
+        const resp = await fetch(`/operacional/fechamentos/${fechamentoId}/excluir/`, {
+            method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success){ alert(data.error || 'Falha ao excluir'); return; }
+        location.reload();
+    }catch(err){ console.error(err); alert('Erro ao excluir'); }
+}
+
+async function alterarData(fechamentoId, dataAtual, bloqueado){
+    if (bloqueado){
+        alert('Registro já gerou um Contas a Pagar e não pode ter a data alterada.');
+        return;
+    }
+    const nova = prompt('Informe a nova data de fechamento (dd/mm/aaaa):', dataAtual || '');
+    if (!nova) return;
+    try{
+        const resp = await fetch(`/operacional/fechamentos/${fechamentoId}/alterar-data/`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ data_fechamento: nova })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success){ alert(data.error || 'Falha ao alterar data'); return; }
+        location.reload();
+    }catch(err){ console.error(err); alert('Erro ao alterar data'); }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}
+
+
