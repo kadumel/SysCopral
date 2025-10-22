@@ -650,6 +650,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     const isServico = tipoTxt.includes('servi');
                     const cdServicoAttr = next.getAttribute('data-cd-servico') || '';
                     const nmServicoAttr = next.getAttribute('data-nm-servico') || '';
+                    const periodoSelEl = tds[11]?.querySelector('select');
+                    const parcelaEl = tds[12]?.querySelector('input');
                     payloadItens.push({
                         data: tds[2]?.textContent?.trim(),
                         ordem_servico: tds[3]?.textContent?.trim(),
@@ -663,6 +665,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         valor_unitario: Number(((tds[7]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
                         valor: Number(((tds[8]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')), // total/bruto
                         perc: Number((percInput?.value||'0').replace(',', '.')),
+                        periodo: periodoSelEl ? (periodoSelEl.value||'') : '',
+                        parcela: parcelaEl ? (parcelaEl.value||'') : '',
                         cobrar: Number(((tds[10]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
                         tipo: (next.getAttribute('data-tipo')||'')
                     });

@@ -17,6 +17,7 @@ urlpatterns = [
     path('fechamentos/<int:fechamento_id>/excluir/', views.excluir_fechamento, name='excluir_fechamento'),
     path('fechamentos/<int:fechamento_id>/alterar-data/', views.alterar_data_fechamento, name='alterar_data_fechamento'),
     path('fechamentos/itens/<int:item_id>/excluir/', views.excluir_item_fechamento, name='excluir_item_fechamento'),
+    path('fechamentos/itens/<int:item_id>/mover/', views.mover_item_fechamento, name='mover_item_fechamento'),
     # URL para Atualizar Dados
     path('atualizar-dados/', views.AtualizarDadosView.as_view(), name='atualizar_dados'),
     # URLs existentes

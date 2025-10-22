@@ -1219,6 +1219,9 @@ class FechamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
                 .order_by('placa__placa')
             )
 
+        # Total geral de fechamentos filtrados
+        total_valor_fechamentos = self.get_queryset().aggregate(s=models.Sum('valor_cargas'))['s'] or 0.0
+
         context.update({
             'cod_ag_filtro': self.request.GET.get('cod_ag', ''),
             'agregado_filtro': agregado_sel,
@@ -1228,6 +1231,7 @@ class FechamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
             'datas_fechamento_opcoes': datas_opcoes,
             'agregados_disponiveis': agregados_disponiveis,
             'placas_disponiveis': placas_disponiveis,
+            'total_valor_fechamentos': float(total_valor_fechamentos),
         })
         return context
 
@@ -1258,6 +1262,7 @@ def get_fechamento_itens(request, fechamento_id: int):
             'periodo': it.periodo,
             'parcela': it.parcela,
             'cod_ag': cab.cod_ag,
+            'data_fechamento': cab.datafechamento.strftime('%Y-%m-%d') if cab.datafechamento else '',
         })
     return JsonResponse({'success': True, 'itens': data})
 
@@ -1281,6 +1286,70 @@ def excluir_item_fechamento(request, item_id: int):
         cab.valor_cargas = novo_total if novo_total > 0 else 0.0
         cab.save(update_fields=['valor_cargas'])
     return JsonResponse({'success': True, 'message': 'Item excluído com sucesso.', 'novo_total': float(cab.valor_cargas or 0)})
+
+@login_required
+@permission_required('operacional.acessar_operacional', raise_exception=True)
+@csrf_exempt
+@require_POST
+def mover_item_fechamento(request, item_id: int):
+    """Move um item para outra data de fechamento. Se não existir cabeçalho para a placa/data, cria um novo.
+    Espera JSON: { data_fechamento: 'dd/mm/yyyy' }
+    Bloqueia se o fechamento de origem tiver Cod AG preenchido.
+    """
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+        nova_data_str = (payload.get('data_fechamento') or '').strip()
+        if not nova_data_str:
+            return JsonResponse({'success': False, 'error': 'Data não informada'}, status=400)
+        try:
+            nova_dt = datetime.strptime(nova_data_str, '%d/%m/%Y')
+        except Exception:
+            try:
+                nova_dt = datetime.strptime(nova_data_str, '%Y-%m-%d')
+            except Exception:
+                return JsonResponse({'success': False, 'error': 'Formato de data inválido'}, status=400)
+
+        item = ItensFechamento.objects.select_related('fechamento', 'fechamento__placa', 'fechamento__placa__placa').get(id=item_id)
+        cab_origem = item.fechamento
+        # Bloqueio por Cod AG
+        if getattr(cab_origem, 'cod_ag', None) and str(cab_origem.cod_ag).strip() != '':
+            return JsonResponse({'success': False, 'error': 'Item não pode ser movido: fechamento original já possui Cod AG.'}, status=403)
+
+        # Encontrar ou criar cabeçalho destino para mesma placa na nova data
+        with transaction.atomic():
+            cab_dest = Fechamento.objects.select_for_update().filter(
+                placa=cab_origem.placa,
+                datafechamento__date=nova_dt.date(),
+            ).first()
+            if not cab_dest:
+                cab_dest = Fechamento.objects.create(
+                    placa=cab_origem.placa,
+                    datafechamento=nova_dt,
+                    cod_ag=None,
+                    valor_cargas=0.0,
+                    usuario=request.user,
+                )
+
+            # Atualizar totais de origem e destino
+            valor_item = float(item.total or 0)
+            # move item
+            item.fechamento = cab_dest
+            item.save(update_fields=['fechamento'])
+
+            # recalcula total dos dois cabeçalhos
+            total_origem = ItensFechamento.objects.filter(fechamento=cab_origem).aggregate(s=models.Sum('total'))['s'] or 0.0
+            cab_origem.valor_cargas = float(total_origem)
+            cab_origem.save(update_fields=['valor_cargas'])
+
+            total_dest = ItensFechamento.objects.filter(fechamento=cab_dest).aggregate(s=models.Sum('total'))['s'] or 0.0
+            cab_dest.valor_cargas = float(total_dest)
+            cab_dest.save(update_fields=['valor_cargas'])
+
+        return JsonResponse({'success': True, 'message': 'Item movido com sucesso.'})
+    except ItensFechamento.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Item não encontrado'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Erro ao mover item: {str(e)}'}, status=500)
 
 @login_required
 @permission_required('operacional.acessar_operacional', raise_exception=True)
@@ -1619,8 +1688,8 @@ def fechar_caixa(request):
                 'percentual': perc_val,
                 'valor': raw_total,
                 'total': cobrar_val,
-                'periodo': periodo,
-                'parcela': parcela,
+                'periodo': (d.get('periodo') or periodo),
+                'parcela': int(d.get('parcela') or parcela or 1),
             }
             for fld, val in (
                 ('placa', d.get('plate_col') or placa),

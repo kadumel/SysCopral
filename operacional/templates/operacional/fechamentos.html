@@ -41,6 +41,12 @@
                     <small>Total de Registros</small>
                 </div>
             </div>
+            <div class="col-md-3">
+                <div class="stats-card">
+                    <div class="h3 m-0">R$ {{ total_valor_fechamentos|floatformat:2 }}</div>
+                    <small>Valor Total</small>
+                </div>
+            </div>
         </div>
 
         <form method="get" class="filters-form">
@@ -114,6 +120,9 @@
                                 <button type="button" class="btn btn-primary btn-sm" onclick="abrirItens({{ f.id }})" title="Itens">
                                     <i class="fas fa-list"></i>
                                 </button>
+                                <button type="button" class="btn btn-info btn-sm" onclick="simularVencimentos({{ f.id }})" title="Simular Vencimentos">
+                                    <i class="fas fa-calendar-check"></i>
+                                </button>
                                 <button type="button" class="btn btn-warning btn-sm" onclick="alterarData({{ f.id }}, '{{ f.datafechamento|date:"d/m/Y" }}', {% if f.cod_ag %}true{% else %}false{% endif %})" title="Alterar Data">
                                     <i class="fas fa-calendar-alt"></i>
                                 </button>
@@ -169,6 +178,20 @@
             </div>
         </div>
     </div>
+    <!-- Modal Simulação de Vencimentos -->
+    <div class="modal fade" id="modalSimulacao" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Simulação de Vencimentos</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="simulacaoConteudo"></div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -201,7 +224,10 @@ async function abrirItens(fechamentoId){
                 <td>R$ ${Number(it.total||0).toFixed(2)}</td>
                 <td>${it.periodo || ''}</td>
                 <td>${it.parcela || ''}</td>
-                <td><button type="button" class="btn btn-danger btn-sm" onclick="excluirItem(${it.id})" ${'${'}disabled{'}'}><i class="fas fa-trash"></i></button></td>
+                <td class="d-flex gap-2">
+                    <button type="button" class="btn btn-warning btn-sm" onclick="moverItem(${it.id})" ${'${'}disabled{'}'} title="Mover para outra data"><i class="fas fa-calendar-alt"></i></button>
+                    <button type="button" class="btn btn-danger btn-sm" onclick="excluirItem(${it.id})" ${'${'}disabled{'}'}><i class="fas fa-trash"></i></button>
+                </td>
             `;
             tbody.appendChild(tr);
         }
@@ -224,6 +250,22 @@ async function excluirItem(itemId){
         const btn = document.querySelector(`button[onclick="excluirItem(${itemId})"]`);
         if (btn){ const tr = btn.closest('tr'); if (tr) tr.remove(); }
     }catch(err){ console.error(err); alert('Erro ao excluir item'); }
+}
+
+async function moverItem(itemId){
+    const nova = prompt('Informe a nova data de fechamento (dd/mm/aaaa):');
+    if (!nova) return;
+    try{
+        const resp = await fetch(`/operacional/fechamentos/itens/${itemId}/mover/`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ data_fechamento: nova })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success){ alert(data.error || 'Falha ao mover item.'); return; }
+        // Remove a linha movida do modal
+        const btn = document.querySelector(`button[onclick="moverItem(${itemId})"]`);
+        if (btn){ const tr = btn.closest('tr'); if (tr) tr.remove(); }
+    }catch(err){ console.error(err); alert('Erro ao mover item'); }
 }
 
 async function excluirFechamento(fechamentoId, bloqueado){
@@ -273,6 +315,78 @@ function getCookie(name) {
         }
     }
     return cookieValue;
+}
+
+async function simularVencimentos(fechamentoId){
+    try{
+        const resp = await fetch(`/operacional/fechamentos/${fechamentoId}/itens/`);
+        const data = await resp.json();
+        if(!resp.ok || !data.success){ alert(data.error || 'Falha ao carregar itens'); return; }
+        const itens = data.itens || [];
+        // mapa de parcelas por data
+        const parcelasMap = new Map();
+        // helper para próxima sexta a partir de uma data base (inclusive próxima)
+        function proximaSexta(d, semanas=1){
+            const dt = new Date(d.getTime());
+            // encontrar próxima sexta (5)
+            const day = dt.getDay(); // 0..6 (0=domingo)
+            let add = (5 - day);
+            if (add <= 0) add += 7;
+            dt.setDate(dt.getDate() + add + (semanas-1)*7);
+            return dt;
+        }
+        function formatBR(dt){ const dd=String(dt.getDate()).padStart(2,'0'); const mm=String(dt.getMonth()+1).padStart(2,'0'); const yy=dt.getFullYear(); return `${dd}/${mm}/${yy}`; }
+
+        // util: parse yyyy-mm-dd como data LOCAL para evitar voltar 1 dia com fuso
+        function parseYMDLocal(s){
+            if (!s) return new Date();
+            const [y,m,d] = s.split('-').map(Number);
+            return new Date(y, (m||1)-1, d||1, 0, 0, 0, 0);
+        }
+        // data base é a data de fechamento do cabeçalho (vem no primeiro item)
+        const baseStr = (itens[0]?.data_fechamento || '').trim();
+        const base = parseYMDLocal(baseStr);
+
+        for (const it of itens){
+            const total = Number(it.total||0);
+            const parcelas = parseInt(it.parcela||1,10) || 1;
+            const periodo = String(it.periodo||'M').toUpperCase();
+            const valorParc = total/parcelas;
+            for (let i=0;i<parcelas;i++){
+                let venc;
+                if (i===0){
+                    // primeira parcela na data de fechamento
+                    venc = new Date(base.getTime());
+                } else {
+                    if (periodo.startsWith('S')){
+                        // semanal: próxima sexta após a primeira
+                        venc = proximaSexta(base, i);
+                    } else if (periodo.startsWith('Q')){
+                        // quinzenal: segunda sexta após a primeira
+                        venc = proximaSexta(base, i*2);
+                    } else {
+                        // mensal: 4ª sexta após a primeira
+                        venc = proximaSexta(base, i*4);
+                    }
+                }
+                const key = formatBR(venc);
+                const atual = parcelasMap.get(key) || 0;
+                parcelasMap.set(key, atual + valorParc);
+            }
+        }
+        // montar html
+        const rows = Array.from(parcelasMap.entries()).sort((a,b)=>{
+            const [da, va] = a; const [db, vb] = b;
+            const pa = da.split('/').reverse().join('-');
+            const pb = db.split('/').reverse().join('-');
+            return pa.localeCompare(pb);
+        }).map(([d,v])=>`<tr><td>${d}</td><td>R$ ${Number(v).toFixed(2)}</td></tr>`).join('');
+        const html = `<table class="table"><thead><tr><th>Vencimento</th><th>Valor</th></tr></thead><tbody>${rows}</tbody></table>`;
+        document.getElementById('simulacaoConteudo').innerHTML = html;
+        const modalEl = document.getElementById('modalSimulacao');
+        const modal = (typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalEl) : null;
+        if (modal) modal.show(); else modalEl.style.display = 'block';
+    }catch(err){ console.error(err); alert('Erro na simulação'); }
 }
 </script>
 {% endblock %}
