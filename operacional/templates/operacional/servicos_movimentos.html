@@ -353,10 +353,32 @@
             Movimentações
         </h1>
         
-        <!-- Stats Card -->
-        <div class="stats-card">
-            <div class="stats-number">{{ total_servicos }}</div>
-            <div class="stats-label">Total de Serviços</div>
+        <!-- Stats Cards -->
+        <div class="stats-cards">
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_total_placas }}</div>
+                <div class="stats-label">Total de Placas</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_placas_fechadas }}</div>
+                <div class="stats-label">Placas 100% Fechadas</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_placas_abertas }}</div>
+                <div class="stats-label">Placas em Aberto</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_total_itens }}</div>
+                <div class="stats-label">Total de Itens</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_itens_fechados }}</div>
+                <div class="stats-label">Itens Fechados</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_itens_abertos }}</div>
+                <div class="stats-label">Itens Abertos</div>
+            </div>
         </div>
         
         <form method="get" class="filters-form">
@@ -381,6 +403,15 @@
                 <div class="form-group">
                     <label for="data_fim" class="form-label">Data Fim</label>
                     <input type="date" class="form-control" id="data_fim" name="data_fim" value="{{ data_fim }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="status_item" class="form-label">Status</label>
+                    <select id="status_item" name="status_item" class="form-select">
+                        <option value="" {% if not status_item_filtro %}selected{% endif %}>Todos</option>
+                        <option value="aberto" {% if status_item_filtro == 'aberto' %}selected{% endif %}>Abertos</option>
+                        <option value="fechado" {% if status_item_filtro == 'fechado' %}selected{% endif %}>Fechados</option>
+                    </select>
                 </div>
 
                 
@@ -486,14 +517,14 @@
                             <td></td> <!-- Ações -->
                         </tr>
                             {% for it in t.itens %}
-                            <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-status="{{ it.status }}">
+                            <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-status="{{ it.status }}" data-cd-servico="{{ it.cd_servico|default_if_none:'' }}" data-nm-servico="{{ it.nm_servico|default_if_none:'' }}">
                                 <td class="text-start"></td>
                                 <td class="text-start"></td>
                                 <td>{{ it.data|date:"d/m/Y" }}</td>
                                 <td>{{ it.ordem_servico }}</td>
                                 <td>{{ it.cd_item }}</td>
                                 <td class="text-start">{{ it.nm_item }}</td>
-                                <td>{{ it.quantidade }}</td>
+                                <td data-unidade="{{ it.unidade|default_if_none:'' }}">{{ it.quantidade }}</td>
                                 <td>R$ {{ it.valor|floatformat:2 }}</td>
                                 <td>R$ {{ it.total|floatformat:2 }}</td>
                             <td>
@@ -612,12 +643,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     const rowStatus = (next.getAttribute('data-status')||'').toLowerCase();
                     if (rowStatus === 'fechado') { next = next.nextElementSibling; continue; }
                     const percInput = tds[9]?.querySelector('.perc-input');
+                    const tipoTxt = (next.getAttribute('data-tipo')||'').toLowerCase();
+                    const codeVal = tds[4]?.textContent?.trim() || '';
+                    const nameVal = tds[5]?.textContent?.trim() || '';
+                    const unidadeVal = tds[6]?.getAttribute('data-unidade') || '';
+                    const isServico = tipoTxt.includes('servi');
+                    const cdServicoAttr = next.getAttribute('data-cd-servico') || '';
+                    const nmServicoAttr = next.getAttribute('data-nm-servico') || '';
                     payloadItens.push({
                         data: tds[2]?.textContent?.trim(),
                         ordem_servico: tds[3]?.textContent?.trim(),
-                        cd_item: tds[4]?.textContent?.trim(),
-                        nm_item: tds[5]?.textContent?.trim(),
+                        cd_item: isServico ? codeVal : codeVal,
+                        nm_item: isServico ? nameVal : nameVal,
+                        cd_servico: isServico ? (cdServicoAttr || codeVal) : (cdServicoAttr || codeVal),
+                        nm_servico: isServico ? (nmServicoAttr || nameVal) : (nmServicoAttr || nameVal),
+                        is_servico: isServico,
                         quantidade: Number((tds[6]?.textContent||'0').replace(',', '.')),
+                        unidade: unidadeVal,
                         valor_unitario: Number(((tds[7]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
                         valor: Number(((tds[8]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')), // total/bruto
                         perc: Number((percInput?.value||'0').replace(',', '.')),
@@ -661,6 +703,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert(resEf.error || 'Falha ao efetivar fechamento.');
             } else {
                 alert(resEf.message || 'Fechamento criado/atualizado com sucesso.');
+                setTimeout(() => { window.location.reload(); }, 200);
             }
         } catch (err) {
             console.error(err);

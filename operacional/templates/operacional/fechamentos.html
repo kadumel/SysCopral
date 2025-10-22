@@ -186,6 +186,7 @@ async function abrirItens(fechamentoId){
         tbody.innerHTML = '';
         for (const it of data.itens){
             const tr = document.createElement('tr');
+            const disabled = (String(it.cod_ag||'').trim() ? 'disabled' : '');
             tr.innerHTML = `
                 <td>${it.data}</td>
                 <td>${it.ordem_servico}</td>
@@ -200,7 +201,7 @@ async function abrirItens(fechamentoId){
                 <td>R$ ${Number(it.total||0).toFixed(2)}</td>
                 <td>${it.periodo || ''}</td>
                 <td>${it.parcela || ''}</td>
-                <td><button type="button" class="btn btn-danger btn-sm" onclick="excluirItem(${it.id})"><i class="fas fa-trash"></i></button></td>
+                <td><button type="button" class="btn btn-danger btn-sm" onclick="excluirItem(${it.id})" ${'${'}disabled{'}'}><i class="fas fa-trash"></i></button></td>
             `;
             tbody.appendChild(tr);
         }

@@ -690,7 +690,7 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
     template_name = 'operacional/servicos_movimentos.html'
     permission_required = 'operacional.acessar_operacional'
     context_object_name = 'servicos'
-    paginate_by = 10
+    paginate_by = None
 
     def get_queryset(self):
         """
@@ -734,6 +734,8 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
         total_col = find_col(['total', 'vl_total', 'vltotal'], fallback_contains='total')
         item_code_col = find_col(['cditem', 'cd_item', 'codigo_item'], fallback_contains='item')
         item_name_col = find_col(['nmitem', 'nm_item', 'nome_item', 'descricao_item'], fallback_contains='item')
+        status_col = find_col(['status', 'st'], fallback_contains='status')
+        unit_col = find_col(['unidade', 'unid', 'und', 'un'])
 
         select_parts = []
         if code_col: select_parts.append(f"{code_col} AS code_col")
@@ -748,6 +750,8 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
         if total_col: select_parts.append(f"{total_col} AS total_col")
         if item_code_col: select_parts.append(f"{item_code_col} AS item_code_col")
         if item_name_col: select_parts.append(f"{item_name_col} AS item_name_col")
+        if status_col: select_parts.append(f"{status_col} AS status_col")
+        if unit_col: select_parts.append(f"{unit_col} AS unit_col")
         if not select_parts:
             select_parts.append("*")
 
@@ -824,11 +828,13 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                     'total': row.get('total_col') if 'total_col' in row else row.get((total_col or '').lower()) if total_col else None,
                     'cd_item': row.get('item_code_col') if 'item_code_col' in row else row.get((item_code_col or '').lower()) if item_code_col else None,
                     'nm_item': row.get('item_name_col') if 'item_name_col' in row else row.get((item_name_col or '').lower()) if item_name_col else None,
+                    'unidade': row.get('unit_col') if 'unit_col' in row else row.get((unit_col or '').lower()) if unit_col else None,
+                    'status': row.get('status_col') if 'status_col' in row else None,
                 })
 
         return rows
 
-    def _agrupar_hierarquia(self, rows, data_inicio=None, data_fim=None):
+    def _agrupar_hierarquia(self, rows, data_inicio=None, data_fim=None, status_filter=None):
         grupos = {}
         # Coleta códigos/ids para minimizar queries
         service_codes = set()
@@ -895,11 +901,14 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
         if plate_to_veic:
             items_qs = items_qs.filter(fechamento__placa__in=list(plate_to_veic.values()))
 
-        closed_keys = set()
-        for it in items_qs.values('ordemServico','cdItem','data','fechamento__placa__placa__placa'):
+        # Conjuntos de itens fechados por item e por serviço
+        closed_by_item = set()
+        closed_by_serv = set()
+        for it in items_qs.values('ordemServico','cdItem','cdServico','data','fechamento__placa__placa__placa'):
             plate_txt = it['fechamento__placa__placa__placa']
             date_only = it['data'].date() if hasattr(it['data'],'date') else it['data']
-            closed_keys.add((it['ordemServico'], it['cdItem'], date_only, plate_txt))
+            closed_by_item.add((it['ordemServico'], it.get('cdItem'), date_only, plate_txt))
+            closed_by_serv.add((it['ordemServico'], it.get('cdServico'), date_only, plate_txt))
 
         for r in rows:
             placa = (r.get('placa') or '').strip() if r.get('placa') else 'SEM PLACA'
@@ -961,11 +970,29 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
             if tipo not in grupos[placa]['tipos']:
                 grupos[placa]['tipos'][tipo] = { 'tipo': tipo, 'total_tipo': 0, 'cobrar_tipo': 0, 'itens': [], 'has_open': False, 'has_closed': False, 'status_tipo': 'all_open' }
 
-            # Determinar status do item fechado/aberto
-            data_val = r.get('data')
-            data_only = data_val.date() if hasattr(data_val,'date') else data_val
-            item_key = (r.get('ordem_servico'), r.get('cd_item'), data_only, placa)
-            item_fechado = item_key in closed_keys
+            # Determinar status do item fechado/aberto baseado APENAS no campo 'status' quando disponível
+            status_raw = (r.get('status') or '').strip().lower() if r.get('status') else ''
+            if status_raw in ('fechado', 'closed', '1', 'true'):
+                item_fechado = True
+            elif status_raw in ('aberto', 'open', '0', 'false'):
+                item_fechado = False
+            else:
+                # fallback legacy (se status não vier na view)
+                data_val = r.get('data')
+                data_only = data_val.date() if hasattr(data_val,'date') else data_val
+                os_val = r.get('ordem_servico')
+                cd_item_val = r.get('cd_item')
+                cd_serv_val = r.get('cd_servico')
+                is_servico = 'servic' in tipo_norm
+                if is_servico:
+                    item_fechado = bool(cd_serv_val) and ((os_val, cd_serv_val, data_only, placa) in closed_by_serv)
+                else:
+                    item_fechado = bool(cd_item_val) and ((os_val, cd_item_val, data_only, placa) in closed_by_item)
+
+            item_status_str = 'fechado' if item_fechado else 'aberto'
+            # Aplicar filtro de status, se solicitado
+            if status_filter in ('aberto', 'fechado') and item_status_str != status_filter:
+                continue
 
             grupos[placa]['tipos'][tipo]['itens'].append({
                 'data': r.get('data'),
@@ -977,7 +1004,10 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 'total': total_item or 0,
                 'perc': perc_display if 'perc_display' in locals() else 0.0,
                 'cobrar': cobrar_val or 0,
-                'status': 'fechado' if item_fechado else 'aberto',
+                'cd_servico': r.get('cd_servico'),
+                'nm_servico': r.get('nm_servico'),
+                'unidade': r.get('unidade') or '',
+                'status': item_status_str,
             })
 
             grupos[placa]['tipos'][tipo]['total_tipo'] += (total_item or 0)
@@ -998,12 +1028,15 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
             else:
                 grupos[placa]['has_open'] = True
 
-        # converter para listas ordenadas e definir status_placa
+        # converter para listas ordenadas e definir status_placa, removendo tipos/placas sem itens
         lista = []
         for placa_key in sorted(grupos.keys()):
             tipo_list = []
             for tipo_key in sorted(grupos[placa_key]['tipos'].keys()):
                 t = grupos[placa_key]['tipos'][tipo_key]
+                # descarta tipos sem itens
+                if not t['itens']:
+                    continue
                 if t['has_open'] and t['has_closed']:
                     t['status_tipo'] = 'mixed'
                 elif t['has_closed'] and not t['has_open']:
@@ -1011,7 +1044,12 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 else:
                     t['status_tipo'] = 'all_open'
                 tipo_list.append(t)
-            # status por placa
+
+            # pular placas sem tipos válidos
+            if not tipo_list:
+                continue
+
+            # status por placa baseado nos itens agregados
             has_open = grupos[placa_key].get('has_open', False)
             has_closed = grupos[placa_key].get('has_closed', False)
             if has_open and has_closed:
@@ -1065,6 +1103,26 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 fechamento_display = ''
                 fechamento_raw = ''
 
+        # Preparar grupos e métricas para cards
+        rows_ctx = self.get_queryset()
+        status_item_filtro = (self.request.GET.get('status_item') or '').strip().lower()
+        if status_item_filtro not in ('aberto', 'fechado'):
+            status_item_filtro = ''
+        grupos_ctx = self._agrupar_hierarquia(rows_ctx, data_inicio=self.request.GET.get('data_inicio', ''), data_fim=self.request.GET.get('data_fim', ''), status_filter=status_item_filtro)
+        # métricas
+        total_placas = len(grupos_ctx)
+        placas_fechadas = sum(1 for g in grupos_ctx if g.get('status_placa') == 'all_closed')
+        placas_abertas = total_placas - placas_fechadas
+
+        total_itens = 0
+        itens_fechados = 0
+        for g in grupos_ctx:
+            for t in g.get('tipos', []):
+                itens = t.get('itens', [])
+                total_itens += len(itens)
+                itens_fechados += sum(1 for it in itens if it.get('status') == 'fechado')
+        itens_abertos = max(total_itens - itens_fechados, 0)
+
         context.update({
             'nm_servico_filtro': self.request.GET.get('nm_servico', ''),
             'tipo_servico_filtro': self.request.GET.get('tipo_servico', ''),
@@ -1074,8 +1132,16 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
             'data_inicio': self.request.GET.get('data_inicio', ''),
             'data_fim': self.request.GET.get('data_fim', ''),
             'tipos_servico_disponiveis': tipos_servico_disponiveis,
-            'total_servicos': len(self.get_queryset()),
-            'grupos': self._agrupar_hierarquia(self.get_queryset()),
+            'total_servicos': len(rows_ctx),
+            'grupos': grupos_ctx,
+            'status_item_filtro': status_item_filtro,
+            # métricas para cards
+            'metric_total_placas': total_placas,
+            'metric_placas_fechadas': placas_fechadas,
+            'metric_placas_abertas': placas_abertas,
+            'metric_total_itens': total_itens,
+            'metric_itens_fechados': itens_fechados,
+            'metric_itens_abertos': itens_abertos,
             'data_fechamento_calculada': fechamento_display,
             'data_fechamento_raw': fechamento_raw,
             # Campos padrão para período/parcelas
@@ -1191,6 +1257,7 @@ def get_fechamento_itens(request, fechamento_id: int):
             'total': it.total,
             'periodo': it.periodo,
             'parcela': it.parcela,
+            'cod_ag': cab.cod_ag,
         })
     return JsonResponse({'success': True, 'itens': data})
 
@@ -1466,9 +1533,10 @@ def fechar_caixa(request):
 
             tipo_txt = (d.get('tipo') or d.get('type_col') or '')
             tipo_norm = str(tipo_txt).lower()
+            # Garantir mapeamento correto de serviço x item
             cd_serv = d.get('cd_servico') or d.get('code_col') or 0
             cobrar_val = 0.0
-            if 'servic' in tipo_norm:
+            if ('servic' in tipo_norm) or (str(d.get('is_servico')).lower() == 'true'):
                 # manter o valor de cobrar vindo da tela (já reflete regras e edições)
                 cobrar_val = float(d.get('cobrar') or raw_total)
             else:
@@ -1494,15 +1562,20 @@ def fechar_caixa(request):
                             data_only = None
             except Exception:
                 data_only = None
-            exists_item = ItensFechamento.objects.filter(
-                fechamento=cab,
-                ordemServico=d.get('os_col') or d.get('ordem_servico') or 0,
-                cdItem=d.get('item_code_col') or d.get('cd_item') or 0,
-            )
-            if data_only:
-                exists_item = exists_item.filter(data__date=data_only)
-            if exists_item.exists():
-                continue
+            # Determinar chaves para duplicidade por tipo de lançamento
+            tipo_txt = (d.get('tipo') or d.get('type_col') or '')
+            tipo_norm = str(tipo_txt).lower()
+            is_serv = (str(d.get('is_servico')).lower() == 'true') or ('servi' in tipo_norm)
+            def safe_int(v, default=0):
+                try:
+                    return int(v)
+                except Exception:
+                    return default
+            cd_item_key = safe_int(d.get('item_code_col') or d.get('cd_item') or 0, 0)
+            # Para serviços, se não vier cd_servico usar fallback para o código visível (cd_item)
+            cd_serv_key = safe_int(d.get('cd_servico') or d.get('code_col') or (d.get('cd_item') if is_serv else 0), 0)
+
+            # sem checagem de duplicidade: sempre insere conforme a tabela
             # normalizar data datetime para o item
             item_dt = None
             try:
@@ -1522,17 +1595,26 @@ def fechar_caixa(request):
             except Exception:
                 item_dt = datetime.combine(dt_fim, datetime.min.time())
 
+            # Garantir preenchimento de ambos conjuntos de campos (serviço e item)
+            # Fallback cruzado para evitar vazios quando a origem não envia um dos códigos
+            nm_item_val = d.get('nm_item') or d.get('item_name_col') or ''
+            nm_serv_val = d.get('nm_servico') or d.get('name_col') or ''
+            if not nm_serv_val:
+                nm_serv_val = nm_item_val
+            if not nm_item_val and nm_serv_val:
+                nm_item_val = nm_serv_val
+
             create_kwargs = {
                 'fechamento': cab,
                 'ordemServico': d.get('ordem_servico') or d.get('os_col') or 0,
-                'cdServico': d.get('cd_servico') or d.get('code_col') or 0,
-                'nmServico': d.get('nm_servico') or d.get('name_col') or '',
+                'cdServico': (cd_serv_key or cd_item_key),
+                'nmServico': nm_serv_val,
                 'data': item_dt,
                 'tipo': d.get('tipo') or d.get('type_col') or '',
-                'cdItem': d.get('cd_item') or d.get('item_code_col') or 0,
-                'nmItem': d.get('nm_item') or d.get('item_name_col') or '',
+                'cdItem': (cd_item_key or cd_serv_key),
+                'nmItem': nm_item_val,
                 'qtde': float(d.get('quantidade') or d.get('qty_col') or 0),
-                'unidade': '',
+                'unidade': (d.get('unidade') or '').strip() if isinstance(d.get('unidade'), str) else '',
                 'valor_unitario': unit_val,
                 'percentual': perc_val,
                 'valor': raw_total,
