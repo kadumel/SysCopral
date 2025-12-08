@@ -1,0 +1,522 @@
+{% extends 'home.html' %}
+
+{% block title %}Gestão de Carta Frete{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1>Gestão de Carta Frete</h1>
+    <style>
+    /* Aumenta a largura do modal em ~20% em relação ao modal-xl padrão */
+    .modal-w-120 { --bs-modal-width: 1368px; }
+    </style>
+    <form method="get" class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label">Placa</label>
+            <input type="text" name="placa" class="form-control" value="{{ placa_filtro }}" placeholder="PLACA">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Data Início</label>
+            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Data Fim</label>
+            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+                <option value="" {% if not status_filtro %}selected{% endif %}>Todos</option>
+                <option value="ABERTO" {% if status_filtro == 'ABERTO' %}selected{% endif %}>ABERTO</option>
+                <option value="FECHADO" {% if status_filtro == 'FECHADO' %}selected{% endif %}>FECHADO</option>
+            </select>
+        </div>
+        <div class="col-md-3 d-flex align-items-end gap-2">
+            <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Filtrar</button>
+            <a class="btn btn-secondary" href="{% url 'operacional:carta_frete_page' %}"><i class="fas fa-times me-1"></i>Limpar</a>
+        </div>
+    </form>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        {% if grupos %}
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Placa</th>
+                        <th>Qtde Itens</th>
+                        <th>Valor</th>
+                        <th>Adiantamento</th>
+                        <th>Outros</th>
+                        <th>Saldo</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for g in grupos %}
+                    <tr>
+                        <td class="text-start">{{ g.placa }}</td>
+                        <td>{{ g.qtd }}</td>
+                        <td>R$ {{ g.valor|floatformat:2 }}</td>
+                        <td>R$ {{ g.adiantamento|floatformat:2 }}</td>
+                        <td>R$ {{ g.outros|floatformat:2 }}</td>
+                        <td>R$ {{ g.saldo|floatformat:2 }}</td>
+                        <td>
+                            <button type="button" class="btn btn-primary btn-sm btn-cf-itens" data-placa="{{ g.placa }}">
+                                <i class="fas fa-list"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-muted">Nenhum registro encontrado para os filtros.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal Itens Carta Frete -->
+<div class="modal fade" id="modalCFItens" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-w-120">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Itens - Carta Frete</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-outline-secondary btn-sm" id="btnMarcarTodos">Marcar todos</button>
+            <button class="btn btn-outline-secondary btn-sm" id="btnDesmarcarTodos">Desmarcar todos</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm" id="tblCFItens">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sair</button>
+        <button type="button" class="btn btn-success" id="btnGerarPagar">Gerar Contas a Pagar</button>
+      </div>
+    </div>
+  </div>
+  </div>
+
+<!-- Modal Data de Fechamento para Gerar Contas a Pagar -->
+<div class="modal fade" id="modalCFData" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Data de Fechamento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label">Selecione a data de fechamento</label>
+          <input type="date" class="form-control" id="dtFechCF">
+        </div>
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="chkVlFixo">
+          <label class="form-check-label" for="chkVlFixo">
+            Valor fixo (ignora parcelas/itens)
+          </label>
+        </div>
+        <div class="mb-2" id="grpVlFixo" style="display:none;">
+          <label class="form-label">Valor fixo (R$)</label>
+          <input type="number" step="0.01" min="0" class="form-control" id="inpVlFixo" placeholder="0,00">
+          <small class="text-muted">Com valor fixo, o vencimento será único na data de fechamento.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="btnConfirmarGerarPagar">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalhes ACT -->
+<div class="modal fade" id="modalCFAct" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalhes</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="act-body" style="white-space: pre-wrap; word-break: break-word;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('click', async function(e){
+    const btn = e.target.closest('.btn-cf-itens');
+    if (!btn) return;
+    const placa = btn.getAttribute('data-placa')||'';
+    const qs = new URLSearchParams(window.location.search);
+    const di = qs.get('data_inicio')||'';
+    const df = qs.get('data_fim')||'';
+    const st = qs.get('status')||'';
+    try{
+        if (!di || !df){ alert('Informe Data Início e Data Fim para consultar.'); return; }
+        const url = new URL(window.location.origin + '/operacional/servicos-movimentos/carta-frete/');
+        if (placa) url.searchParams.set('placa', placa);
+        if (di) url.searchParams.set('data_inicio', di);
+        if (df) url.searchParams.set('data_fim', df);
+        if (st) url.searchParams.set('status', st);
+        const resp = await fetch(url.toString());
+        const data = await resp.json();
+        if (!resp.ok || !data.success){ alert(data.error||'Falha ao buscar itens'); return; }
+        const rows = data.rows||[];
+        if (!rows.length){ alert('Sem itens para esta placa.'); return; }
+        const cols = Object.keys(rows[0]);
+        // Utilitários de normalização e avaliação de status
+        const norm = (s)=> (s||'').toString()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+            .toUpperCase().replace(/[^A-Z0-9]/g,'');
+        const toStr = (v)=> (v==null ? '' : String(v)).trim();
+        const isClosedValue = (val)=>{
+            const sitStr = toStr(val);
+            const sitNorm = sitStr.toUpperCase();
+            const sitNormAscii = sitStr.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+            return (
+                sitNorm.includes('FECH') || sitNormAscii.includes('ENCERR') || sitNorm.includes('CLOS') ||
+                ['FECHADO','F','ENCERRADO','CLOSED','C','1','TRUE'].includes(sitNorm)
+            );
+        };
+        const isOpenValue = (val)=>{
+            const sitStr = toStr(val);
+            const sitNorm = sitStr.toUpperCase();
+            return (
+                sitNorm.includes('ABER') || sitNorm.includes('OPEN') ||
+                ['ABERTO','A','OPEN','O','0','FALSE'].includes(sitNorm)
+            );
+        };
+        const situacaoKeys = ['SITUACAO','SITUAÇÃO'];
+        // Detectar a coluna de situação por nome (aceita contém)
+        let sitKey = null;
+        for (const c of cols) {
+            const nc = norm(c);
+            if (situacaoKeys.some(k => nc === k || nc.includes(k))) { sitKey = c; break; }
+        }
+        // Preferida: 'situacao' se existir; senão, a detectada
+        const sitKeyPreferred = cols.includes('situacao') ? 'situacao' : (sitKey || null);
+        // Ocultar colunas textuais de status duplicadas, mantendo apenas a preferida
+        const excludeCols = new Set();
+        cols.forEach(c => {
+            const nc = norm(c);
+            const isSituacaoCol = situacaoKeys.some(k => nc === k || nc.includes(k));
+            if (isSituacaoCol && (!sitKeyPreferred || c !== sitKeyPreferred)) excludeCols.add(c);
+            // Remover colunas específicas que não devem aparecer na tabela
+            if (nc === 'ACT') excludeCols.add(c);
+            if (nc === 'DATAFECHAMENTO' || nc === 'DTFECHAMENTO' || nc.includes('DATAFECHAMENTO') || nc.includes('DTFECHAMENTO')) excludeCols.add(c);
+            if (nc === 'FECHAMENTOID' || nc === 'IDFECHAMENTO' || nc.includes('FECHAMENTOID') || nc.includes('IDFECHAMENTO')) excludeCols.add(c);
+        });
+        // Remover também a própria coluna textual de situação (deixe apenas o ícone)
+        if (sitKeyPreferred) excludeCols.add(sitKeyPreferred);
+        const colsFiltered = cols.filter(c => !excludeCols.has(c));
+        // util para formatação de datas yyyy-mm-dd -> dd/mm/yyyy
+        const fmtDate = (val)=>{
+            if (!val) return '';
+            try{
+                if (typeof val === 'string'){
+                    // tenta yyyy-mm-dd ou yyyy-mm-ddTHH:mm:ss
+                    const m = val.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+                    // tenta dd/mm/yyyy já formatado
+                    const m2 = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                    if (m2) return val;
+                } else if (val instanceof Date && !isNaN(val)) {
+                    const dd = String(val.getDate()).padStart(2,'0');
+                    const mm = String(val.getMonth()+1).padStart(2,'0');
+                    const yyyy = val.getFullYear();
+                    return `${dd}/${mm}/${yyyy}`;
+                }
+            }catch(e){}
+            return String(val);
+        };
+
+        const thead = '<tr>'
+            + '<th><input type="checkbox" id="chkAll"></th>'
+            + '<th>Situação</th>'
+            + '<th>Período</th><th>Parcelas</th>'
+            + '<th>Data Fechamento</th>'
+            + colsFiltered.map(c=>`<th>${c}</th>`).join('')
+            + '<th>Ações</th>'
+            + '</tr>';
+        const tbody = rows.map((r,i)=>{
+            // Valor da situação: usar exatamente a coluna preferida detectada
+            const sitStr = toStr(sitKeyPreferred ? r[sitKeyPreferred] : '');
+            const up = sitStr.toUpperCase();
+            const upAscii = sitStr.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+            const isFechado = up.includes('FECH') || upAscii.includes('ENCERR') || up.includes('CLOS') || ['FECHADO','F','ENCERRADO','CLOSED','C','1','TRUE'].includes(up);
+            const isAberto = up.includes('ABER') || up.includes('OPEN') || ['ABERTO','A','OPEN','O','0','FALSE'].includes(up);
+            const icon = isFechado
+                ? `<i class="fas fa-lock text-danger" title="Fechado (${sitStr})"></i>`
+                : (isAberto
+                    ? `<i class="fas fa-unlock text-success" title="Aberto (${sitStr})"></i>`
+                    : `<i class="fas fa-question-circle text-secondary" title="Indefinido (${sitStr})"></i>`);
+            const checkboxTd = isFechado
+                ? '<td></td>'
+                : `<td><input type="checkbox" class="chkItem" data-idx="${i}"></td>`;
+            const periodoSel = `<select class="form-select form-select-sm periodo-idx-${i}" ${isFechado ? 'disabled' : ''}>
+                                    <option value="S" selected>Semanal</option>
+                                    <option value="Q">Quinzenal</option>
+                                    <option value="M">Mensal</option>
+                                 </select>`;
+            const parcelaInp = `<input type="number" min="1" class="form-control form-control-sm parcela-idx-${i}" value="1" ${isFechado ? 'disabled' : ''}>`;
+            const tds = colsFiltered.map(c=>{
+                const label = c || '';
+                const up = label.toString().toUpperCase();
+                // formatar colunas de data conhecidas
+                if (up === 'DATA' || up === 'DATA_FECHAMENTO' || up === 'DT_FECHAMENTO') {
+                    return `<td>${fmtDate(r[c])}</td>`;
+                }
+                return `<td>${r[c]??''}</td>`;
+            }).join('');
+            // Obter ACT de forma robusta (mesmo removendo coluna textual da tabela)
+            const getAct = () => {
+                if ('ACT' in r && r.ACT) return r.ACT;
+                if ('act' in r && r.act) return r.act;
+                for (const k of Object.keys(r)) {
+                    const nk = (k||'').toString().toUpperCase();
+                    if ((nk.includes('ACT') || nk.includes('DESCRICAO')) && r[k]) return r[k];
+                }
+                return '';
+            };
+            const escAttr = (s)=> s.toString().replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            const actVal = getAct();
+            const acaoBtn = `<td class="text-center"><button type="button" class="btn btn-outline-primary btn-sm btn-act-details" title="Detalhes" data-act="${escAttr(actVal)}"><i class="fas fa-eye"></i></button></td>`;
+            // valor inicial para Data Fechamento, se a view já trouxer a coluna
+            const dfRaw = (r.DATA_FECHAMENTO ?? r.data_fechamento ?? r.DT_FECHAMENTO ?? r.dt_fechamento ?? '');
+            return `<tr data-row-idx="${i}">
+                        ${checkboxTd}
+                        <td class="text-center">${icon}</td>
+                        <td>${periodoSel}</td>
+                        <td>${parcelaInp}</td>
+                        <td class="dtfech-idx-${i}">${fmtDate(dfRaw)}</td>
+                        ${tds}
+                        ${acaoBtn}
+                    </tr>`;
+        }).join('');
+        const modalEl = document.getElementById('modalCFItens');
+        modalEl.querySelector('thead').innerHTML = thead;
+        modalEl.querySelector('tbody').innerHTML = tbody;
+        if (typeof bootstrap !== 'undefined') {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            // atualizar a tabela principal ao fechar o modal de itens
+            const onHidden = () => {
+                modalEl.removeEventListener('hidden.bs.modal', onHidden);
+                window.location.reload();
+            };
+            modalEl.addEventListener('hidden.bs.modal', onHidden);
+            modal.show();
+        }
+
+        // marcar/desmarcar
+        const chkAll = modalEl.querySelector('#chkAll');
+        if (chkAll){
+            chkAll.addEventListener('change', function(){
+                modalEl.querySelectorAll('.chkItem').forEach(c=>{ c.checked = chkAll.checked; });
+            });
+        }
+        document.getElementById('btnMarcarTodos').onclick = ()=>{
+            modalEl.querySelectorAll('.chkItem').forEach(c=>{ c.checked = true; });
+        };
+        document.getElementById('btnDesmarcarTodos').onclick = ()=>{
+            modalEl.querySelectorAll('.chkItem').forEach(c=>{ c.checked = false; });
+        };
+        // abrir modal de detalhes ACT
+        modalEl.addEventListener('click', function(e){
+            const btn = e.target.closest('.btn-act-details');
+            if (!btn) return;
+            const txt = btn.getAttribute('data-act') || '';
+            const detModalEl = document.getElementById('modalCFAct');
+            detModalEl.querySelector('.act-body').textContent = txt;
+            if (typeof bootstrap !== 'undefined') {
+                const m = bootstrap.Modal.getOrCreateInstance(detModalEl);
+                m.show();
+            }
+        });
+        // fluxo: abrir modal de data para gerar contas a pagar
+        document.getElementById('btnGerarPagar').onclick = async ()=>{
+            const selecionados = Array.from(modalEl.querySelectorAll('.chkItem')).filter(c=>c.checked).map(c=>Number(c.getAttribute('data-idx')));
+            if (!selecionados.length){ alert('Selecione ao menos um item.'); return; }
+            // guardar seleção em dataset do modal de data
+            const dataEl = document.getElementById('modalCFData');
+            dataEl.dataset.selecionados = JSON.stringify(selecionados);
+            dataEl.dataset.placa = placa;
+            // prefila data com hoje
+            const input = dataEl.querySelector('#dtFechCF');
+            if (input && !input.value){
+                const now = new Date();
+                const yyyy = now.getFullYear();
+                const mm = String(now.getMonth()+1).padStart(2,'0');
+                const dd = String(now.getDate()).padStart(2,'0');
+                input.value = `${yyyy}-${mm}-${dd}`;
+            }
+            // buscar configuração existente (fl_vlfixo / valor_fixo) se já houver CAP para a placa/data
+            async function carregarConfigCap(){
+                const di = input?.value || '';
+                if (!di) return;
+                try{
+                    const url = new URL(window.location.origin + '/operacional/contas-a-pagar/check/');
+                    url.searchParams.set('placa', placa);
+                    url.searchParams.set('data_fechamento', di);
+                    const r = await fetch(url.toString());
+                    const j = await r.json();
+                    if (r.ok && j.success && j.exists){
+                        const chk = document.getElementById('chkVlFixo');
+                        const grp = document.getElementById('grpVlFixo');
+                        const inp = document.getElementById('inpVlFixo');
+                        const flfix = !!j.fl_vlfixo || (typeof j.valor_fixo === 'number' && j.valor_fixo > 0);
+                        if (chk){ chk.checked = flfix; }
+                        if (grp){ grp.style.display = flfix ? '' : 'none'; }
+                        if (inp && (typeof j.valor_fixo !== 'undefined' && j.valor_fixo !== null)){
+                            const num = Number(j.valor_fixo)||0;
+                            // input type="number" requer ponto como separador decimal
+                            inp.value = num.toFixed(2);
+                        }
+                    }
+                }catch(err){ /* silencioso */ }
+            }
+            await carregarConfigCap();
+            // também re-carregar quando a data mudar dentro do modal
+            if (input && !input._capCfgBound){
+                input.addEventListener('change', carregarConfigCap);
+                input._capCfgBound = true;
+            }
+            if (typeof bootstrap !== 'undefined') {
+                const m = bootstrap.Modal.getOrCreateInstance(dataEl);
+                m.show();
+            }
+        };
+    }catch(err){ console.error(err); alert('Erro ao carregar itens.'); }
+});
+
+// utilitário CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// confirmar geração (apenas exibe data escolhida neste passo; integração de endpoint pode ser adicionada)
+document.addEventListener('DOMContentLoaded', function(){
+  const btn = document.getElementById('btnConfirmarGerarPagar');
+  // toggle valor fixo
+  const chk = document.getElementById('chkVlFixo');
+  const grp = document.getElementById('grpVlFixo');
+  if (chk && grp){
+    chk.addEventListener('change', function(){
+      grp.style.display = chk.checked ? '' : 'none';
+    });
+  }
+  if (!btn) return;
+  btn.addEventListener('click', async function(){
+    const dataEl = document.getElementById('modalCFData');
+    const dtInput = dataEl.querySelector('#dtFechCF');
+    const dt = dtInput?.value || '';
+    if (!dt){ alert('Informe a data de fechamento.'); return; }
+    const selecionados = JSON.parse(dataEl.dataset.selecionados||'[]');
+    const placa = dataEl.dataset.placa||'';
+    const usaFixo = !!document.getElementById('chkVlFixo')?.checked;
+    const vlFixoStr = document.getElementById('inpVlFixo')?.value || '';
+    if (usaFixo){
+      const val = parseFloat(vlFixoStr.replace(',','.'));
+      if (!val || val <= 0){ alert('Informe um valor fixo válido.'); return; }
+    }
+    // Coletar período e parcela por índice selecionado
+    const periodos = {};
+    const parcelas = {};
+    selecionados.forEach(i=>{
+        const sel = document.querySelector(`.periodo-idx-${i}`);
+        const inp = document.querySelector(`.parcela-idx-${i}`);
+        if (sel) periodos[i] = sel.value || 'S';
+        if (inp) parcelas[i] = inp.value || '1';
+    });
+    try{
+        const qs = new URLSearchParams(window.location.search);
+        const di = qs.get('data_inicio')||'';
+        const df = qs.get('data_fim')||'';
+        const st = qs.get('status')||'';
+        const resp = await fetch('/operacional/carta-frete/gerar/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({
+                placa: placa,
+                data_fechamento: dt,
+                data_inicio: di,
+                data_fim: df,
+                status: st,
+                indices: selecionados,
+                periodos: periodos,
+                parcelas: parcelas,
+                fl_vlfixo: usaFixo,
+                valor_fixo: usaFixo ? (parseFloat((vlFixoStr||'').replace(',','.'))||0) : 0
+            })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success){ alert(data.error||'Falha ao gerar contas a pagar'); return; }
+        try{
+            // Atualizar UI dos itens adicionados: ícone fechado, desabilitar edição, remover checkbox
+            const itensModal = document.getElementById('modalCFItens');
+            // formatar data_fechamento dd/mm/yyyy
+            const fmtDate = (val)=>{
+                if (!val) return '';
+                try{
+                    const m = val.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+                    const m2 = val.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                    if (m2) return val;
+                }catch(e){}
+                return val;
+            };
+            selecionados.forEach(i=>{
+                const tr = itensModal.querySelector(`tr[data-row-idx="${i}"]`);
+                if (!tr) return;
+                const firstTd = tr.querySelector('td:nth-child(1)'); // checkbox
+                const iconTd = tr.querySelector('td:nth-child(2)');  // situação ícone
+                if (firstTd) firstTd.innerHTML = '';
+                if (iconTd) iconTd.innerHTML = '<i class="fas fa-lock text-danger" title="Fechado"></i>';
+                const sel = tr.querySelector(`.periodo-idx-${i}`);
+                const inp = tr.querySelector(`.parcela-idx-${i}`);
+                if (sel) sel.disabled = true;
+                if (inp) inp.disabled = true;
+                // Atualiza a coluna "Data Fechamento" após sucesso
+                const cell = tr.querySelector(`.dtfech-idx-${i}`);
+                if (cell) cell.textContent = fmtDate(dt);
+            });
+        }catch(e){ /* noop */ }
+        // Atualizar tabela principal apenas ao fechar o modal de itens (evento hidden.bs.modal)
+        alert(data.message||'Contas a pagar gerado com sucesso.');
+        // fechar modal
+        const modalInst = bootstrap.Modal.getInstance(document.getElementById('modalCFData'));
+        if (modalInst) modalInst.hide();
+    }catch(err){ console.error(err); alert('Erro ao gerar contas a pagar'); }
+  });
+});
+</script>
+{% endblock %}
+
+{% block extra_css %}{% endblock %}

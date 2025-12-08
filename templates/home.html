@@ -45,7 +45,7 @@
             --secondary-color: #ff6b00;
             --text-color: #333;
             --light-gray: #f8f9fa;
-            --sidebar-width: 250px;
+            --sidebar-width: 303px;
         }
 
         * {
@@ -336,6 +336,9 @@
             padding-left: 70px;
         }
 
+        /* Ajuste explícito de tabulação para submenu Carta Frete (dentro de Contas A Pagar) */
+        
+
         .sidebar-submenu .menu-item-with-submenu > a {
             display: flex;
             justify-content: space-between;
@@ -592,22 +595,62 @@
                                     Lançamentos
                                 </a>
                             </li>
-                            <li>
-                                <a href="{% url 'operacional:abastecimento' %}">
-                                    <i class="fas fa-gas-pump"></i>
-                                    Abastecimento
+                            <li class="menu-item-with-submenu">
+                                <a href="#" onclick="toggleSubmenu(event, 'contas-receber-submenu')">
+                                    <span>
+                                        <i class="fas fa-hand-holding-usd"></i>
+                                        Contas A Receber
+                                    </span>
+                                    <i class="fas fa-chevron-down submenu-toggle"></i>
                                 </a>
+                                <ul class="sidebar-submenu ms-3" id="contas-receber-submenu">
+                                    <li>
+                                        <a href="{% url 'operacional:contas_a_receber' %}">
+                                            <i class="fas fa-list"></i>
+                                            Contas A Receber
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{% url 'operacional:servicos_movimentos' %}">
+                                            <i class="fas fa-wrench"></i>
+                                            Serviços
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
-                            <li>
-                                <a href="{% url 'operacional:servicos_movimentos' %}">
-                                    <i class="fas fa-wrench"></i>
-                                    Movimentações
-                                </a>
-                            </li>
+                                    <li class="menu-item-with-submenu">
+                                        <a href="#" onclick="toggleSubmenu(event, 'contas-pagar-submenu')">
+                                            <span>
+                                                <i class="fas fa-money-bill-wave"></i>
+                                                Contas A Pagar
+                                            </span>
+                                            <i class="fas fa-chevron-down submenu-toggle"></i>
+                                        </a>
+                                        <ul class="sidebar-submenu ms-3" id="contas-pagar-submenu">
+                                            <li>
+                                                <a href="{% url 'operacional:contas_a_pagar' %}">
+                                                    <i class="fas fa-list"></i>
+                                                    Contas A Pagar
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a href="{% url 'operacional:carta_frete_page' %}">
+                                                    <i class="fas fa-file-invoice-dollar"></i>
+                                                    Carta Frete
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </li>
                             <li>
                                 <a href="{% url 'operacional:fechamentos' %}">
                                     <i class="fas fa-cash-register"></i>
                                     Fechamentos
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{% url 'operacional:gestao_fechamento' %}">
+                                    <i class="fas fa-balance-scale"></i>
+                                    Fechamento (Gestão)
                                 </a>
                             </li>
                         </ul>

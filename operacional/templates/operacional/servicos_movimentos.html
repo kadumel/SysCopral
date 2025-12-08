@@ -416,18 +416,14 @@
 
                 
             </div>
-            <div class="d-flex gap-2 mt-3 align-items-center justify-content-between">
-                <div></div>
+            <div class="d-flex gap-2 mt-3 justify-content-end">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-search"></i> Filtrar
                 </button>
                 <a href="{% url 'operacional:servicos_movimentos' %}" class="btn btn-secondary">
                     <i class="fas fa-times"></i> Limpar
                 </a>
-                <div class="ms-auto text-end">
-                    <label class="form-label mb-0 me-2">Data de Fechamento:</label>
-                    <input type="text" id="fechamentoDisplay" class="form-control d-inline-block" style="width: 160px;" value="{{ data_fechamento_calculada }}" readonly>
-                </div>
+                
             </div>
         </form>
     </div>
@@ -452,7 +448,7 @@
                             <th>Período</th>
                             <th>Parcelas</th>
                             <th>Status</th>
-                            <th>Ações</th>
+                            <th>Sel.</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -483,9 +479,11 @@
                                 {% endif %}
                             </td>
                             <td> <!-- Ações -->
-                                <button type="button" class="btn btn-success btn-sm btn-fechar-placa" data-placa="{{ g.placa }}" data-placa-index="{{ forloop.counter0 }}" title="Fechamento de caixa" {% if g.status_placa == 'all_closed' %}disabled{% endif %}>
-                                    <i class="fas fa-cash-register"></i>
-                                </button>
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-success btn-sm btn-fechar-placa" data-placa="{{ g.placa }}" data-placa-index="{{ forloop.counter0 }}" title="Gerar Contas a Receber" {% if g.status_placa == 'all_closed' %}disabled{% endif %}>
+                                        <i class="fas fa-cash-register"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% for t in g.tipos %}
@@ -514,7 +512,9 @@
                                     <span class="badge bg-success" title="Todos abertos"><i class="fas fa-circle"></i></span>
                                 {% endif %}
                             </td>
-                            <td></td> <!-- Ações -->
+							<td class="text-center">
+								<input type="checkbox" class="form-check-input cr-select-tipo" data-target-class="tipo-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}">
+							</td>
                         </tr>
                             {% for it in t.itens %}
                             <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-status="{{ it.status }}" data-cd-servico="{{ it.cd_servico|default_if_none:'' }}" data-nm-servico="{{ it.nm_servico|default_if_none:'' }}">
@@ -552,7 +552,9 @@
                                     <span class="badge bg-success">Aberto</span>
                                 {% endif %}
                             </td>
-                            <td></td>
+                            <td class="text-center">
+                                <input type="checkbox" class="form-check-input cr-select" {% if it.status == 'fechado' %}disabled{% endif %}>
+                            </td>
                             </tr>
                             {% endfor %}
                         {% endfor %}
@@ -612,107 +614,176 @@ document.addEventListener('DOMContentLoaded', function() {
             if (anyVisible) r.classList.add('collapsed'); else r.classList.remove('collapsed');
         });
         if (icon) { icon.classList.toggle('fa-chevron-right'); icon.classList.toggle('fa-chevron-down'); }
+        // Se for o nível 1 (placa-#) e estivermos colapsando, colapsar também todos os níveis abaixo
+        const isPlacaToggle = targetKey.startsWith('placa-');
+        if (isPlacaToggle && anyVisible) {
+            const placaRow = btn.closest('tr.row-placa');
+            if (placaRow) {
+                let next = placaRow.nextElementSibling;
+                while (next && !next.classList.contains('row-placa')) {
+                    if (next.classList.contains('row-tipo') || next.classList.contains('row-item')) {
+                        next.classList.add('collapsed');
+                        // normalizar ícone do toggle do tipo para "direita"
+                        if (next.classList.contains('row-tipo')) {
+                            const tgl = next.querySelector('.toggle i');
+                            if (tgl) {
+                                tgl.classList.remove('fa-chevron-down');
+                                tgl.classList.add('fa-chevron-right');
+                            }
+                        }
+                    }
+                    next = next.nextElementSibling;
+                }
+            }
+        }
     });
 
-    // Clique no botão de fechamento: verificar existência via API e, se não existir, efetivar
+    // Modal para inserir data de fechamento (Contas a Receber)
+    function ensureReceberModal(){
+        let wrap = document.getElementById('modalReceberWrap');
+        if (wrap) return;
+        wrap = document.createElement('div');
+        wrap.id = 'modalReceberWrap';
+        wrap.innerHTML = `
+        <div class="modal fade" id="modalReceber" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Gerar Contas a Receber</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-2">
+                  <label class="form-label">Placa</label>
+                  <input type="text" class="form-control" id="crPlaca" readonly>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Data de Fechamento</label>
+                  <input type="date" class="form-control" id="crDataFech">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="crConfirm">Gerar</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+        document.body.appendChild(wrap);
+    }
+
+    async function gerarContasAReceber(placa, fecharBtn, dataFech, dataInicio, dataFim, periodoSel, parcelaSel){
+        if (!placa || !dataFech) { alert('Informe a data de fechamento.'); return; }
+        // Coletar itens abertos da placa
+        const payloadItens = [];
+        const placaRow = fecharBtn.closest('tr.row-placa');
+        let next = placaRow.nextElementSibling;
+        while (next && !next.classList.contains('row-placa')){
+            if (next.classList.contains('row-item')){
+                const tds = next.querySelectorAll('td');
+                const rowStatus = (next.getAttribute('data-status')||'').toLowerCase();
+                const chk = next.querySelector('input.cr-select');
+                if (!chk || !chk.checked) { next = next.nextElementSibling; continue; }
+                if (rowStatus === 'fechado') { next = next.nextElementSibling; continue; }
+                const percInput = tds[9]?.querySelector('.perc-input');
+                const tipoTxt = (next.getAttribute('data-tipo')||'').toLowerCase();
+                const codeVal = tds[4]?.textContent?.trim() || '';
+                const nameVal = tds[5]?.textContent?.trim() || '';
+                const unidadeVal = tds[6]?.getAttribute('data-unidade') || '';
+                const isServico = tipoTxt.includes('servi');
+                const cdServicoAttr = next.getAttribute('data-cd-servico') || '';
+                const nmServicoAttr = next.getAttribute('data-nm-servico') || '';
+                const periodoSelEl = tds[11]?.querySelector('select');
+                const parcelaEl = tds[12]?.querySelector('input');
+                payloadItens.push({
+                    data: tds[2]?.textContent?.trim(),
+                    ordem_servico: tds[3]?.textContent?.trim(),
+                    cd_item: codeVal,
+                    nm_item: nameVal,
+                    cd_servico: isServico ? (cdServicoAttr || codeVal) : (cdServicoAttr || codeVal),
+                    nm_servico: isServico ? (nmServicoAttr || nameVal) : (nmServicoAttr || nameVal),
+                    is_servico: isServico,
+                    quantidade: Number((tds[6]?.textContent||'0').replace(',', '.')),
+                    unidade: unidadeVal,
+                    valor_unitario: Number(((tds[7]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
+                    valor: Number(((tds[8]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
+                    perc: Number((percInput?.value||'0').replace(',', '.')),
+                    periodo: periodoSelEl ? (periodoSelEl.value||'') : '',
+                    parcela: parcelaEl ? (parcelaEl.value||'') : '',
+                    cobrar: Number(((tds[10]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
+                    tipo: (next.getAttribute('data-tipo')||'')
+                });
+            }
+            next = next.nextElementSibling;
+        }
+        if (!payloadItens.length) { alert('Selecione ao menos um item.'); return; }
+        // Verificar existência
+        let exists = false;
+        try {
+            const url = new URL(window.location.origin + '/operacional/servicos-movimentos/fechamento/check/');
+            url.searchParams.set('placa', placa);
+            url.searchParams.set('data', dataFech);
+            const resp = await fetch(url.toString());
+            const data = await resp.json();
+            if (resp.ok) exists = !!data.exists;
+        } catch(_e) {}
+        const msg = exists ? 'Já existe Contas a Receber para esta placa e data. Deseja incluir apenas os itens em aberto?' : 'Deseja gerar o Contas a Receber agora?';
+        if (!confirm(msg)) return;
+        // Enviar
+        const efetiva = await fetch('/operacional/servicos-movimentos/fechamento/fechar/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({
+                placa: placa,
+                data_inicio: dataInicio,
+                data_fim: dataFim,
+                data_fechamento: dataFech,
+                periodo: periodoSel,
+                parcela: parcelaSel,
+                itens_tabela: payloadItens
+            })
+        });
+        const resEf = await efetiva.json();
+        if (!efetiva.ok || !resEf.success) {
+            alert(resEf.error || 'Falha ao gerar Contas a Receber.');
+        } else {
+            alert(resEf.message || 'Contas a Receber gerado/atualizado com sucesso.');
+            setTimeout(() => { window.location.reload(); }, 200);
+        }
+    }
+
+	// Checkbox do nível 2 (tipo): marcar/desmarcar todos os itens do nível 3
+	document.addEventListener('change', function(e){
+		const chkTipo = e.target.closest('input.cr-select-tipo');
+		if (!chkTipo) return;
+		const targetClass = chkTipo.getAttribute('data-target-class') || '';
+		if (!targetClass) return;
+		const rows = document.querySelectorAll('tr.row-item.'+CSS.escape(targetClass)+' input.cr-select');
+		rows.forEach(el => { if (!el.disabled) el.checked = chkTipo.checked; });
+	});
+
+    // Clique no botão: abrir modal, configurar e acionar geração
     document.addEventListener('click', async function(e){
         const fecharBtn = e.target.closest('.btn-fechar-placa');
         if (!fecharBtn) return;
         const placa = fecharBtn.getAttribute('data-placa') || '';
-        const dataFech = document.getElementById('fechamentoDisplay')?.value || '';
+        ensureReceberModal();
+        const modalEl = document.getElementById('modalReceber');
+        const dateInput = modalEl.querySelector('#crDataFech');
+        modalEl.querySelector('#crPlaca').value = placa;
+        dateInput.value = '';
+        const modal = (typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalEl) : null;
         const dataInicio = document.getElementById('data_inicio')?.value || '';
         const dataFim = document.getElementById('data_fim')?.value || '';
         const periodoSel = document.querySelector('[name="periodo"]')?.value || 'M';
         const parcelaSel = document.querySelector('[name="parcela"]')?.value || '1';
-        if (!placa || !dataFech) {
-            alert('Defina a Data Fim para calcular a Data de Fechamento.');
-            return;
-        }
-        try {
-            // Montar payload dos itens ABERTOS visíveis na tabela para evitar nova consulta no banco
-            const payloadItens = [];
-            // Coleta linhas de item pertencentes à placa por varredura sequencial
-            const idx = fecharBtn.getAttribute('data-placa-index');
-            // Como as classes têm indices compostos, vamos coletar por proximidade na DOM dentro desta placa
-            const placaRow = fecharBtn.closest('tr.row-placa');
-            let next = placaRow.nextElementSibling;
-            while (next && !next.classList.contains('row-placa')){
-                if (next.classList.contains('row-item')){
-                    const tds = next.querySelectorAll('td');
-                    // usar atributo data-status para decidir
-                    const rowStatus = (next.getAttribute('data-status')||'').toLowerCase();
-                    if (rowStatus === 'fechado') { next = next.nextElementSibling; continue; }
-                    const percInput = tds[9]?.querySelector('.perc-input');
-                    const tipoTxt = (next.getAttribute('data-tipo')||'').toLowerCase();
-                    const codeVal = tds[4]?.textContent?.trim() || '';
-                    const nameVal = tds[5]?.textContent?.trim() || '';
-                    const unidadeVal = tds[6]?.getAttribute('data-unidade') || '';
-                    const isServico = tipoTxt.includes('servi');
-                    const cdServicoAttr = next.getAttribute('data-cd-servico') || '';
-                    const nmServicoAttr = next.getAttribute('data-nm-servico') || '';
-                    const periodoSelEl = tds[11]?.querySelector('select');
-                    const parcelaEl = tds[12]?.querySelector('input');
-                    payloadItens.push({
-                        data: tds[2]?.textContent?.trim(),
-                        ordem_servico: tds[3]?.textContent?.trim(),
-                        cd_item: isServico ? codeVal : codeVal,
-                        nm_item: isServico ? nameVal : nameVal,
-                        cd_servico: isServico ? (cdServicoAttr || codeVal) : (cdServicoAttr || codeVal),
-                        nm_servico: isServico ? (nmServicoAttr || nameVal) : (nmServicoAttr || nameVal),
-                        is_servico: isServico,
-                        quantidade: Number((tds[6]?.textContent||'0').replace(',', '.')),
-                        unidade: unidadeVal,
-                        valor_unitario: Number(((tds[7]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
-                        valor: Number(((tds[8]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')), // total/bruto
-                        perc: Number((percInput?.value||'0').replace(',', '.')),
-                        periodo: periodoSelEl ? (periodoSelEl.value||'') : '',
-                        parcela: parcelaEl ? (parcelaEl.value||'') : '',
-                        cobrar: Number(((tds[10]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
-                        tipo: (next.getAttribute('data-tipo')||'')
-                    });
-                }
-                next = next.nextElementSibling;
-            }
-            if (!payloadItens.length) { alert('Nenhum item aberto para fechar.'); return; }
-
-            // Verificar existência (não bloqueante)
-            let exists = false;
-            try {
-                const url = new URL(window.location.origin + '/operacional/servicos-movimentos/fechamento/check/');
-                url.searchParams.set('placa', placa);
-                url.searchParams.set('data', dataFech);
-                const resp = await fetch(url.toString());
-                const data = await resp.json();
-                if (resp.ok) exists = !!data.exists;
-            } catch(_e) {}
-
-            const msg = exists ? 'Já existe fechamento para esta placa e data. Deseja fechar apenas os itens em aberto?' : 'Deseja efetivar o fechamento agora?';
-            if (!confirm(msg)) return;
-
-            const efetiva = await fetch('/operacional/servicos-movimentos/fechamento/fechar/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                body: JSON.stringify({
-                    placa: placa,
-                    data_inicio: dataInicio,
-                    data_fim: dataFim,
-                    data_fechamento: dataFech,
-                    periodo: periodoSel,
-                    parcela: parcelaSel,
-                    itens_tabela: payloadItens
-                })
-            });
-            const resEf = await efetiva.json();
-            if (!efetiva.ok || !resEf.success) {
-                alert(resEf.error || 'Falha ao efetivar fechamento.');
-            } else {
-                alert(resEf.message || 'Fechamento criado/atualizado com sucesso.');
-                setTimeout(() => { window.location.reload(); }, 200);
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Falha ao efetivar fechamento.');
-        }
+        const confirmBtn = modalEl.querySelector('#crConfirm');
+        confirmBtn.onclick = async () => {
+            const dataFech = dateInput.value || '';
+            if (modal) modal.hide(); else modalEl.style.display='none';
+            await gerarContasAReceber(placa, fecharBtn, dataFech, dataInicio, dataFim, periodoSel, parcelaSel);
+        };
+        if (modal) modal.show(); else modalEl.style.display='block';
     });
 
     // utilitário CSRF
@@ -731,6 +802,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
 
+    
     // Toggle edição do percentual ao clicar no valor
     document.addEventListener('click', function(e){
         const span = e.target.closest('.perc-display');
@@ -849,23 +921,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (placaCells[8]) placaCells[8].textContent = 'R$ ' + sumPlacaTotal.toFixed(2).replace('.', ','); // coluna Total da placa
         }
     });
-    // Atualiza a data de fechamento em tempo real ao mudar Data Fim
-    const dataFimInput = document.getElementById('data_fim');
-    if (dataFimInput) {
-        dataFimInput.addEventListener('change', function(){
-            const v = this.value; // yyyy-mm-dd
-            const out = document.getElementById('fechamentoDisplay');
-            if (!out) return;
-            if (!v) { out.value=''; return; }
-            const dt = new Date(v);
-            if (isNaN(dt.getTime())) { out.value=''; return; }
-            dt.setDate(dt.getDate() + 15);
-            const dd = String(dt.getDate()).padStart(2,'0');
-            const mm = String(dt.getMonth()+1).padStart(2,'0');
-            const yyyy = dt.getFullYear();
-            out.value = `${dd}/${mm}/${yyyy}`;
-        });
-    }
+    
 });
 </script>
 {% endblock %}

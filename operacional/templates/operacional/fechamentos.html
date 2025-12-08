@@ -222,8 +222,16 @@ async function abrirItens(fechamentoId){
                 <td>${typeof it.percentual !== 'undefined' && it.percentual !== null ? Number(it.percentual).toFixed(2) : '0.00'}%</td>
                 <td>R$ ${Number(it.valor||0).toFixed(2)}</td>
                 <td>R$ ${Number(it.total||0).toFixed(2)}</td>
-                <td>${it.periodo || ''}</td>
-                <td>${it.parcela || ''}</td>
+                <td>
+                    <select class="form-select form-select-sm periodo-edit" data-id="${it.id}">
+                        <option value="S" ${it.periodo==='S'?'selected':''}>Semanal</option>
+                        <option value="Q" ${it.periodo==='Q'?'selected':''}>Quinzenal</option>
+                        <option value="M" ${!it.periodo || it.periodo==='M'?'selected':''}>Mensal</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" min="1" class="form-control form-control-sm parcela-edit" data-id="${it.id}" value="${it.parcela || 1}">
+                </td>
                 <td class="d-flex gap-2">
                     <button type="button" class="btn btn-warning btn-sm" onclick="moverItem(${it.id})" ${'${'}disabled{'}'} title="Mover para outra data"><i class="fas fa-calendar-alt"></i></button>
                     <button type="button" class="btn btn-danger btn-sm" onclick="excluirItem(${it.id})" ${'${'}disabled{'}'}><i class="fas fa-trash"></i></button>
@@ -241,6 +249,24 @@ async function abrirItens(fechamentoId){
     }
 }
 
+// salvar edições de período/parcela
+document.addEventListener('change', async function(e){
+    const sel = e.target.closest('.periodo-edit');
+    const inp = e.target.closest('.parcela-edit');
+    if (!sel && !inp) return;
+    const row = e.target.closest('tr');
+    const id = (sel||inp).getAttribute('data-id');
+    const periodo = (row.querySelector('.periodo-edit')?.value||'');
+    const parcela = (row.querySelector('.parcela-edit')?.value||'1');
+    try{
+        const resp = await fetch(`/operacional/fechamentos/itens/${id}/atualizar/`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ periodo, parcela })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success){ alert(data.error || 'Falha ao salvar'); }
+    }catch(err){ console.error(err); alert('Erro ao salvar'); }
+});
 async function excluirItem(itemId){
     if (!confirm('Confirma excluir este item?')) return;
     try{

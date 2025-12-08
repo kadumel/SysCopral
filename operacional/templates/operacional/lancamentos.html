@@ -414,6 +414,7 @@
                         <th>Veículo</th>
                         <th>Categoria</th>
                         <th>Data</th>
+                        <th>Natureza</th>
                         <th>Valor</th>
                         <th>Período</th>
                         <th>Parcela</th>
@@ -430,6 +431,7 @@
                         </td>
                         <td>{{ lancamento.categoria.nome }}</td>
                         <td>{{ lancamento.data|date:"d/m/Y" }}</td>
+                        <td>{{ lancamento.get_natureza_display }}</td>
                         <td class="valor-cell">R$ {{ lancamento.valor|floatformat:2 }}</td>
                         <td>
                             <span class="periodo-badge periodo-{{ lancamento.periodo }}">
@@ -532,6 +534,12 @@
                             <div class="form-group">
                                 <label for="id_data" class="form-label">Data *</label>
                                 {{ form.data }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="id_natureza" class="form-label">Natureza *</label>
+                                {{ form.natureza }}
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -705,6 +713,8 @@ function editarLancamento(id) {
             document.getElementById('id_valor').value = lancamento.valor;
             document.getElementById('id_periodo').value = lancamento.periodo;
             document.getElementById('id_parcela').value = lancamento.parcela;
+            const elNat = document.getElementById('id_natureza');
+            if (elNat) elNat.value = lancamento.natureza || '';
             document.getElementById('id_obs').value = lancamento.obs;
             
             // Configurar modo edição
@@ -934,6 +944,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 veiculo: formData.get('veiculo'),
                 categoria: formData.get('categoria'),
                 data: formData.get('data'),
+                natureza: formData.get('natureza'),
                 valor: parseFloat(formData.get('valor')),
                 periodo: formData.get('periodo'),
                 parcela: parseInt(formData.get('parcela')),

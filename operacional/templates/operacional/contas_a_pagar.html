@@ -1,0 +1,274 @@
+{% extends 'home.html' %}
+
+{% block title %}Contas A Pagar - Operacional{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1>Gestão de Contas a Pagar</h1>
+    <div class="text-muted">Cabeçalhos gerados pela Carta Frete.</div>
+    <div class="mt-2">
+        <a href="{% url 'operacional:carta_frete_page' %}" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-truck-loading me-1"></i> Ir para Carta Frete
+        </a>
+    </div>
+</div>
+
+<form method="get" class="row g-3 mt-2">
+  <div class="col-md-3">
+    <label class="form-label">Placa</label>
+    <select name="placa" class="form-select">
+      <option value="" {% if not placa_filtro %}selected{% endif %}>Todas</option>
+      {% for p in placas_disponiveis %}
+        <option value="{{ p }}" {% if placa_filtro == p %}selected{% endif %}>{{ p }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Data Início</label>
+    <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Data Fim</label>
+    <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+  </div>
+  <div class="col-md-3 d-flex align-items-end gap-2">
+    <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Filtrar</button>
+    <a class="btn btn-secondary" href="{% url 'operacional:contas_a_pagar' %}"><i class="fas fa-times me-1"></i>Limpar</a>
+  </div>
+</form>
+
+<div class="card mt-3">
+  <div class="card-body">
+    {% if contas %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Placa</th>
+            <th>Data Fechamento</th>
+            <th>Valor</th>
+            <th>Qtde Itens</th>
+            <th>Qtde Vencimentos</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in contas %}
+          <tr>
+            <td class="text-start">{{ c.placa.placa.placa }}</td>
+            <td>{{ c.data_fechamento|date:"d/m/Y" }}</td>
+            <td>R$ {{ c.valor|floatformat:2 }}</td>
+            <td>{{ c.qtd_itens }}</td>
+            <td>{{ c.qtd_venc }}</td>
+            <td>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary btn-sm btn-cap-itens" data-id="{{ c.id }}" title="Itens">
+                  <i class="fas fa-list"></i>
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm btn-cap-venc" data-id="{{ c.id }}" title="Vencimentos">
+                  <i class="fas fa-calendar-alt"></i>
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm btn-cap-del" data-id="{{ c.id }}" title="{% if c.locked %}Bloqueado por fechamento{% else %}Excluir Contas a Pagar{% endif %}" {% if c.locked %}disabled{% endif %}>
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-muted">Nenhum contas a pagar encontrado.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal Itens -->
+<div class="modal fade" id="modalCAPItens" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Itens - Contas a Pagar</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead id="capItensHead"></thead>
+            <tbody id="capItensBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Vencimentos -->
+<div class="modal fade" id="modalCAPVenc" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Vencimentos - Contas a Pagar</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Data</th>
+                <th>Fechamento ID</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody id="capVencBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// utilitário CSRF (necessário para excluir item)
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+document.addEventListener('click', async function(e){
+  // Itens
+  const btnItens = e.target.closest('.btn-cap-itens');
+  if (btnItens){
+    const id = btnItens.getAttribute('data-id');
+    try{
+      const resp = await fetch(`/operacional/contas-a-pagar/${id}/itens/`);
+      const data = await resp.json();
+      if (!resp.ok || !data.success){ alert(data.error||'Falha ao carregar itens'); return; }
+      const rows = data.rows||[];
+      const thead = document.getElementById('capItensHead');
+      const tbody = document.getElementById('capItensBody');
+      const canDelete = !!data.can_delete;
+      if (!rows.length){
+        thead.innerHTML = '<tr><th>Mensagem</th><th>Ações</th></tr>';
+        tbody.innerHTML = '<tr><td class="text-muted">Sem itens</td><td></td></tr>';
+      }else{
+        const cols = Object.keys(rows[0]).filter(c=>c!=='id');
+        thead.innerHTML = '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'<th>Ações</th></tr>';
+        tbody.innerHTML = rows.map(r=>{
+          const tds = cols.map(c=>`<td>${r[c]??''}</td>`).join('');
+          const btn = `<button type="button" class="btn btn-outline-danger btn-sm btn-cap-item-del" data-id="${r.id}" ${canDelete?'':'disabled title="Bloqueado por fechamento"'}><i class="fas fa-trash"></i></button>`;
+          return `<tr>${tds}<td class="text-center">${btn}</td></tr>`;
+        }).join('');
+      }
+      const el = document.getElementById('modalCAPItens');
+      // guardar id do CAP no modal para reuso (ex.: recarregar após exclusão)
+      el.dataset.capId = id;
+      const m = (typeof bootstrap!=='undefined') ? bootstrap.Modal.getOrCreateInstance(el) : null;
+      if (m) m.show(); else el.style.display='block';
+    }catch(err){ console.error(err); alert('Erro ao carregar itens'); }
+    return;
+  }
+  // Vencimentos
+  const btnVenc = e.target.closest('.btn-cap-venc');
+  if (btnVenc){
+    const id = btnVenc.getAttribute('data-id');
+    try{
+      const resp = await fetch(`/operacional/contas-a-pagar/${id}/vencimentos/`);
+      const data = await resp.json();
+      if (!resp.ok || !data.success){ alert(data.error||'Falha ao carregar vencimentos'); return; }
+      const rows = data.rows||[];
+      const tb = document.getElementById('capVencBody');
+      if (!rows.length){
+        tb.innerHTML = '<tr><td class="text-muted" colspan="4">Sem vencimentos</td></tr>';
+      }else{
+        tb.innerHTML = rows.map(r=>`<tr><td>${r.seq}</td><td>${r.data}</td><td>${r.fechamento_id ?? ''}</td><td>R$ ${Number(r.valor||0).toFixed(2)}</td></tr>`).join('');
+      }
+      const el = document.getElementById('modalCAPVenc');
+      const m = (typeof bootstrap!=='undefined') ? bootstrap.Modal.getOrCreateInstance(el) : null;
+      if (m) m.show(); else el.style.display='block';
+    }catch(err){ console.error(err); alert('Erro ao carregar vencimentos'); }
+  }
+  // Excluir Contas a Pagar (cabeçalho)
+  const btnCapDel = e.target.closest('.btn-cap-del');
+  if (btnCapDel){
+    const id = btnCapDel.getAttribute('data-id');
+    if (!id) return;
+    if (!confirm('Confirma excluir este Contas a Pagar, seus itens e vencimentos?')) return;
+    try{
+      const resp = await fetch(`/operacional/contas-a-pagar/${id}/excluir/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success){ alert(data.error||'Falha ao excluir'); return; }
+      // remover a linha da tabela ou recarregar
+      location.reload();
+    }catch(err){ console.error(err); alert('Erro ao excluir'); }
+  }
+  // Excluir item
+  const btnDel = e.target.closest('.btn-cap-item-del');
+  if (btnDel){
+    const id = btnDel.getAttribute('data-id');
+    if (!id) return;
+    if (!confirm('Confirma excluir este item do Contas a Pagar?')) return;
+    try{
+      const resp = await fetch(`/operacional/contas-a-pagar/itens/${id}/excluir/`, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.success){ alert(data.error||'Falha ao excluir item'); return; }
+      // Recarregar itens do CAP atual sem fechar o modal
+      const el = document.getElementById('modalCAPItens');
+      const capId = el?.dataset?.capId;
+      if (capId){
+        const r = await fetch(`/operacional/contas-a-pagar/${capId}/itens/`);
+        const j = await r.json();
+        if (!r.ok || !j.success){ alert(j.error||'Falha ao recarregar itens'); return; }
+        const rows = j.rows||[];
+        const canDelete = !!j.can_delete;
+        const thead = document.getElementById('capItensHead');
+        const tbody = document.getElementById('capItensBody');
+        if (!rows.length){
+          thead.innerHTML = '<tr><th>Mensagem</th><th>Ações</th></tr>';
+          tbody.innerHTML = '<tr><td class="text-muted">Sem itens</td><td></td></tr>';
+        }else{
+          const cols = Object.keys(rows[0]).filter(c=>c!=='id');
+          thead.innerHTML = '<tr>'+cols.map(c=>`<th>${c}</th>`).join('')+'<th>Ações</th></tr>';
+          tbody.innerHTML = rows.map(rw=>{
+            const tds = cols.map(c=>`<td>${rw[c]??''}</td>`).join('');
+            const btn = `<button type="button" class="btn btn-outline-danger btn-sm btn-cap-item-del" data-id="${rw.id}" ${canDelete?'':'disabled title="Bloqueado por fechamento"'}><i class="fas fa-trash"></i></button>`;
+            return `<tr>${tds}<td class="text-center">${btn}</td></tr>`;
+          }).join('');
+        }
+      }else{
+        // fallback: recarregar a página
+        location.reload();
+      }
+    }catch(err){ console.error(err); alert('Erro ao excluir item'); }
+  }
+});
+</script>
+{% endblock %}
+

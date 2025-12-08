@@ -5,7 +5,7 @@ from .models import Lancamento, Veiculo, OpeCategoria
 class LancamentoForm(forms.ModelForm):
     class Meta:
         model = Lancamento
-        fields = ['veiculo', 'categoria', 'data', 'periodo', 'parcela', 'valor', 'obs']
+        fields = ['veiculo', 'categoria', 'data', 'natureza', 'periodo', 'parcela', 'valor', 'obs']
         widgets = {
             'veiculo': forms.Select(attrs={
                 'class': 'form-select',
@@ -18,6 +18,10 @@ class LancamentoForm(forms.ModelForm):
             'data': forms.DateInput(attrs={
                 'class': 'form-control',
                 'type': 'date',
+                'required': True
+            }),
+            'natureza': forms.Select(attrs={
+                'class': 'form-select',
                 'required': True
             }),
             'periodo': forms.Select(attrs={
@@ -44,6 +48,7 @@ class LancamentoForm(forms.ModelForm):
             'veiculo': 'Veículo',
             'categoria': 'Categoria',
             'data': 'Data',
+            'natureza': 'Natureza',
             'periodo': 'Período',
             'parcela': 'Parcela',
             'valor': 'Valor (R$)',
