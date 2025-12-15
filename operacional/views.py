@@ -7,6 +7,7 @@ from django.db.models import Q, Sum, F
 from django.db import models
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+import re
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -220,6 +221,7 @@ class ItensListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         Retorna queryset filtrado por código, nome, grupo e sistema
         """
         queryset = super().get_queryset()
+
         
         cd_item_filtro = self.request.GET.get('cd_item', '')
         nm_item_filtro = self.request.GET.get('nm_item', '')
@@ -279,6 +281,7 @@ class ItensListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
             'total_itens': self.get_queryset().count(),
         })
         
+        
         return context
 
 
@@ -317,17 +320,26 @@ def save_item_percentages(request):
     try:
         data = request.POST
         item_id = data.get('item_id')
+        codigo = (data.get('codigo') or '').strip()
+        nm_item = (data.get('nm_item') or '').strip()
         new_percentage = data.get('percentage')
         
-        if not item_id or new_percentage is None:
+        if (not item_id and not codigo and not nm_item) or new_percentage is None:
             return JsonResponse({
                 'success': False,
                 'message': 'Dados incompletos'
             }, status=400)
         
-        # Validar se o percentual é um número válido
+        # Normalizar e validar percentual (aceita vírgula como decimal)
         try:
-            percentage_value = float(new_percentage)
+            perc_str = str(new_percentage).strip()
+            # Regra de normalização:
+            # - Se houver vírgula, tratar como separador decimal -> remover pontos (milhar) e trocar vírgula por ponto
+            # - Caso não haja vírgula, manter pontos como separador decimal (não remover)
+            if ',' in perc_str:
+                perc_str = perc_str.replace('.', '')
+                perc_str = perc_str.replace(',', '.')
+            percentage_value = float(perc_str)
             if percentage_value < 0 or percentage_value > 100:
                 return JsonResponse({
                     'success': False,
@@ -340,21 +352,38 @@ def save_item_percentages(request):
             }, status=400)
         
         # Buscar e atualizar o item
-        try:
-            item = Item.objects.get(id_item=item_id)
-            item.percentual = percentage_value
-            item.save()
-            
-            return JsonResponse({
-                'success': True,
-                'message': 'Percentual atualizado com sucesso',
-                'new_percentage': percentage_value
-            })
-        except Item.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'message': 'Item não encontrado'
-            }, status=404)
+        # Tenta por id_item, depois por pro_codigo, depois por nm_item (exato)
+        item_obj = None
+        item_pk_str = re.sub(r'\D', '', str(item_id or '').strip())
+        if item_pk_str:
+            try:
+                item_obj = Item.objects.get(id_item=int(item_pk_str))
+            except Item.DoesNotExist:
+                item_obj = None
+        if item_obj is None and codigo:
+            try:
+                item_obj = Item.objects.get(pro_codigo=codigo)
+            except Item.DoesNotExist:
+                item_obj = None
+        if item_obj is None and nm_item:
+            try:
+                item_obj = Item.objects.get(nm_item=nm_item)
+            except Item.DoesNotExist:
+                item_obj = None
+        if item_obj is None:
+            return JsonResponse({'success': False, 'message': 'Item não encontrado (id/código/nome).'}, status=404)
+        print('[Itens] save_item_percentages', {
+            'item_id': getattr(item_obj, 'id_item', None),
+            'raw': new_percentage,
+            'normalized': percentage_value
+        })
+        item_obj.percentual = percentage_value
+        item_obj.save(update_fields=['percentual'])
+        return JsonResponse({
+            'success': True,
+            'message': 'Percentual atualizado com sucesso',
+            'new_percentage': percentage_value
+        })
             
     except Exception as e:
         return JsonResponse({
@@ -425,39 +454,65 @@ def save_item_valor_sistema(request):
     """
     try:
         data = request.POST
-        item_id = data.get('item_id')
-        new_value = data.get('value')
+        item_id = data.get('item_id') or data.get('id')
+        codigo = (data.get('codigo') or '').strip()
+        nm_item = (data.get('nm_item') or '').strip()
+        new_value = data.get('value') or data.get('valor')
 
-        if not item_id or new_value is None:
+        if (not item_id and not codigo and not nm_item) or new_value is None:
             return JsonResponse({
                 'success': False,
                 'message': 'Dados incompletos'
             }, status=400)
 
-        # Validar valor numérico
+        # Normalizar e validar valor numérico (aceita vírgula como decimal)
         try:
-            value_float = float(new_value)
+            val_str = str(new_value).strip()
+            # Regra de normalização:
+            # - Se houver vírgula, tratar como separador decimal -> remover pontos (milhar) e trocar vírgula por ponto
+            # - Caso não haja vírgula, manter pontos como separador decimal (não remover)
+            if ',' in val_str:
+                val_str = val_str.replace('.', '')
+                val_str = val_str.replace(',', '.')
+            value_float = float(val_str)
         except ValueError:
             return JsonResponse({
                 'success': False,
                 'message': 'Valor deve ser um número válido'
             }, status=400)
 
-        # Atualizar item
-        try:
-            item = Item.objects.get(id_item=item_id)
-            item.vl_sistema = value_float
-            item.save()
-            return JsonResponse({
-                'success': True,
-                'message': 'Valor do sistema atualizado com sucesso',
-                'new_value': value_float
-            })
-        except Item.DoesNotExist:
-            return JsonResponse({
-                'success': False,
-                'message': 'Item não encontrado'
-            }, status=404)
+        # Atualizar item com fallback: id_item -> pro_codigo -> nm_item
+        item_obj = None
+        item_pk_str = re.sub(r'\D', '', str(item_id or '').strip())
+        if item_pk_str:
+            try:
+                item_obj = Item.objects.get(id_item=int(item_pk_str))
+            except Item.DoesNotExist:
+                item_obj = None
+        if item_obj is None and codigo:
+            try:
+                item_obj = Item.objects.get(pro_codigo=codigo)
+            except Item.DoesNotExist:
+                item_obj = None
+        if item_obj is None and nm_item:
+            try:
+                item_obj = Item.objects.get(nm_item=nm_item)
+            except Item.DoesNotExist:
+                item_obj = None
+        if item_obj is None:
+            return JsonResponse({'success': False, 'message': 'Item não encontrado (id/código/nome).'}, status=404)
+        print('[Itens] save_item_valor_sistema', {
+            'item_id': getattr(item_obj, 'id_item', None),
+            'raw': new_value,
+            'normalized': value_float
+        })
+        item_obj.vl_sistema = value_float
+        item_obj.save(update_fields=['vl_sistema'])
+        return JsonResponse({
+            'success': True,
+            'message': 'Valor do sistema atualizado com sucesso',
+            'new_value': value_float
+        })
 
     except Exception as e:
         return JsonResponse({
@@ -623,6 +678,12 @@ class AbastecimentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
             )
         )['total_gasto'] or 0
         
+        # Média km/l (total_km / total_litros)
+        try:
+            media_km_por_litro = (float(total_quilometragem) / float(total_litros)) if float(total_litros or 0) > 0 else 0.0
+        except Exception:
+            media_km_por_litro = 0.0
+        
         context.update({
             'placa_filtro': placa_filtro,
             'data_inicial_filtro': data_inicial_filtro,
@@ -634,7 +695,20 @@ class AbastecimentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
             'total_quilometragem': total_quilometragem,
             'total_litros': total_litros,
             'total_gasto': total_gasto,
+            'media_km_por_litro': media_km_por_litro,
         })
+        # Calcular km por litro por linha para uso no template
+        try:
+            abasts = context.get(self.context_object_name) or context.get('object_list') or []
+            for a in abasts:
+                try:
+                    litros = float(getattr(a, 'qt_litros', 0) or 0)
+                    km = float(getattr(a, 'total_km', 0) or 0)
+                    a.km_por_litro = (km / litros) if litros and litros != 0 else None
+                except Exception:
+                    a.km_por_litro = None
+        except Exception:
+            pass
         
         return context
 
@@ -889,10 +963,15 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
         item_id_to_percent = {}
         item_code_to_percent = {}
         item_name_to_percent = {}
+        # Mapas de valor do sistema (unitário) por item
+        item_id_to_vl_sistema = {}
+        item_code_to_vl_sistema = {}
+        item_name_to_vl_sistema = {}
         if item_ids:
             # tentar por id_item
-            for it in Item.objects.filter(id_item__in=list(item_ids)).values('id_item', 'percentual'):
+            for it in Item.objects.filter(id_item__in=list(item_ids)).values('id_item', 'percentual', 'vl_sistema'):
                 item_id_to_percent[it['id_item']] = it['percentual'] or 0
+                item_id_to_vl_sistema[it['id_item']] = it.get('vl_sistema') or 0
         # também coletar códigos como string a partir dos rows, pois algumas views usam códigos não numéricos
         item_codes_str = set()
         item_names_str = set()
@@ -911,11 +990,15 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 except Exception:
                     pass
         if item_codes_str:
-            for it in Item.objects.filter(pro_codigo__in=list(item_codes_str)).values('pro_codigo', 'percentual'):
-                item_code_to_percent[str(it['pro_codigo']).strip()] = it['percentual'] or 0
+            for it in Item.objects.filter(pro_codigo__in=list(item_codes_str)).values('pro_codigo', 'percentual', 'vl_sistema'):
+                key = str(it['pro_codigo']).strip()
+                item_code_to_percent[key] = it['percentual'] or 0
+                item_code_to_vl_sistema[key] = it.get('vl_sistema') or 0
         if item_names_str:
-            for it in Item.objects.filter(nm_item__in=list(item_names_str)).values('nm_item', 'percentual'):
-                item_name_to_percent[str(it['nm_item']).strip().upper()] = it['percentual'] or 0
+            for it in Item.objects.filter(nm_item__in=list(item_names_str)).values('nm_item', 'percentual', 'vl_sistema'):
+                key = str(it['nm_item']).strip().upper()
+                item_name_to_percent[key] = it['percentual'] or 0
+                item_name_to_vl_sistema[key] = it.get('vl_sistema') or 0
 
         # Preparar mapa de status "fechado" por item (ordem, cd_item, data, placa)
         placas_str = set([ (r.get('placa') or '').strip() for r in rows if r.get('placa') ])
@@ -974,32 +1057,62 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                     cobrar_val = float(total_item or 0)
                 perc_display = 0.0  # para serviços não aplicar percentual por padrão
             else:
-                # Demais tipos: cobrar = TOTAL + (percentual * TOTAL). Se percentual vazio/zero, cobrar = TOTAL.
-                perc_lookup = 0
-                if cd_item_key is not None and cd_item_key in item_id_to_percent:
-                    perc_lookup = item_id_to_percent.get(cd_item_key) or 0
+                # Demais tipos:
+                # Regra de prioridade:
+                # 1) Se houver vl_sistema (>0), cobrar = vl_sistema (unitário) * quantidade
+                # 2) Caso contrário, cobrar = TOTAL + (percentual * TOTAL)
+                #    (percentual pode ser informado em 0..1 ou 0..100)
+                # Buscar vl_sistema por id, código ou nome
+                vl_sistema_lookup = 0
+                if cd_item_key is not None and cd_item_key in item_id_to_vl_sistema:
+                    vl_sistema_lookup = item_id_to_vl_sistema.get(cd_item_key) or 0
                 else:
-                    # tentar por código como string
                     cd_item_raw = r.get('cd_item')
                     cd_item_str = str(cd_item_raw).strip() if cd_item_raw is not None else ''
-                    perc_lookup = item_code_to_percent.get(cd_item_str) or 0
-                    if not perc_lookup:
-                        # fallback por nome do item
+                    vl_sistema_lookup = item_code_to_vl_sistema.get(cd_item_str) or 0
+                    if not vl_sistema_lookup:
                         nm_item_raw = r.get('nm_item')
                         nm_item_key = str(nm_item_raw).strip().upper() if nm_item_raw else ''
-                        perc_lookup = item_name_to_percent.get(nm_item_key) or 0
+                        vl_sistema_lookup = item_name_to_vl_sistema.get(nm_item_key) or 0
                 try:
-                    perc_f = float(perc_lookup or 0)
+                    vl_sistema_f = float(vl_sistema_lookup or 0)
                 except Exception:
-                    perc_f = 0.0
-                base_total = float(total_item or 0)
-                if perc_f == 0.0:
-                    cobrar_val = base_total
-                    perc_display = 0.0
+                    vl_sistema_f = 0.0
+                qty_f = 0.0
+                try:
+                    qty_f = float(r.get('quantidade') or 0)
+                except Exception:
+                    qty_f = 0.0
+                if vl_sistema_f > 0:
+                    cobrar_val = vl_sistema_f * qty_f
+                    perc_display = 0.0  # exibir valor do sistema na UI; percentual não se aplica
                 else:
-                    fator = perc_f if perc_f <= 1 else (perc_f / 100.0)
-                    cobrar_val = base_total + (fator * base_total)
-                    perc_display = perc_f if perc_f > 1 else (perc_f * 100.0)
+                    # Sem vl_sistema: aplicar percentual sobre o total
+                    perc_lookup = 0
+                    if cd_item_key is not None and cd_item_key in item_id_to_percent:
+                        perc_lookup = item_id_to_percent.get(cd_item_key) or 0
+                    else:
+                        # tentar por código como string
+                        cd_item_raw = r.get('cd_item')
+                        cd_item_str = str(cd_item_raw).strip() if cd_item_raw is not None else ''
+                        perc_lookup = item_code_to_percent.get(cd_item_str) or 0
+                        if not perc_lookup:
+                            # fallback por nome do item
+                            nm_item_raw = r.get('nm_item')
+                            nm_item_key = str(nm_item_raw).strip().upper() if nm_item_raw else ''
+                            perc_lookup = item_name_to_percent.get(nm_item_key) or 0
+                    try:
+                        perc_f = float(perc_lookup or 0)
+                    except Exception:
+                        perc_f = 0.0
+                    base_total = float(total_item or 0)
+                    if perc_f == 0.0:
+                        cobrar_val = base_total
+                        perc_display = 0.0
+                    else:
+                        fator = perc_f if perc_f <= 1 else (perc_f / 100.0)
+                        cobrar_val = base_total + (fator * base_total)
+                        perc_display = perc_f if perc_f > 1 else (perc_f * 100.0)
 
             if placa not in grupos:
                 grupos[placa] = { 'placa': placa, 'total_placa': 0, 'cobrar_placa': 0, 'tipos': {}, 'status_placa': 'all_open' }
@@ -1040,6 +1153,8 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 'valor': r.get('valor') or 0,
                 'total': total_item or 0,
                 'perc': perc_display if 'perc_display' in locals() else 0.0,
+                # valor do sistema (unitário) para priorização no cálculo/visualização
+                'vl_sistema': vl_sistema_f if 'vl_sistema_f' in locals() else 0.0,
                 'cobrar': cobrar_val or 0,
                 'cd_servico': r.get('cd_servico'),
                 'nm_servico': r.get('nm_servico'),
@@ -1167,7 +1282,7 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
             'metric_itens_abertos': itens_abertos,
             # Campos padrão para período/parcelas
             'periodos_choices': tipo_periodo,
-            'periodo_selecionado': self.request.GET.get('periodo', 'M'),
+            'periodo_selecionado': self.request.GET.get('periodo', 'S'),
             'parcela_selecionada': self.request.GET.get('parcela', 1),
         })
 
@@ -1186,7 +1301,7 @@ class FechamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
         agregado = (self.request.GET.get('agregado') or '').strip()
         placa = (self.request.GET.get('placa') or '').strip()
         data_fech = (self.request.GET.get('data_fechamento') or '').strip()  # yyyy-mm-dd
-        qs = Fechamento.objects.select_related('placa', 'placa__placa').all().order_by('-datafechamento')
+        qs = Fechamento.objects.select_related('placa', 'placa__placa').all().order_by('-data_fechamento')
         if cod_ag and any(getattr(f, 'name', '') == 'cod_ag' for f in Fechamento._meta.get_fields()):
             qs = qs.filter(cod_ag__icontains=cod_ag)
         if agregado:
@@ -1198,7 +1313,7 @@ class FechamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
         if data_fech:
             try:
                 dt = datetime.strptime(data_fech, '%Y-%m-%d').date()
-                qs = qs.filter(datafechamento__date=dt)
+                qs = qs.filter(data_fechamento__date=dt)
             except Exception:
                 pass
         return qs
@@ -1207,8 +1322,8 @@ class FechamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
         context = super().get_context_data(**kwargs)
         # Opções para selects
         datas_distintas = (
-            Fechamento.objects.order_by('-datafechamento')
-            .values_list('datafechamento__date', flat=True)
+            Fechamento.objects.order_by('-data_fechamento')
+            .values_list('data_fechamento__date', flat=True)
             .distinct()
         )
         datas_opcoes = [d.strftime('%Y-%m-%d') for d in datas_distintas if d]
@@ -1241,7 +1356,7 @@ class FechamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
             )
 
         # Total geral de fechamentos filtrados
-        total_valor_fechamentos = self.get_queryset().aggregate(s=models.Sum('valor_cargas'))['s'] or 0.0
+        total_valor_fechamentos = self.get_queryset().aggregate(s=models.Sum('valor_total'))['s'] or 0.0
 
         context.update({
             'cod_ag_filtro': self.request.GET.get('cod_ag', ''),
@@ -1260,6 +1375,80 @@ class FechamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView)
 class ContasAPagarListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     template_name = 'operacional/contas_a_pagar.html'
     permission_required = 'operacional.acessar_operacional'
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        di = (self.request.GET.get('data_inicio') or '').strip()
+        df = (self.request.GET.get('data_fim') or '').strip()
+        placa_f = (self.request.GET.get('placa') or '').strip()
+        contas_list = []
+        placas_disponiveis = []
+        if ContasAPagarModel is not None:
+            qs = ContasAPagarModel.objects.select_related('placa', 'placa__placa').all()
+            if di:
+                qs = qs.filter(data_fechamento__gte=di)
+            if df:
+                qs = qs.filter(data_fechamento__lte=df)
+            if placa_f:
+                try:
+                    qs = qs.filter(placa__placa__placa__iexact=placa_f)
+                except Exception:
+                    # fallback em caso de diferente caminho de FK
+                    qs = qs.filter(placa__placa__iexact=placa_f)
+            qs = qs.order_by('-data_fechamento')
+            # Descobrir nome do FK nos itens CAP (robusto a variações)
+            fk_field_name = None
+            try:
+                if ItensContasAPagarModel is not None:
+                    for f in ItensContasAPagarModel._meta.get_fields():
+                        try:
+                            if isinstance(f, models.ForeignKey) and f.related_model == ContasAPagarModel:
+                                fk_field_name = f.name
+                                break
+                        except Exception:
+                            continue
+            except Exception:
+                fk_field_name = None
+            for cab in qs:
+                try:
+                    if fk_field_name and ItensContasAPagarModel is not None:
+                        qtd_itens = ItensContasAPagarModel.objects.filter(**{fk_field_name: cab}).count()
+                    else:
+                        qtd_itens = 0
+                except Exception:
+                    qtd_itens = 0
+                try:
+                    qtd_venc = VencContasPagar.objects.filter(contas_pagar=cab).count()
+                    locked = VencContasPagar.objects.filter(contas_pagar=cab, fechamento__isnull=False).exists()
+                except Exception:
+                    qtd_venc = 0
+                    locked = False
+                contas_list.append({
+                    'id': cab.id,
+                    'placa': cab.placa,
+                    'data_fechamento': cab.data_fechamento,
+                    'valor': getattr(cab, 'valor', 0.0),
+                    'qtd_itens': qtd_itens,
+                    'qtd_venc': qtd_venc,
+                    'locked': locked,
+                })
+            # placas disponíveis
+            try:
+                placas_disponiveis = list(
+                    ContasAPagarModel.objects.select_related('placa', 'placa__placa')
+                    .values_list('placa__placa__placa', flat=True)
+                    .distinct()
+                    .order_by('placa__placa__placa')
+                )
+            except Exception:
+                placas_disponiveis = []
+        context.update({
+            'contas': contas_list,
+            'placas_disponiveis': placas_disponiveis,
+            'placa_filtro': placa_f,
+            'data_inicio': di,
+            'data_fim': df,
+        })
+        return context
 
 class ContasAReceberListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     template_name = 'operacional/contas_a_receber.html'
@@ -1400,10 +1589,60 @@ def contas_a_receber_excluir_item(request, item_id: int):
     if VencContasReceber.objects.filter(contas_receber=cab, fechamento__isnull=False).exists():
         return JsonResponse({'success': False, 'error': 'Não é permitido excluir. Já existem vencimentos vinculados a fechamento.'}, status=400)
     try:
-        item.delete()
+        # Excluir item e recalcular total do cabeçalho e vencimentos
+        with transaction.atomic():
+            item.delete()
+            # Recalcular total do cabeçalho a partir dos itens restantes (campo total)
+            total_cab = ItensContasReceber.objects.filter(contas_receber=cab).aggregate(s=models.Sum('total'))['s'] or 0.0
+            cab.valor = float(total_cab)
+            # Atualizar usuário se disponível
+            try:
+                if request.user and request.user.is_authenticated:
+                    cab.atualizado_por = request.user
+            except Exception:
+                pass
+            cab.save(update_fields=['valor', 'atualizado_por', 'dt_atualizacao'] if hasattr(cab, 'atualizado_por') else ['valor', 'dt_atualizacao'])
+            # Recalcular vencimentos (mantém fechamento=None)
+            try:
+                VencContasReceber.objects.filter(contas_receber=cab).delete()
+                period_days = {'S': 7, 'Q': 14, 'M': 28}
+                by_due_date = {}
+                items_qs = ItensContasReceber.objects.filter(contas_receber=cab)
+                for it in items_qs:
+                    n_parc = int(getattr(it, 'parcela', 1) or 1)
+                    per = str(getattr(it, 'periodo', 'S') or 'S').upper()
+                    delta = period_days.get(per, 7)
+                    valor_item = float(getattr(it, 'total', 0) or 0.0)
+                    if n_parc <= 0:
+                        n_parc = 1
+                    if n_parc == 1:
+                        shares = [round(valor_item, 2)]
+                    else:
+                        base = round(valor_item / n_parc, 2)
+                        shares = [base] * (n_parc - 1)
+                        last = round(valor_item - sum(shares), 2)
+                        shares.append(last)
+                    for idx in range(n_parc):
+                        due = cab.data_fechamento + timedelta(days=delta * idx)
+                        by_due_date[due] = float(by_due_date.get(due, 0.0) + shares[idx])
+                seq = 1
+                for due_date in sorted(by_due_date.keys()):
+                    VencContasReceber.objects.create(
+                        contas_receber=cab,
+                        fechamento=None,
+                        seq_vencimento=seq,
+                        data_vencimento=due_date,
+                        valor=round(by_due_date[due_date], 2),
+                    )
+                    seq += 1
+            except Exception:
+                pass
     except Exception:
         return JsonResponse({'success': False, 'error': 'Falha ao excluir item.'}, status=500)
-    return JsonResponse({'success': True})
+    # Retornar totais atualizados para a UI
+    qtd_itens = ItensContasReceber.objects.filter(contas_receber=cab).count()
+    qtd_venc = VencContasReceber.objects.filter(contas_receber=cab).count()
+    return JsonResponse({'success': True, 'total_cab': float(getattr(cab, 'valor', 0) or 0.0), 'qtd_itens': qtd_itens, 'qtd_venc': qtd_venc, 'cr_id': cab.id})
 
 class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
     template_name = 'operacional/gestao_fechamento.html'
@@ -1487,7 +1726,9 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
                 )
                 for r in cr_hdr_by_plate:
                     key = r['placa__placa__placa']
-                    recv_map[key] = float(recv_map.get(key, 0.0) + float(r['total'] or 0))
+                    # Usar cabeçalho apenas se não houver vencimentos para a placa (evita dupla contagem)
+                    if key not in recv_map or recv_map.get(key, 0.0) == 0.0:
+                        recv_map[key] = float(r['total'] or 0)
 
                 # Totais por placa via vencimentos (Pagar)
                 pagar_qs = VencContasPagar.objects.filter(data_vencimento__gte=start_dt, data_vencimento__lt=end_dt)
@@ -1529,20 +1770,28 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
                     )
                     for r in cp_hdr_by_plate:
                         key = r['placa__placa__placa']
-                        pagar_map[key] = float(pagar_map.get(key, 0.0) + float(r['total'] or 0))
+                        # Usar cabeçalho apenas se não houver vencimentos para a placa (evita dupla contagem)
+                        if key not in pagar_map or pagar_map.get(key, 0.0) == 0.0:
+                            pagar_map[key] = float(r['total'] or 0)
 
-                # Lançamentos por placa na data
-                lanc_qs = Lancamento.objects.filter(data=dt)
+                # Lançamentos por placa na data (Receitas somam, Despesas subtraem)
+                lanc_qs = Lancamento.objects.select_related('veiculo', 'veiculo__placa').filter(data=dt)
                 if placa_f:
                     veic_ids = list(Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa_f).values_list('id_veiculo', flat=True))
                     if veic_ids:
                         lanc_qs = lanc_qs.filter(veiculo__id_veiculo__in=veic_ids)
-                lanc_by_plate = (
-                    lanc_qs
-                    .values('veiculo__placa__placa')
-                    .annotate(total=models.Sum('valor'))
-                )
-                lanc_map = {r['veiculo__placa__placa']: float(r['total'] or 0) for r in lanc_by_plate}
+                lanc_map = {}
+                for l in lanc_qs:
+                    try:
+                        ag = getattr(l.veiculo, 'placa', None)
+                        plate_txt = str(ag.placa) if ag and getattr(ag, 'placa', None) else ''
+                    except Exception:
+                        plate_txt = ''
+                    if not plate_txt:
+                        continue
+                    nat = (getattr(l, 'natureza', '') or '').strip().upper()
+                    sign = 1.0 if nat in ('R', 'RECEITA', 'CREDITO', 'CREDIT') else -1.0
+                    lanc_map[plate_txt] = float(lanc_map.get(plate_txt, 0.0) + sign * float(getattr(l, 'valor', 0) or 0.0))
 
                 # Conjunto de placas envolvidas
                 all_plates = set(recv_map.keys()) | set(pagar_map.keys()) | set(lanc_map.keys())
@@ -1553,7 +1802,8 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
                     total_receber = float(recv_map.get(plate, 0.0))
                     total_pagar = float(pagar_map.get(plate, 0.0))
                     total_lanc = float(lanc_map.get(plate, 0.0))
-                    total_final = total_pagar + total_receber + total_lanc
+                    # Regra: TOTAL = Contas a Pagar - Contas a Receber + Lançamentos(± por natureza)
+                    total_final = total_pagar - total_receber + total_lanc
                     # localizar fechamento (id e cod_ag) para a placa/data
                     fech_id = None
                     cod_ag_val = ''
@@ -1706,6 +1956,59 @@ def gestao_fechamento_excluir(request):
         fech.delete()
     return JsonResponse({'success': True})
 
+@login_required
+@permission_required('operacional.acessar_operacional', raise_exception=True)
+@csrf_exempt
+@require_POST
+def gestao_fechamento_enviar_ag(request):
+    """
+    Marca um Fechamento como enviado para o AG preenchendo o campo cod_ag.
+    Espera JSON: { fechamento_id } ou { placa, data_fechamento }
+    Regras:
+      - Não sobrescreve cod_ag se já estiver preenchido
+    """
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        payload = {}
+    fech_id = payload.get('fechamento_id')
+    cab = None
+    if fech_id:
+        try:
+            cab = Fechamento.objects.get(id=int(fech_id))
+        except Exception:
+            cab = None
+    if cab is None:
+        placa = (payload.get('placa') or '').strip()
+        data_str = (payload.get('data_fechamento') or '').strip()
+        if not placa or not data_str:
+            return JsonResponse({'success': False, 'error': 'Parâmetros inválidos'}, status=400)
+        dt = None
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+            try:
+                dt = datetime.strptime(data_str, fmt)
+                break
+            except Exception:
+                continue
+        if dt is None:
+            return JsonResponse({'success': False, 'error': 'Data inválida'}, status=400)
+        veic = Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa).first()
+        if not veic:
+            return JsonResponse({'success': False, 'error': 'Veículo não encontrado'}, status=404)
+        cab = Fechamento.objects.filter(placa=veic, data_fechamento=dt).first()
+        if not cab:
+            return JsonResponse({'success': False, 'error': 'Fechamento não encontrado'}, status=404)
+    # Se já enviado, não sobrescrever
+    if getattr(cab, 'cod_ag', None) and str(cab.cod_ag).strip() != '':
+        return JsonResponse({'success': False, 'error': 'Fechamento já enviado para o AG.'}, status=400)
+    # Gerar um código simples de AG
+    ag_code = f'AG-{cab.id}'
+    try:
+        cab.cod_ag = ag_code
+        cab.save(update_fields=['cod_ag'])
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Falha ao marcar envio: {e}'}, status=500)
+    return JsonResponse({'success': True, 'cod_ag': ag_code})
 @permission_required('operacional.acessar_operacional', raise_exception=True)
 @require_GET
 def gestao_fechamento_detalhes(request):
@@ -1983,6 +2286,29 @@ def contas_a_pagar_excluir_item(request, item_id: int):
                 continue
         total_new = 0.0
         items_qs = ItensContasAPagarModel.objects.filter(**({fk_field_name: cab} if fk_field_name else {}))
+        # Se não houver mais itens, excluir cabeçalho e seus vencimentos
+        remaining = 0
+        try:
+            remaining = items_qs.count()
+        except Exception:
+            remaining = 0
+        if remaining == 0:
+            # remover vencimentos e o próprio cabeçalho
+            try:
+                VencContasPagar.objects.filter(contas_pagar=cab).delete()
+            except Exception:
+                pass
+            cap_id = cab.id
+            cab.delete()
+            return JsonResponse({
+                'success': True,
+                'message': 'Item excluído e cabeçalho removido (sem itens restantes).',
+                'cap_id': cap_id,
+                'deleted_header': True,
+                'total_cab': 0.0,
+                'qtd_itens': 0,
+                'qtd_venc': 0,
+            })
         for it2 in items_qs:
             try:
                 total_new += float(getattr(it2, 'saldo', 0) or 0)
@@ -2022,7 +2348,22 @@ def contas_a_pagar_excluir_item(request, item_id: int):
                 valor=round(by_due_date[due_date], 2),
             )
             seq += 1
-    return JsonResponse({'success': True, 'message': 'Item excluído com sucesso.'})
+    # preparar retorno com totais atualizados para atualização imediata da UI
+    qtd_itens = 0
+    try:
+        qtd_itens = items_qs.count()
+    except Exception:
+        pass
+    qtd_venc = VencContasPagar.objects.filter(contas_pagar=cab).count()
+    return JsonResponse({
+        'success': True,
+        'message': 'Item excluído com sucesso.',
+        'cap_id': cab.id,
+        'total_cab': float(getattr(cab, 'valor', 0) or 0.0),
+        'qtd_itens': qtd_itens,
+        'qtd_venc': qtd_venc,
+        'deleted_header': False,
+    })
 
 
 class CartaFreteListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
@@ -2120,16 +2461,55 @@ class CartaFreteListView(LoginRequiredMixin, PermissionRequiredMixin, TemplateVi
                 if col_saldo: total_saldo += float(d.get(col_saldo) or 0)
                 # agrupar por placa
                 placa_key = str(d.get(col_placa) or '').strip() if col_placa else '—'
-                g = by_placa.get(placa_key) or {'placa': placa_key, 'qtd': 0, 'valor': 0.0, 'adiantamento': 0.0, 'outros': 0.0, 'saldo': 0.0}
+                g = by_placa.get(placa_key) or {'placa': placa_key, 'qtd': 0, 'valor': 0.0, 'adiantamento': 0.0, 'outros': 0.0, 'saldo': 0.0, 'has_open': False, 'has_closed': False}
                 g['qtd'] += 1
                 if col_valor: g['valor'] += float(d.get(col_valor) or 0)
                 if col_adiant: g['adiantamento'] += float(d.get(col_adiant) or 0)
                 if col_outros: g['outros'] += float(d.get(col_outros) or 0)
                 if col_saldo: g['saldo'] += float(d.get(col_saldo) or 0)
+                # status por linha, se houver coluna de situação
+                if col_situacao:
+                    sit_val = str(d.get(col_situacao) or '').strip()
+                    sit_norm = sit_val.upper()
+                    sit_norm_ascii = (
+                        sit_val
+                        .encode('ascii', 'ignore')
+                        .decode('ascii')
+                        .upper()
+                    )
+                    is_closed = (
+                        ('FECH' in sit_norm) or ('FECH' in sit_norm_ascii) or
+                        ('ENCERR' in sit_norm_ascii) or ('CLOS' in sit_norm) or
+                        sit_norm in ('FECHADO', 'F', 'CLOSED', 'C', '1', 'TRUE')
+                    )
+                    is_open = (
+                        ('ABER' in sit_norm) or ('OPEN' in sit_norm) or
+                        sit_norm in ('ABERTO', 'A', 'OPEN', 'O', '0', 'FALSE')
+                    )
+                    if is_closed:
+                        g['has_closed'] = True
+                    if is_open:
+                        g['has_open'] = True
                 by_placa[placa_key] = g
             # construir matriz de valores na mesma ordem de cols para o template
             rows_values = [[(row.get(c) if row.get(c) is not None else '') for c in cols] for row in rows]
-            grupos = sorted(by_placa.values(), key=lambda x: x['placa'])
+            grupos = []
+            for v in by_placa.values():
+                status_txt = ''
+                if v.get('has_open'):
+                    status_txt = 'ABERTO'
+                elif v.get('has_closed'):
+                    status_txt = 'FECHADO'
+                grupos.append({
+                    'placa': v['placa'],
+                    'qtd': v['qtd'],
+                    'valor': v['valor'],
+                    'adiantamento': v['adiantamento'],
+                    'outros': v['outros'],
+                    'saldo': v['saldo'],
+                    'status': status_txt,
+                })
+            grupos = sorted(grupos, key=lambda x: x['placa'])
 
         except Exception as e:
             messages.error(self.request, f'Erro ao carregar Carta Frete: {e}')
@@ -2177,7 +2557,7 @@ def get_fechamento_itens(request, fechamento_id: int):
             'periodo': it.periodo,
             'parcela': it.parcela,
             'cod_ag': cab.cod_ag,
-            'data_fechamento': cab.datafechamento.strftime('%Y-%m-%d') if cab.datafechamento else '',
+            'data_fechamento': cab.data_fechamento.strftime('%Y-%m-%d') if cab.data_fechamento else '',
         })
     return JsonResponse({'success': True, 'itens': data})
 
@@ -2197,10 +2577,10 @@ def excluir_item_fechamento(request, item_id: int):
         total_item = float(item.total or 0)
         item.delete()
         # Atualiza total do cabeçalho
-        novo_total = (float(cab.valor_cargas or 0) - total_item)
-        cab.valor_cargas = novo_total if novo_total > 0 else 0.0
-        cab.save(update_fields=['valor_cargas'])
-    return JsonResponse({'success': True, 'message': 'Item excluído com sucesso.', 'novo_total': float(cab.valor_cargas or 0)})
+        novo_total = (float(cab.valor_total or 0) - total_item)
+        cab.valor_total = novo_total if novo_total > 0 else 0.0
+        cab.save(update_fields=['valor_total'])
+    return JsonResponse({'success': True, 'message': 'Item excluído com sucesso.', 'novo_total': float(cab.valor_total or 0)})
 
 @login_required
 @permission_required('operacional.acessar_operacional', raise_exception=True)
@@ -2257,14 +2637,14 @@ def mover_item_fechamento(request, item_id: int):
         with transaction.atomic():
             cab_dest = Fechamento.objects.select_for_update().filter(
                 placa=cab_origem.placa,
-                datafechamento__date=nova_dt.date(),
+                data_fechamento__date=nova_dt.date(),
             ).first()
             if not cab_dest:
                 cab_dest = Fechamento.objects.create(
                     placa=cab_origem.placa,
-                    datafechamento=nova_dt,
+                    data_fechamento=nova_dt,
                     cod_ag=None,
-                    valor_cargas=0.0,
+                    valor_total=0.0,
                     usuario=request.user,
                 )
 
@@ -2276,12 +2656,12 @@ def mover_item_fechamento(request, item_id: int):
 
             # recalcula total dos dois cabeçalhos
             total_origem = ItensFechamento.objects.filter(fechamento=cab_origem).aggregate(s=models.Sum('total'))['s'] or 0.0
-            cab_origem.valor_cargas = float(total_origem)
-            cab_origem.save(update_fields=['valor_cargas'])
+            cab_origem.valor_total = float(total_origem)
+            cab_origem.save(update_fields=['valor_total'])
 
             total_dest = ItensFechamento.objects.filter(fechamento=cab_dest).aggregate(s=models.Sum('total'))['s'] or 0.0
-            cab_dest.valor_cargas = float(total_dest)
-            cab_dest.save(update_fields=['valor_cargas'])
+            cab_dest.valor_total = float(total_dest)
+            cab_dest.save(update_fields=['valor_total'])
 
         return JsonResponse({'success': True, 'message': 'Item movido com sucesso.'})
     except ItensFechamento.DoesNotExist:
@@ -2326,8 +2706,8 @@ def alterar_data_fechamento(request, fechamento_id: int):
     # Bloqueia alteração se já possuir cod_ag preenchido
     if getattr(cab, 'cod_ag', None) and str(cab.cod_ag).strip() != '':
         return JsonResponse({'success': False, 'error': 'Alteração bloqueada: fechamento já possui Cod AG.'}, status=403)
-    cab.datafechamento = dt
-    cab.save(update_fields=['datafechamento'])
+    cab.data_fechamento = dt
+    cab.save(update_fields=['data_fechamento'])
     return JsonResponse({'success': True, 'message': 'Data de fechamento atualizada.'})
 
 @login_required
@@ -2863,7 +3243,7 @@ def fechar_caixa(request):
     data_inicio = (payload.get('data_inicio') or '').strip()
     data_fim = (payload.get('data_fim') or '').strip()
     data_fech = (payload.get('data_fechamento') or '').strip()  # dd/mm/yyyy
-    periodo = (payload.get('periodo') or '').strip() or 'M'
+    periodo = (payload.get('periodo') or '').strip() or 'S'
     parcela = int(payload.get('parcela') or 1)
 
     itens_da_tela = (payload.get('itens_tabela') or [])

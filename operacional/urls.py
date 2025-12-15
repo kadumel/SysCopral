@@ -35,6 +35,7 @@ urlpatterns = [
     path('gestao-fechamento/detalhes/', views.gestao_fechamento_detalhes, name='gestao_fechamento_detalhes'),
     path('gestao-fechamento/criar/', views.gestao_fechamento_criar, name='gestao_fechamento_criar'),
     path('gestao-fechamento/excluir/', views.gestao_fechamento_excluir, name='gestao_fechamento_excluir'),
+    path('gestao-fechamento/enviar-ag/', views.gestao_fechamento_enviar_ag, name='gestao_fechamento_enviar_ag'),
     path('fechamentos/<int:fechamento_id>/itens/', views.get_fechamento_itens, name='fechamento_itens'),
     path('fechamentos/<int:fechamento_id>/excluir/', views.excluir_fechamento, name='excluir_fechamento'),
     path('fechamentos/<int:fechamento_id>/alterar-data/', views.alterar_data_fechamento, name='alterar_data_fechamento'),

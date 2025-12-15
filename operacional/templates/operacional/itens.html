@@ -787,8 +787,8 @@
                 </thead>
                 <tbody>
                     {% for item in itens %}
-                    <tr data-item-id="{{ item.id_item }}">
-                        <td>{{ item.id_item }}</td>
+                    <tr data-item-id="{{ item.pk }}" data-pro-codigo="{{ item.pro_codigo }}" data-nm-item="{{ item.nm_item|upper }}">
+                        <td>{{ item.pk }}</td>
                         <td>{{ item.nm_item }}</td>
                         <td>
                             {% if item.nm_grupo %}
@@ -1049,7 +1049,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Função para salvar percentual
     function savePercentage(percentageDisplay, newValue) {
-        const itemId = percentageDisplay.closest('tr').dataset.itemId;
+        const tr = percentageDisplay.closest('tr');
+        let itemId = tr?.dataset?.itemId || '';
+        const proCodigo = tr?.dataset?.proCodigo || '';
+        const nmItem = tr?.dataset?.nmItem || '';
+        if (!itemId) {
+            // fallback: primeira coluna (código)
+            const firstTd = tr ? tr.querySelector('td') : null;
+            itemId = firstTd ? firstTd.textContent.trim() : '';
+        }
+        // sanitizar id para só dígitos
+        itemId = (itemId || '').toString().replace(/\D/g, '');
         const originalValue = percentageDisplay.dataset.original;
         
         // Validar valor
@@ -1069,6 +1079,34 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Atualizar display
         updatePercentageDisplay(percentageDisplay, newPercentage);
+        // Salvar imediatamente
+        console.log('Salvar percentual', { itemId, newPercentage });
+        if (!itemId) { alert('ID do item não encontrado na linha.'); return; }
+        const urlPerc = '{% url "operacional:save_item_percentages" %}';
+        const bodyPerc = `item_id=${encodeURIComponent(itemId)}&codigo=${encodeURIComponent(proCodigo)}&nm_item=${encodeURIComponent(nmItem)}&percentage=${encodeURIComponent(newPercentage)}`;
+        console.log('[Itens] POST', urlPerc, 'BODY:', bodyPerc);
+        fetch(urlPerc, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: bodyPerc
+        })
+        .then(r => r.json())
+        .then(data => {
+            console.log('[Itens] save-percentages response:', data);
+            if (!data || !data.success) {
+                alert((data && data.message) || 'Falha ao salvar percentual.');
+                updatePercentageDisplay(percentageDisplay, parseFloat(originalValue));
+            }
+			else {
+				// Após salvar percentual, zerar valor do sistema
+				zeroValorSistemaForRow(tr);
+			}
+        })
+        .catch((err) => {
+            console.error('[Itens] save-percentages error:', err);
+            alert('Erro de comunicação ao salvar percentual.');
+            updatePercentageDisplay(percentageDisplay, parseFloat(originalValue));
+        });
     }
 
     // Função para cancelar edição
@@ -1082,6 +1120,40 @@ document.addEventListener('DOMContentLoaded', function() {
         percentageDisplay.classList.remove('editing');
         percentageDisplay.dataset.original = value.toString();
     }
+	// Zerar Valor do Sistema (UI + persistir) para a linha informada
+	function zeroValorSistemaForRow(tr) {
+		if (!tr) return;
+		const vsDisplay = tr.querySelector('.valor-sistema-display');
+		if (!vsDisplay) return;
+		let itemId = tr?.dataset?.itemId || '';
+		if (!itemId) {
+			const firstTd = tr ? tr.querySelector('td') : null;
+			itemId = firstTd ? firstTd.textContent.trim() : '';
+		}
+		itemId = (itemId || '').toString().replace(/\D/g, '');
+		const oldVs = parseFloat(vsDisplay.dataset.original || '0') || 0;
+		if (oldVs === 0) return; // já está zerado
+		const revert = () => updateValorSistemaDisplay(vsDisplay, oldVs);
+		updateValorSistemaDisplay(vsDisplay, 0);
+		const urlVs = '{% url "operacional:save_item_valor_sistema" %}';
+		const proCodigo = tr?.dataset?.proCodigo || '';
+		const nmItem = tr?.dataset?.nmItem || '';
+		const bodyVs = `item_id=${encodeURIComponent(itemId)}&codigo=${encodeURIComponent(proCodigo)}&nm_item=${encodeURIComponent(nmItem)}&value=0`;
+		fetch(urlVs, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: bodyVs
+		}).then(r => r.json()).then(data => {
+			if (!data || !data.success) {
+				alert((data && data.message) || 'Falha ao zerar valor do sistema.');
+				revert();
+			}
+		}).catch(err => {
+			console.error('[Itens] zero-valor-sistema error:', err);
+			alert('Erro ao zerar valor do sistema.');
+			revert();
+		});
+	}
 
     // Função para mostrar seção de salvar todas
     function showSaveAllSection() {
@@ -1099,22 +1171,40 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const promises = [];
         const results = [];
-        
+        console.log(payload);
         for (const [itemId, payload] of editedItems) {
             if (payload.percentage !== undefined) {
-                const p = fetch('{% url "operacional:save_item_percentages" %}', {
+                const urlPerc = '{% url "operacional:save_item_percentages" %}';
+                const bodyPerc = `item_id=${itemId}&percentage=${payload.percentage}`;
+                console.log('[Itens][Batch] POST', urlPerc, 'BODY:', bodyPerc);
+                const p = fetch(urlPerc, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `item_id=${itemId}&percentage=${payload.percentage}`
-                }).then(r => r.json()).then(data => { results.push({ itemId, field: 'percentual', success: data.success }); });
+                    body: bodyPerc
+                }).then(r => r.json()).then(data => { 
+                    console.log('[Itens][Batch] save-percentages response:', data);
+                    results.push({ itemId, field: 'percentual', success: data.success }); 
+                }).catch(err => {
+                    console.error('[Itens][Batch] save-percentages error:', err);
+                    results.push({ itemId, field: 'percentual', success: false });
+                });
                 promises.push(p);
             }
             if (payload.valorSistema !== undefined) {
-                const p2 = fetch('{% url "operacional:save_item_valor_sistema" %}', {
+                const urlVs = '{% url "operacional:save_item_valor_sistema" %}';
+                const bodyVs = `item_id=${itemId}&value=${payload.valorSistema}`;
+                console.log('[Itens][Batch] POST', urlVs, 'BODY:', bodyVs);
+                const p2 = fetch(urlVs, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `item_id=${itemId}&value=${payload.valorSistema}`
-                }).then(r => r.json()).then(data => { results.push({ itemId, field: 'vl_sistema', success: data.success }); });
+                    body: bodyVs
+                }).then(r => r.json()).then(data => { 
+                    console.log('[Itens][Batch] save-valor-sistema response:', data);
+                    results.push({ itemId, field: 'vl_sistema', success: data.success }); 
+                }).catch(err => {
+                    console.error('[Itens][Batch] save-valor-sistema error:', err);
+                    results.push({ itemId, field: 'vl_sistema', success: false });
+                });
                 promises.push(p2);
             }
         }
@@ -1202,7 +1292,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function saveValorSistema(valorDisplay, newValue) {
-        const itemId = valorDisplay.closest('tr').dataset.itemId;
+        const tr = valorDisplay.closest('tr');
+        let itemId = tr?.dataset?.itemId || '';
+        const proCodigo = tr?.dataset?.proCodigo || '';
+        const nmItem = tr?.dataset?.nmItem || '';
+        if (!itemId) {
+            const firstTd = tr ? tr.querySelector('td') : null;
+            itemId = firstTd ? firstTd.textContent.trim() : '';
+        }
+        itemId = (itemId || '').toString().replace(/\D/g, '');
         const originalValue = parseFloat(valorDisplay.dataset.original || '0') || 0;
         if (newValue === '' || isNaN(newValue) || parseFloat(newValue) < 0) {
             alert('Por favor, insira um valor válido (>= 0).');
@@ -1214,7 +1312,33 @@ document.addEventListener('DOMContentLoaded', function() {
             editedItems.set(itemId, { ...existing, valorSistema: newFloat });
             showSaveAllSection();
         }
+        const revert = () => updateValorSistemaDisplay(valorDisplay, originalValue);
         updateValorSistemaDisplay(valorDisplay, newFloat);
+        // Salvar imediatamente
+        console.log('Salvar valor_sistema', { itemId, newFloat });
+        if (!itemId) { alert('ID do item não encontrado na linha.'); revert(); return; }
+        const urlVs = '{% url "operacional:save_item_valor_sistema" %}';
+        const bodyVs = `item_id=${encodeURIComponent(itemId)}&codigo=${encodeURIComponent(proCodigo)}&nm_item=${encodeURIComponent(nmItem)}&value=${encodeURIComponent(newFloat)}`;
+        console.log('[Itens] POST', urlVs, 'BODY:', bodyVs);
+        fetch(urlVs, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: bodyVs
+        }).then(r => r.json()).then(data => {
+            console.log('[Itens] save-valor-sistema response:', data);
+            if (!data || !data.success) {
+                alert((data && data.message) || 'Falha ao salvar valor do sistema.');
+                revert();
+            }
+			else {
+				// Após salvar valor do sistema, zerar percentual
+				zeroPercentageForRow(tr);
+			}
+        }).catch((err) => {
+            console.error('[Itens] save-valor-sistema error:', err);
+            alert('Erro de comunicação ao salvar valor do sistema.');
+            revert();
+        });
     }
 
     function cancelValorSistema(valorDisplay, originalValue) {
@@ -1226,6 +1350,40 @@ document.addEventListener('DOMContentLoaded', function() {
         valorDisplay.classList.remove('editing');
         valorDisplay.dataset.original = value.toString();
     }
+	// Zerar Percentual (UI + persistir) para a linha informada
+	function zeroPercentageForRow(tr) {
+		if (!tr) return;
+		const percDisplay = tr.querySelector('.percentage-display');
+		if (!percDisplay) return;
+		let itemId = tr?.dataset?.itemId || '';
+		if (!itemId) {
+			const firstTd = tr ? tr.querySelector('td') : null;
+			itemId = firstTd ? firstTd.textContent.trim() : '';
+		}
+		itemId = (itemId || '').toString().replace(/\D/g, '');
+		const oldPerc = parseFloat(percDisplay.dataset.original || '0') || 0;
+		if (oldPerc === 0) return; // já está zerado
+		const revert = () => updatePercentageDisplay(percDisplay, oldPerc);
+		updatePercentageDisplay(percDisplay, 0);
+		const urlPerc = '{% url "operacional:save_item_percentages" %}';
+		const proCodigo = tr?.dataset?.proCodigo || '';
+		const nmItem = tr?.dataset?.nmItem || '';
+		const bodyPerc = `item_id=${encodeURIComponent(itemId)}&codigo=${encodeURIComponent(proCodigo)}&nm_item=${encodeURIComponent(nmItem)}&percentage=0`;
+		fetch(urlPerc, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: bodyPerc
+		}).then(r => r.json()).then(data => {
+			if (!data || !data.success) {
+				alert((data && data.message) || 'Falha ao zerar percentual.');
+				revert();
+			}
+		}).catch(err => {
+			console.error('[Itens] zero-percentual error:', err);
+			alert('Erro ao zerar percentual.');
+			revert();
+		});
+	}
 });
 </script>
 {% endblock %}

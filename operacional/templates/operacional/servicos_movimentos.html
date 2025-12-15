@@ -517,7 +517,7 @@
 							</td>
                         </tr>
                             {% for it in t.itens %}
-                            <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-status="{{ it.status }}" data-cd-servico="{{ it.cd_servico|default_if_none:'' }}" data-nm-servico="{{ it.nm_servico|default_if_none:'' }}">
+                            <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-status="{{ it.status }}" data-cd-servico="{{ it.cd_servico|default_if_none:'' }}" data-nm-servico="{{ it.nm_servico|default_if_none:'' }}" data-vl-sistema="{{ it.vl_sistema|default_if_none:0 }}">
                                 <td class="text-start"></td>
                                 <td class="text-start"></td>
                                 <td>{{ it.data|date:"d/m/Y" }}</td>
@@ -528,11 +528,19 @@
                                 <td>R$ {{ it.valor|floatformat:2 }}</td>
                                 <td>R$ {{ it.total|floatformat:2 }}</td>
                             <td>
-                                <span class="perc-display" data-val="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">{{ it.perc|default_if_none:0|floatformat:2 }}%</span>
-                                <div class="input-group input-group-sm d-none">
-                                    <input type="number" class="form-control form-control-sm perc-input" min="0" step="0.01" value="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}" data-original="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">
-                                    <span class="input-group-text">%</span>
-                                </div>
+                                {% if it.vl_sistema %}
+                                    <span class="perc-display" data-mode="valor" data-vl-sistema="{{ it.vl_sistema|floatformat:2|unlocalize }}">R$ {{ it.vl_sistema|floatformat:2 }}</span>
+                                    <div class="input-group input-group-sm d-none">
+                                        <input type="number" class="form-control form-control-sm perc-input" min="0" step="0.01" value="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}" data-original="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                {% else %}
+                                    <span class="perc-display" data-mode="percent" data-val="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">{{ it.perc|default_if_none:0|floatformat:2 }}%</span>
+                                    <div class="input-group input-group-sm d-none">
+                                        <input type="number" class="form-control form-control-sm perc-input" min="0" step="0.01" value="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}" data-original="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                {% endif %}
                             </td>
                             <td>R$ {{ it.cobrar|floatformat:2 }}</td>
                             <td>
@@ -775,7 +783,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const modal = (typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalEl) : null;
         const dataInicio = document.getElementById('data_inicio')?.value || '';
         const dataFim = document.getElementById('data_fim')?.value || '';
-        const periodoSel = document.querySelector('[name="periodo"]')?.value || 'M';
+        const periodoSel = document.querySelector('[name="periodo"]')?.value || 'S';
         const parcelaSel = document.querySelector('[name="parcela"]')?.value || '1';
         const confirmBtn = modalEl.querySelector('#crConfirm');
         confirmBtn.onclick = async () => {
@@ -803,10 +811,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     
-    // Toggle edição do percentual ao clicar no valor
+    // Toggle edição do percentual ao clicar no valor (ignora quando exibindo valor do sistema)
     document.addEventListener('click', function(e){
         const span = e.target.closest('.perc-display');
         if (!span) return;
+        if (span.getAttribute('data-mode') === 'valor') return; // quando está exibindo vl_sistema, não editar percentual
         const td = span.parentElement;
         const group = td.querySelector('.input-group');
         if (!group) return;
@@ -857,12 +866,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const tds = tr.querySelectorAll('td');
         const tipoTxt = (tr.getAttribute('data-tipo')||'').toLowerCase();
+        const vlSis = Number(tr.getAttribute('data-vl-sistema')||'0');
         const totalTxt = (tds[8]?.textContent||'').replace('R$','').trim();
         const totalVal = parseFloat(totalTxt.replace('.', '').replace(',', '.')) || 0;
+        const qtyVal = Number((tds[6]?.textContent||'0').replace(',', '.')) || 0;
+        const valorUnitTxt = (tds[7]?.textContent||'').replace('R$','').trim();
+        const valorUnit = parseFloat(valorUnitTxt.replace('.', '').replace(',', '.')) || 0;
 
-        // regra: serviços usam valor base do serviço (já refletido em cobrar), demais tipos: cobrar = total + total*fator
+        // regra de prioridade:
+        // - se houver valor do sistema (>0), cobrar = vl_sistema (unitário) * quantidade
+        // - senão: serviços mantêm cobrar; demais tipos: cobrar = total + total*fator
         let cobrarVal = 0;
-        if (tipoTxt.includes('servic')) {
+        if (vlSis > 0) {
+            cobrarVal = vlSis * qtyVal;
+        } else if (tipoTxt.includes('servic')) {
             // para serviço, manter o cobrar atual, não depende do percentual
             const cobrarTxt = (tds[10]?.textContent||'').replace('R$','').trim();
             cobrarVal = parseFloat(cobrarTxt.replace('.', '').replace(',', '.')) || totalVal;

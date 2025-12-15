@@ -2,14 +2,28 @@
 
 {% block title %}Gestão de Carta Frete{% endblock %}
 
+{% block extra_css %}
+<style>
+	:root { --primary-color:#0056b3; --light-gray:#f8f9fa; --border-radius:12px; --shadow-deep:0 12px 24px -8px rgba(0,0,0,.18); }
+	body { background-color: var(--light-gray); background-image: linear-gradient(135deg, rgba(0,86,179,.06), rgba(0,51,102,.06)); }
+	.cf-main-content { padding:1.25rem 1rem; min-height:100vh; max-width:100%; margin:0 auto; }
+	.header-filters { background:#fff; border-radius:var(--border-radius); padding:1.5rem; box-shadow:var(--shadow-deep); margin-bottom:1rem; position:relative; }
+	.header-filters::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:var(--primary-color); border-radius:var(--border-radius) var(--border-radius) 0 0; }
+	.page-title { color:var(--primary-color); font-weight:700; font-size:1.75rem; margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; }
+	.table-container { background:#fff; border-radius:var(--border-radius); box-shadow:var(--shadow-deep); overflow:hidden; }
+	.table { width:100%; }
+	.table thead th { background:var(--primary-color); color:#fff; border:none; padding:1rem; text-align:center; }
+	.table tbody td { padding:1rem; vertical-align:middle; text-align:center; border-bottom:1px solid #e9ecef; }
+	/* modal largura */
+	.modal-w-120 { --bs-modal-width: 1368px; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="content-header">
-    <h1>Gestão de Carta Frete</h1>
-    <style>
-    /* Aumenta a largura do modal em ~20% em relação ao modal-xl padrão */
-    .modal-w-120 { --bs-modal-width: 1368px; }
-    </style>
-    <form method="get" class="row g-3">
+<div class="cf-main-content">
+    <div class="header-filters">
+        <h1 class="page-title"><i class="fas fa-file-invoice-dollar"></i> Gestão de Carta Frete</h1>
+        <form method="get" class="row g-3">
         <div class="col-md-3">
             <label class="form-label">Placa</label>
             <input type="text" name="placa" class="form-control" value="{{ placa_filtro }}" placeholder="PLACA">
@@ -35,9 +49,9 @@
             <a class="btn btn-secondary" href="{% url 'operacional:carta_frete_page' %}"><i class="fas fa-times me-1"></i>Limpar</a>
         </div>
     </form>
-</div>
+    </div>
 
-<div class="card mt-3">
+<div class="table-container">
     <div class="card-body">
         {% if grupos %}
         <div class="table-responsive">
@@ -50,6 +64,7 @@
                         <th>Adiantamento</th>
                         <th>Outros</th>
                         <th>Saldo</th>
+                        <th>Status</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -63,6 +78,15 @@
                         <td>R$ {{ g.outros|floatformat:2 }}</td>
                         <td>R$ {{ g.saldo|floatformat:2 }}</td>
                         <td>
+                            {% if g.status == 'FECHADO' %}
+                                <span class="badge bg-danger">Fechado</span>
+                            {% elif g.status == 'ABERTO' %}
+                                <span class="badge bg-success">Aberto</span>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
                             <button type="button" class="btn btn-primary btn-sm btn-cf-itens" data-placa="{{ g.placa }}">
                                 <i class="fas fa-list"></i>
                             </button>
@@ -73,7 +97,10 @@
             </table>
         </div>
         {% else %}
-        <div class="text-muted">Nenhum registro encontrado para os filtros.</div>
+        <div class="text-muted text-center py-4">
+            <i class="fas fa-inbox fa-3x mb-2 d-block"></i>
+            Nenhum registro encontrado para os filtros.
+        </div>
         {% endif %}
     </div>
 </div>
@@ -519,4 +546,4 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 {% endblock %}
 
-{% block extra_css %}{% endblock %}
+ 

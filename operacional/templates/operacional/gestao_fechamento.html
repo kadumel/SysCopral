@@ -2,34 +2,51 @@
 
 {% block title %}Gestão de Fechamento - Operacional{% endblock %}
 
+{% block extra_css %}
+<style>
+  :root { --primary-color:#0056b3; --light-gray:#f8f9fa; --border-radius:12px; --shadow-deep:0 12px 24px -8px rgba(0,0,0,.18); }
+  body { background-color: var(--light-gray); background-image: linear-gradient(135deg, rgba(0,86,179,.06), rgba(0,51,102,.06)); }
+  .gf-main { padding: 1.25rem 1rem; min-height: 100vh; max-width: 100%; margin: 0 auto; }
+  .header-filters { background:#fff; border-radius:var(--border-radius); padding:1.5rem; box-shadow:var(--shadow-deep); margin-bottom:1rem; position:relative; }
+  .header-filters::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:var(--primary-color); border-radius:var(--border-radius) var(--border-radius) 0 0; }
+  .page-title { color:var(--primary-color); font-weight:700; font-size:1.75rem; margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; }
+  .table-container { background:#fff; border-radius:var(--border-radius); box-shadow:var(--shadow-deep); overflow:hidden; }
+  .table { width:100%; }
+  .table thead th { background:var(--primary-color); color:#fff; border:none; padding:1rem; text-align:center; }
+  .table tbody td { padding:1rem; vertical-align:middle; text-align:center; border-bottom:1px solid #e9ecef; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="content-header">
-    <h1>Gestão de Fechamento</h1>
+<div class="gf-main">
+  <div class="header-filters">
+    <h1 class="page-title"><i class="fas fa-balance-scale"></i> Gestão de Fechamento</h1>
     <div class="text-muted">Consolida valores por placa na data de fechamento informada.</div>
-</div>
+    <form method="get" class="mt-3">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Placa</label>
+          <select name="placa" class="form-select">
+            <option value="" {% if not placa_filtro %}selected{% endif %}>Todas</option>
+            {% for p in placas_disponiveis %}
+              <option value="{{ p }}" {% if placa_filtro == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Data de Fechamento</label>
+          <input type="date" name="data_fechamento" class="form-control" value="{{ data_fechamento }}">
+        </div>
+        <div class="col-md-3 d-flex align-items-end gap-2">
+          <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Filtrar</button>
+          <a class="btn btn-secondary" href="{% url 'operacional:gestao_fechamento' %}"><i class="fas fa-times me-1"></i>Limpar</a>
+        </div>
+      </div>
+    </form>
+  </div>
 
-<form method="get" class="row g-3 mt-2">
-  <div class="col-md-3">
-    <label class="form-label">Placa</label>
-    <select name="placa" class="form-select">
-      <option value="" {% if not placa_filtro %}selected{% endif %}>Todas</option>
-      {% for p in placas_disponiveis %}
-        <option value="{{ p }}" {% if placa_filtro == p %}selected{% endif %}>{{ p }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-md-3">
-    <label class="form-label">Data de Fechamento</label>
-    <input type="date" name="data_fechamento" class="form-control" value="{{ data_fechamento }}">
-  </div>
-  <div class="col-md-3 d-flex align-items-end gap-2">
-    <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Filtrar</button>
-    <a class="btn btn-secondary" href="{% url 'operacional:gestao_fechamento' %}"><i class="fas fa-times me-1"></i>Limpar</a>
-  </div>
-</form>
-
-<div class="card mt-3">
-  <div class="card-body">
+  <div class="table-container">
+    <div class="card-body">
     {% if rows and rows|length > 0 %}
     <div class="table-responsive">
       <table class="table table-sm align-middle">
@@ -63,6 +80,9 @@
                 <button type="button" class="btn btn-outline-success btn-sm btn-criar-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Criar/Vincular Fechamento">
                   <i class="fas fa-link"></i>
                 </button>
+                <button type="button" class="btn btn-outline-info btn-sm btn-enviar-ag" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Enviar para AG" {% if not r.fechamento_id %}disabled{% endif %}>
+                  <i class="fas fa-paper-plane"></i>
+                </button>
                 <button type="button" class="btn btn-outline-danger btn-sm btn-excluir-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Excluir Fechamento">
                   <i class="fas fa-unlink"></i>
                 </button>
@@ -74,7 +94,10 @@
       </table>
     </div>
     {% else %}
-      <div class="text-muted">Informe a data de fechamento e aplique o filtro para visualizar.</div>
+      <div class="text-muted text-center py-4">
+        <i class="fas fa-info-circle fa-2x mb-2 d-block"></i>
+        Informe a data de fechamento e aplique o filtro para visualizar.
+      </div>
     {% endif %}
   </div>
 </div>
@@ -169,6 +192,26 @@ document.addEventListener('click', async function(e){
       const m = (typeof bootstrap!=='undefined') ? bootstrap.Modal.getOrCreateInstance(el) : null;
       if (m) m.show(); else el.style.display='block';
     }catch(err){ console.error(err); alert('Erro ao carregar detalhes.'); }
+    return;
+  }
+  // Enviar para AG
+  const btnSend = e.target.closest('.btn-enviar-ag');
+  if (btnSend){
+    const placa = btnSend.getAttribute('data-placa')||'';
+    const data = btnSend.getAttribute('data-data')||'';
+    if (!placa || !data){ alert('Placa ou data inválida.'); return; }
+    if (!confirm('Confirmar envio deste Fechamento para o AG? Após enviar, não será possível alterar.')) return;
+    try{
+      const resp = await fetch('/operacional/gestao-fechamento/enviar-ag/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ placa, data_fechamento: data })
+      });
+      const js = await resp.json();
+      if (!resp.ok || !js.success){ alert(js.error || 'Falha ao enviar para AG.'); return; }
+      alert('Fechamento enviado para o AG com sucesso.');
+      location.reload();
+    }catch(err){ console.error(err); alert('Erro ao enviar para AG.'); }
     return;
   }
   const btnCriar = e.target.closest('.btn-criar-fech');

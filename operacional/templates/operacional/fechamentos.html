@@ -5,12 +5,13 @@
 
 {% block extra_css %}
 <style>
-    .fechamentos-main-content { padding: 1.25rem 1rem; max-width: 1400px; margin: 0 auto; }
+    .fechamentos-main-content { padding: 1.25rem 1rem; max-width: 100%; margin: 0 auto; }
     .header-filters { background: #fff; border-radius: 12px; padding: 1.5rem; box-shadow: 0 12px 24px -8px rgba(0,0,0,0.18); margin-bottom: 1rem; position: relative; }
     .header-filters::before { content: ''; position: absolute; top:0; left:0; right:0; height:4px; background:#0056b3; border-radius:12px 12px 0 0; }
     .page-title { color:#0056b3; font-weight:700; font-size:1.75rem; display:flex; gap:.5rem; align-items:center; }
     .stats-card { background: linear-gradient(135deg, #0056b3, #003366); color:#fff; border-radius:12px; padding:1rem; text-align:center; }
     .table-container { background:#fff; border-radius:12px; box-shadow: 0 12px 24px -8px rgba(0,0,0,0.18); overflow:hidden; }
+    .table { width: 100%; }
     .table thead th { background:#0056b3; color:#fff; text-align:center; padding:1rem; border:none; }
     .table tbody td { text-align:center; padding:1rem; border-bottom:1px solid #e9ecef; }
     .filters-row { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:1rem; }
@@ -109,7 +110,7 @@
                     {% for f in fechamentos %}
                     <tr>
                         <td>{{ f.id }}</td>
-                        <td>{{ f.datafechamento|date:"d/m/Y H:i" }}</td>
+                        <td>{{ f.data_fechamento|date:"d/m/Y H:i" }}</td>
                         <td>{{ f.cod_ag|default:"—" }}</td>
                         <td>{{ f.placa.placa.placa|default:"—" }}</td>
                         <td>{{ f.placa.placa.nm_agregado|default:"—" }}</td>
@@ -123,7 +124,7 @@
                                 <button type="button" class="btn btn-info btn-sm" onclick="simularVencimentos({{ f.id }})" title="Simular Vencimentos">
                                     <i class="fas fa-calendar-check"></i>
                                 </button>
-                                <button type="button" class="btn btn-warning btn-sm" onclick="alterarData({{ f.id }}, '{{ f.datafechamento|date:"d/m/Y" }}', {% if f.cod_ag %}true{% else %}false{% endif %})" title="Alterar Data">
+                                <button type="button" class="btn btn-warning btn-sm" onclick="alterarData({{ f.id }}, '{{ f.data_fechamento|date:"d/m/Y" }}', {% if f.cod_ag %}true{% else %}false{% endif %})" title="Alterar Data">
                                     <i class="fas fa-calendar-alt"></i>
                                 </button>
                                 <button type="button" class="btn btn-danger btn-sm" onclick="excluirFechamento({{ f.id }}, {% if f.cod_ag %}true{% else %}false{% endif %})" title="Excluir">

@@ -58,14 +58,10 @@
     .abastecimento-main-content {
         padding: 1.25rem 1rem;
         min-height: 100vh;
-        max-width: 1400px;
+        max-width: 100%;
         margin: 0 auto;
         position: relative;
         z-index: 1;
-    }
-
-    .main-content {
-        margin-left: 250px;
     }
 
     /* Header + Filters */
@@ -847,6 +843,17 @@
             
             <div class="indicador-card">
                 <div class="indicador-icon">
+                    <i class="fas fa-tachometer-alt"></i>
+                </div>
+                <div class="indicador-content">
+                    <h3 class="indicador-title">Média Km/L</h3>
+                    <p class="indicador-value">{{ media_km_por_litro|floatformat:2 }}</p>
+                    <span class="indicador-unit">km/l</span>
+                </div>
+            </div>
+            
+            <div class="indicador-card">
+                <div class="indicador-icon">
                     <i class="fas fa-dollar-sign"></i>
                 </div>
                 <div class="indicador-content">
@@ -905,7 +912,9 @@
                         <th>Data</th>
                         <th>Ponto de Apoio</th>
                         <th>Tipo Combustível</th>
+                        <th>Total KM</th>
                         <th>Litros</th>
+                        <th>KM/L</th>
                         <th>Valor do Litro</th>
                         <th>Valor do Abastecimento</th>
                     </tr>
@@ -918,6 +927,13 @@
                         <td>{{ abastecimento.dt_abastecimento|date:"d/m/Y H:i" }}</td>
                         <td>{{ abastecimento.cd_ponto_apoio }}</td>
                         <td>{{ abastecimento.id_item.nm_item }}</td>
+                        <td>
+                            {% if abastecimento.total_km %}
+                                {{ abastecimento.total_km|floatformat:2 }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
                         <td class="litros-cell">
                              <div class="litros-display" data-original="{{ abastecimento.qt_litros|default:0 }}">
                                  {% if abastecimento.qt_litros %}
@@ -926,6 +942,13 @@
                                      <span class="text-muted">0.00</span>
                                  {% endif %}
                              </div>
+                        </td>
+                        <td>
+                            {% if abastecimento.km_por_litro %}
+                                {{ abastecimento.km_por_litro|floatformat:2 }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
                         </td>
                         <td>
                              {% if abastecimento.vl_litro %}
