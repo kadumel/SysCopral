@@ -1,0 +1,1001 @@
+{% extends 'home.html' %}
+{% load static %}
+{% load brazilian_format %}
+
+{% block title %}Gestão de Lançamentos - Copral{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --info-color: #17a2b8;
+        --text-color: #333;
+        --text-light: #6b7280;
+        --light-gray: #f8f9fa;
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* não sobrescrever o layout global do sidebar nesta página */
+
+    .lancamentos-main-content {
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 100%;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-deep);
+        margin-bottom: 1rem;
+        position: relative;
+    }
+
+    .header-filters::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--primary-color);
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .page-title {
+        color: var(--primary-color);
+        font-weight: 700;
+        font-size: 1.75rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, var(--primary-color), #003366);
+        color: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        text-align: center;
+        box-shadow: var(--shadow-medium);
+    }
+
+    .stat-card h3 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0;
+    }
+
+    .stat-card p {
+        margin: 0.5rem 0 0 0;
+        opacity: 0.9;
+    }
+
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: var(--text-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .form-control, .form-select {
+        padding: 0.75rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        transition: var(--transition);
+        font-size: 0.95rem;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(0, 86, 179, 0.25);
+        outline: none;
+    }
+
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: var(--transition);
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .btn-primary {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background: #003d82;
+        transform: translateY(-2px);
+    }
+
+    .btn-success {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .btn-warning {
+        background: var(--warning-color);
+        color: #212529;
+    }
+
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .table-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        overflow: hidden;
+    }
+
+    .table {
+        margin: 0;
+        width: 100%;
+    }
+
+    .table-responsive {
+        width: 100%;
+    }
+
+    .table thead th {
+        background: var(--primary-color);
+        color: white;
+        font-weight: 600;
+        padding: 1rem;
+        border: none;
+        text-align: center;
+    }
+
+    .table tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #e9ecef;
+        text-align: center;
+    }
+
+    .table tbody tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .modal-content {
+        border-radius: var(--border-radius);
+        border: none;
+        box-shadow: var(--shadow-deep);
+    }
+    /* Fallback mínimo para modal caso Bootstrap CSS falhe */
+    .modal { display: none; }
+    .modal.show { display: block; }
+    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 1040; }
+    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow-x: hidden; overflow-y: auto; z-index: 1050; }
+    .modal-dialog { margin: 1.75rem auto; }
+    .modal-open { overflow: hidden; }
+
+    .modal-header {
+        background: var(--primary-color);
+        color: white;
+        border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+
+    .modal-title {
+        font-weight: 600;
+    }
+
+    .close {
+        color: white;
+        opacity: 0.8;
+    }
+
+    .close:hover {
+        opacity: 1;
+    }
+
+    .alert {
+        border-radius: 8px;
+        border: none;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .pagination {
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .page-link {
+        color: var(--primary-color);
+        border: 1px solid #dee2e6;
+        padding: 0.75rem 1rem;
+    }
+
+    .page-link:hover {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+    }
+
+    .page-item.active .page-link {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+
+    .actions-buttons {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+
+    .valor-cell {
+        font-weight: 600;
+        color: var(--success-color);
+    }
+
+    .periodo-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .periodo-M { background-color: #e3f2fd; color: #1976d2; }
+    .periodo-S { background-color: #f3e5f5; color: #7b1fa2; }
+    .periodo-Q { background-color: #e8f5e8; color: #388e3c; }
+
+    @media (max-width: 768px) {
+        .main-content { margin-left: 0; }
+        .lancamentos-main-content { margin-left: 0; }
+        
+        .filters-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .stats-cards {
+            grid-template-columns: 1fr;
+        }
+        
+        .table-responsive {
+            font-size: 0.8rem;
+        }
+        
+        .actions-buttons {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="lancamentos-main-content">
+    <!-- Header com título e estatísticas -->
+    <div class="header-filters">
+        <h1 class="page-title">
+            <i class="fas fa-file-invoice-dollar"></i>
+            Gestão de Lançamentos
+        </h1>
+        
+        <!-- Estatísticas -->
+        <div class="stats-cards">
+            <div class="stat-card">
+                <h3>{{ total_lancamentos }}</h3>
+                <p>Total de Lançamentos</p>
+            </div>
+            <div class="stat-card">
+                <h3>R$ {{ total_valor|floatformat:2 }}</h3>
+                <p>Valor Total</p>
+            </div>
+        </div>
+        
+        <!-- Filtros -->
+        <form method="get" class="filters-form">
+            <div class="filters-row">
+                <div class="form-group">
+                    <label class="form-label">Veículo/Agregado:</label>
+                    <input type="text" name="veiculo" class="form-control" 
+                           value="{{ veiculo_filtro }}" placeholder="Buscar por placa ou agregado">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Categoria:</label>
+                    <select name="categoria" class="form-select">
+                        <option value="">Todas as categorias</option>
+                        {% for categoria in categorias_disponiveis %}
+                            <option value="{{ categoria.id }}" 
+                                    {% if categoria_filtro == categoria.id|stringformat:"s" %}selected{% endif %}>
+                                {{ categoria.nome }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Data Início:</label>
+                    <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Data Fim:</label>
+                    <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Período:</label>
+                    <select name="periodo" class="form-select">
+                        <option value="">Todos os períodos</option>
+                        {% for periodo_key, periodo_label in periodos_choices %}
+                            <option value="{{ periodo_key }}" 
+                                    {% if periodo_filtro == periodo_key %}selected{% endif %}>
+                                {{ periodo_label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Usuário:</label>
+                    <select name="usuario" class="form-select">
+                        <option value="">Todos os usuários</option>
+                        {% for usuario in usuarios_disponiveis %}
+                            <option value="{{ usuario.id }}" 
+                                    {% if usuario_filtro == usuario.id|stringformat:"s" %}selected{% endif %}>
+                                {{ usuario.username }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2 mt-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> Filtrar
+                </button>
+                <a href="{% url 'operacional:lancamentos' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Limpar
+                </a>
+                <button type="button" class="btn btn-success" id="btnNovoLancamento" onclick="abrirModal()">
+                    <i class="fas fa-plus"></i> Novo Lançamento
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Tabela de lançamentos -->
+    <div class="table-container">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Veículo</th>
+                        <th>Categoria</th>
+                        <th>Data</th>
+                        <th>Natureza</th>
+                        <th>Valor</th>
+                        <th>Período</th>
+                        <th>Parcela</th>
+                        <th>Usuário</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lancamento in lancamentos %}
+                    <tr data-lancamento-id="{{ lancamento.id }}">
+                        <td>
+                            <strong>{{ lancamento.veiculo.placa.placa }}</strong><br>
+                            <small class="text-muted">{{ lancamento.veiculo.placa.nm_agregado }}</small>
+                        </td>
+                        <td>{{ lancamento.categoria.nome }}</td>
+                        <td>{{ lancamento.data|date:"d/m/Y" }}</td>
+                        <td>{{ lancamento.get_natureza_display }}</td>
+                        <td class="valor-cell">R$ {{ lancamento.valor|floatformat:2 }}</td>
+                        <td>
+                            <span class="periodo-badge periodo-{{ lancamento.periodo }}">
+                                {{ lancamento.get_periodo_display }}
+                            </span>
+                        </td>
+                        <td>{{ lancamento.parcela }}</td>
+                        <td>{{ lancamento.usuario.username }}</td>
+                        <td>
+                            <div class="actions-buttons">
+                                <button type="button" class="btn btn-warning btn-sm btn-editar-lancamento" 
+                                        data-lancamento-id="{{ lancamento.id }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm btn-excluir-lancamento" 
+                                        data-lancamento-id="{{ lancamento.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                            Nenhum lançamento encontrado
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Paginação -->
+        {% if is_paginated %}
+        <nav aria-label="Paginação">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">
+                            <i class="fas fa-angle-double-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
+                            <i class="fas fa-angle-left"></i>
+                        </a>
+                    </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
+                            <i class="fas fa-angle-right"></i>
+                        </a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}">
+                            <i class="fas fa-angle-double-right"></i>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para criar/editar lançamento -->
+<div class="modal fade" id="modalLancamento" tabindex="-1" aria-labelledby="modalLancamentoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLancamentoLabel">Novo Lançamento</h5>
+                <button type="button" class="btn-close" onclick="window.fecharModal()" aria-label="Close"></button>
+            </div>
+            <form id="formLancamento">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_veiculo" class="form-label">Veículo *</label>
+                                {{ form.veiculo }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_categoria" class="form-label">Categoria *</label>
+                                {{ form.categoria }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="id_data" class="form-label">Data *</label>
+                                {{ form.data }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="id_natureza" class="form-label">Natureza *</label>
+                                {{ form.natureza }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="id_periodo" class="form-label">Período *</label>
+                                {{ form.periodo }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="id_parcela" class="form-label">Parcela</label>
+                                {{ form.parcela }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_valor" class="form-label">Valor *</label>
+                                {{ form.valor }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_obs" class="form-label">Observações</label>
+                                {{ form.obs }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="window.fecharModal()">
+                        <i class="fas fa-times"></i>
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i>
+                        Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de confirmação para exclusão -->
+<div class="modal fade" id="modalConfirmacao" tabindex="-1" aria-labelledby="modalConfirmacaoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConfirmacaoLabel">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" onclick="window.fecharModal()" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir este lançamento?</p>
+                <p><strong>Esta ação não pode ser desfeita.</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="window.fecharModal()">
+                    <i class="fas fa-times"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarExclusao">
+                    <i class="fas fa-trash"></i>
+                    Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Variáveis globais
+let lancamentoIdParaExcluir = null;
+let modoEdicao = false;
+let lancamentoIdParaEditar = null;
+
+// Função para mostrar alertas
+function mostrarAlerta(tipo, mensagem) {
+    const alertaHtml = `
+        <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+            ${mensagem}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+    
+    // Remove alertas existentes
+    document.querySelectorAll('.alert').forEach(alert => alert.remove());
+    
+    // Adiciona novo alerta
+    document.querySelector('.main-content').insertAdjacentHTML('afterbegin', alertaHtml);
+    
+    // Auto-remove após 5 segundos
+    setTimeout(() => {
+        const alerta = document.querySelector('.alert');
+        if (alerta) {
+            alerta.remove();
+        }
+    }, 5000);
+}
+
+// Função para limpar formulário
+function limparFormulario() {
+    document.getElementById('formLancamento').reset();
+    modoEdicao = false;
+    lancamentoIdParaEditar = null;
+    document.getElementById('modalLancamentoLabel').textContent = 'Novo Lançamento';
+}
+
+// Função para criar lançamento
+function criarLancamento(dados) {
+    fetch('{% url "operacional:criar_lancamento" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarAlerta('success', data.message);
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            let mensagemErro = 'Erro ao criar lançamento.';
+            if (data.errors) {
+                mensagemErro += '<br>' + Object.values(data.errors).flat().join('<br>');
+            }
+            mostrarAlerta('danger', mensagemErro);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarAlerta('danger', 'Erro de conexão. Tente novamente.');
+    });
+}
+
+// Função para editar lançamento
+function editarLancamento(id) {
+    // Buscar dados do lançamento
+    fetch(`/operacional/lancamentos/${id}/obter/`)
+    .then(async (response) => {
+        if (!response.ok) {
+            try {
+                const errData = await response.json();
+                const detail = errData && (errData.error || errData.message || JSON.stringify(errData));
+                throw new Error(`HTTP ${response.status} ${response.statusText}${detail ? ` - ${detail}` : ''}`);
+            } catch (_) {
+                const text = await response.text();
+                throw new Error(`HTTP ${response.status} ${response.statusText}${text ? ` - ${text.substring(0, 200)}` : ''}`);
+            }
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            const lancamento = data.lancamento;
+            
+            // Preencher formulário
+            document.getElementById('id_veiculo').value = lancamento.veiculo;
+            document.getElementById('id_categoria').value = lancamento.categoria;
+            document.getElementById('id_data').value = lancamento.data;
+            document.getElementById('id_valor').value = lancamento.valor;
+            document.getElementById('id_periodo').value = lancamento.periodo;
+            document.getElementById('id_parcela').value = lancamento.parcela;
+            const elNat = document.getElementById('id_natureza');
+            if (elNat) elNat.value = lancamento.natureza || '';
+            document.getElementById('id_obs').value = lancamento.obs;
+            
+            // Configurar modo edição
+            modoEdicao = true;
+            lancamentoIdParaEditar = id;
+            document.getElementById('modalLancamentoLabel').textContent = 'Editar Lançamento';
+            
+            // Mostrar modal
+            new bootstrap.Modal(document.getElementById('modalLancamento')).show();
+        } else {
+            const detalhe = data.error ? ` Detalhe: ${data.error}` : '';
+            mostrarAlerta('danger', 'Erro ao carregar dados do lançamento.' + detalhe);
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao obter lançamento:', error);
+        mostrarAlerta('danger', `Falha ao carregar dados do lançamento. ${error.message || ''}`);
+    });
+}
+
+// Função para atualizar lançamento
+function atualizarLancamento(id, dados) {
+    fetch(`/operacional/lancamentos/${id}/editar/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarAlerta('success', data.message);
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            let mensagemErro = 'Erro ao atualizar lançamento.';
+            if (data.errors) {
+                mensagemErro += '<br>' + Object.values(data.errors).flat().join('<br>');
+            }
+            mostrarAlerta('danger', mensagemErro);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarAlerta('danger', 'Erro de conexão. Tente novamente.');
+    });
+}
+
+// Função para excluir lançamento
+function excluirLancamento(id) {
+    lancamentoIdParaExcluir = id;
+    const modalEl = document.getElementById('modalConfirmacao');
+    if (typeof bootstrap !== 'undefined') {
+        new bootstrap.Modal(modalEl).show();
+    } else {
+        // Fallback manual
+        modalEl.style.display = 'block';
+        modalEl.classList.add('show');
+        modalEl.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        let backdrop = document.querySelector('.modal-backdrop');
+        if (!backdrop) {
+            backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            document.body.appendChild(backdrop);
+        }
+        backdrop.addEventListener('click', window.fecharModal);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                window.fecharModal();
+            }
+        });
+    }
+}
+
+// Função para confirmar exclusão
+function confirmarExclusao() {
+    if (!lancamentoIdParaExcluir) return;
+    
+    fetch(`/operacional/lancamentos/${lancamentoIdParaExcluir}/excluir/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            mostrarAlerta('success', data.message);
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            mostrarAlerta('danger', 'Erro ao excluir lançamento.');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        mostrarAlerta('danger', 'Erro de conexão. Tente novamente.');
+    })
+    .finally(() => {
+        const el = document.getElementById('modalConfirmacao');
+        if (typeof bootstrap !== 'undefined') {
+            const inst = bootstrap.Modal.getInstance(el);
+            if (inst) inst.hide();
+        } else {
+            // Fallback manual
+            el.style.display = 'none';
+            el.classList.remove('show');
+            el.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) backdrop.remove();
+        }
+        lancamentoIdParaExcluir = null;
+    });
+}
+
+// Função para obter CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado. Bootstrap disponível:', typeof bootstrap !== 'undefined');
+    
+    // Definir função abrirModal globalmente
+    window.abrirModal = function() {
+        console.log('Função abrirModal chamada!');
+        const modal = document.getElementById('modalLancamento');
+        if (modal) {
+            // Tentar usar Bootstrap primeiro
+            if (typeof bootstrap !== 'undefined') {
+                try {
+                    const modalInstance = new bootstrap.Modal(modal);
+                    modalInstance.show();
+                    console.log('Modal aberto com Bootstrap');
+                    return;
+                } catch (error) {
+                    console.error('Erro ao abrir modal com Bootstrap:', error);
+                }
+            }
+            
+            // Fallback manual
+            console.log('Abrindo modal manualmente');
+            modal.style.display = 'block';
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('modal-open');
+            
+            // Adicionar backdrop
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fade show';
+                document.body.appendChild(backdrop);
+            }
+            
+            // Event listeners para fechar
+            backdrop.addEventListener('click', window.fecharModal);
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    window.fecharModal();
+                }
+            });
+        }
+    };
+    
+    // Definir função fecharModal globalmente
+    window.fecharModal = function() {
+        const modal = document.getElementById('modalLancamento');
+        if (modal) {
+            // Tentar usar Bootstrap primeiro
+            if (typeof bootstrap !== 'undefined') {
+                try {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Erro ao fechar modal com Bootstrap:', error);
+                }
+            }
+            
+            // Fallback manual
+            modal.style.display = 'none';
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('modal-open');
+            
+            // Remover backdrop
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            
+            // Limpar formulário
+            limparFormulario();
+        }
+    };
+    
+    // Submissão do formulário
+    const form = document.getElementById('formLancamento');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const dados = {
+                veiculo: formData.get('veiculo'),
+                categoria: formData.get('categoria'),
+                data: formData.get('data'),
+                natureza: formData.get('natureza'),
+                valor: parseFloat(formData.get('valor')),
+                periodo: formData.get('periodo'),
+                parcela: parseInt(formData.get('parcela')),
+                obs: formData.get('obs') || ''
+            };
+            
+            if (modoEdicao) {
+                atualizarLancamento(lancamentoIdParaEditar, dados);
+            } else {
+                criarLancamento(dados);
+            }
+            
+            // Fechar modal
+            const modal = document.getElementById('modalLancamento');
+            if (modal) {
+                const modalInstance = bootstrap.Modal.getInstance(modal) || new bootstrap.Modal(modal);
+                modalInstance.hide();
+            }
+        });
+    }
+    
+    // Confirmação de exclusão
+    const btnConfirmar = document.getElementById('btnConfirmarExclusao');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', confirmarExclusao);
+    }
+
+    // Delegação de eventos para editar/excluir (evita inline onclick)
+    document.addEventListener('click', function(e) {
+        const editarBtn = e.target.closest('.btn-editar-lancamento');
+        if (editarBtn && editarBtn.dataset.lancamentoId) {
+            e.preventDefault();
+            const id = editarBtn.dataset.lancamentoId;
+            editarLancamento(id);
+            return;
+        }
+        const excluirBtn = e.target.closest('.btn-excluir-lancamento');
+        if (excluirBtn && excluirBtn.dataset.lancamentoId) {
+            e.preventDefault();
+            const id = excluirBtn.dataset.lancamentoId;
+            excluirLancamento(id);
+            return;
+        }
+    });
+    
+    // Limpar formulário ao fechar modal
+    const modal = document.getElementById('modalLancamento');
+    if (modal) {
+        modal.addEventListener('hidden.bs.modal', limparFormulario);
+    }
+});
+</script>
+{% endblock %}

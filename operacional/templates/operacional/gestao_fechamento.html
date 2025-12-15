@@ -1,0 +1,257 @@
+{% extends 'home.html' %}
+
+{% block title %}Gestão de Fechamento - Operacional{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --primary-color:#0056b3; --light-gray:#f8f9fa; --border-radius:12px; --shadow-deep:0 12px 24px -8px rgba(0,0,0,.18); }
+  body { background-color: var(--light-gray); background-image: linear-gradient(135deg, rgba(0,86,179,.06), rgba(0,51,102,.06)); }
+  .gf-main { padding: 1.25rem 1rem; min-height: 100vh; max-width: 100%; margin: 0 auto; }
+  .header-filters { background:#fff; border-radius:var(--border-radius); padding:1.5rem; box-shadow:var(--shadow-deep); margin-bottom:1rem; position:relative; }
+  .header-filters::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:var(--primary-color); border-radius:var(--border-radius) var(--border-radius) 0 0; }
+  .page-title { color:var(--primary-color); font-weight:700; font-size:1.75rem; margin-bottom:1rem; display:flex; align-items:center; gap:.5rem; }
+  .table-container { background:#fff; border-radius:var(--border-radius); box-shadow:var(--shadow-deep); overflow:hidden; }
+  .table { width:100%; }
+  .table thead th { background:var(--primary-color); color:#fff; border:none; padding:1rem; text-align:center; }
+  .table tbody td { padding:1rem; vertical-align:middle; text-align:center; border-bottom:1px solid #e9ecef; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="gf-main">
+  <div class="header-filters">
+    <h1 class="page-title"><i class="fas fa-balance-scale"></i> Gestão de Fechamento</h1>
+    <div class="text-muted">Consolida valores por placa na data de fechamento informada.</div>
+    <form method="get" class="mt-3">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">Placa</label>
+          <select name="placa" class="form-select">
+            <option value="" {% if not placa_filtro %}selected{% endif %}>Todas</option>
+            {% for p in placas_disponiveis %}
+              <option value="{{ p }}" {% if placa_filtro == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Data de Fechamento</label>
+          <input type="date" name="data_fechamento" class="form-control" value="{{ data_fechamento }}">
+        </div>
+        <div class="col-md-3 d-flex align-items-end gap-2">
+          <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Filtrar</button>
+          <a class="btn btn-secondary" href="{% url 'operacional:gestao_fechamento' %}"><i class="fas fa-times me-1"></i>Limpar</a>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-container">
+    <div class="card-body">
+    {% if rows and rows|length > 0 %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Placa</th>
+            <th>Total A Receber</th>
+            <th>Total A Pagar</th>
+            <th>Lançamentos</th>
+            <th>Total</th>
+            <th>Fechamento ID</th>
+            <th>Cod AG</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="text-start">{{ r.placa }}</td>
+            <td>R$ {{ r.total_receber|floatformat:2 }}</td>
+            <td>R$ {{ r.total_pagar|floatformat:2 }}</td>
+            <td>R$ {{ r.lancamentos|floatformat:2 }}</td>
+            <td><strong>R$ {{ r.total_final|floatformat:2 }}</strong></td>
+            <td>{{ r.fechamento_id|default_if_none:'' }}</td>
+            <td>{{ r.cod_ag }}</td>
+            <td>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary btn-sm btn-det-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Detalhes do Fechamento">
+                  <i class="fas fa-search"></i>
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm btn-criar-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Criar/Vincular Fechamento">
+                  <i class="fas fa-link"></i>
+                </button>
+                <button type="button" class="btn btn-outline-info btn-sm btn-enviar-ag" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Enviar para AG" {% if not r.fechamento_id %}disabled{% endif %}>
+                  <i class="fas fa-paper-plane"></i>
+                </button>
+                <button type="button" class="btn btn-outline-danger btn-sm btn-excluir-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Excluir Fechamento">
+                  <i class="fas fa-unlink"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="text-muted text-center py-4">
+        <i class="fas fa-info-circle fa-2x mb-2 d-block"></i>
+        Informe a data de fechamento e aplique o filtro para visualizar.
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal Detalhes -->
+<div class="modal fade" id="modalDetFech" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalhes do Fechamento</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <div class="col-md-6">
+            <h6>Contas a Receber - Vencimentos</h6>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <thead><tr><th>#</th><th>Data</th><th>Fechamento</th><th>CR</th><th>Valor</th></tr></thead>
+                <tbody id="detCRBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <h6>Contas a Pagar - Vencimentos</h6>
+            <div class="table-responsive">
+              <table class="table table-sm">
+                <thead><tr><th>#</th><th>Data</th><th>Fechamento</th><th>CP</th><th>Valor</th></tr></thead>
+                <tbody id="detCPBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <hr/>
+        <h6>Lançamentos</h6>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead><tr><th>Data</th><th>Categoria</th><th>Valor</th><th>Obs</th></tr></thead>
+            <tbody id="detLancBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+document.addEventListener('click', async function(e){
+  // Detalhes
+  const btnDet = e.target.closest('.btn-det-fech');
+  if (btnDet){
+    const placa = btnDet.getAttribute('data-placa') || '';
+    const data = btnDet.getAttribute('data-data') || '';
+    if (!data){ alert('Data de fechamento não definida no filtro.'); return; }
+    try{
+      const url = new URL(window.location.origin + '/operacional/gestao-fechamento/detalhes/');
+      if (placa) url.searchParams.set('placa', placa);
+      url.searchParams.set('data_fechamento', data);
+      const resp = await fetch(url.toString());
+      const js = await resp.json();
+      if (!resp.ok || !js.success){ alert(js.error || 'Falha ao carregar detalhes.'); return; }
+      const cr = js.cr_venc || [];
+      const cp = js.cp_venc || [];
+      const lc = js.lanc || [];
+      const fmt = (v)=> 'R$ ' + Number(v||0).toFixed(2).replace('.', ',');
+      const crBody = document.getElementById('detCRBody');
+      const cpBody = document.getElementById('detCPBody');
+      const lnBody = document.getElementById('detLancBody');
+      crBody.innerHTML = cr.length ? cr.map(r=>`<tr><td>${r.seq||''}</td><td>${r.data||''}</td><td>${r.fechamento||''}</td><td>${r.cr_id||''}</td><td>${fmt(r.valor)}</td></tr>`).join('') : '<tr><td colspan="5" class="text-muted">Sem registros</td></tr>';
+      cpBody.innerHTML = cp.length ? cp.map(r=>`<tr><td>${r.seq||''}</td><td>${r.data||''}</td><td>${r.fechamento||''}</td><td>${r.cp_id||''}</td><td>${fmt(r.valor)}</td></tr>`).join('') : '<tr><td colspan="5" class="text-muted">Sem registros</td></tr>';
+      lnBody.innerHTML = lc.length ? lc.map(r=>`<tr><td>${r.data||''}</td><td>${r.categoria||''}</td><td>${fmt(r.valor)}</td><td>${(r.obs||'')}</td></tr>`).join('') : '<tr><td colspan="4" class="text-muted">Sem registros</td></tr>';
+      const el = document.getElementById('modalDetFech');
+      const m = (typeof bootstrap!=='undefined') ? bootstrap.Modal.getOrCreateInstance(el) : null;
+      if (m) m.show(); else el.style.display='block';
+    }catch(err){ console.error(err); alert('Erro ao carregar detalhes.'); }
+    return;
+  }
+  // Enviar para AG
+  const btnSend = e.target.closest('.btn-enviar-ag');
+  if (btnSend){
+    const placa = btnSend.getAttribute('data-placa')||'';
+    const data = btnSend.getAttribute('data-data')||'';
+    if (!placa || !data){ alert('Placa ou data inválida.'); return; }
+    if (!confirm('Confirmar envio deste Fechamento para o AG? Após enviar, não será possível alterar.')) return;
+    try{
+      const resp = await fetch('/operacional/gestao-fechamento/enviar-ag/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ placa, data_fechamento: data })
+      });
+      const js = await resp.json();
+      if (!resp.ok || !js.success){ alert(js.error || 'Falha ao enviar para AG.'); return; }
+      alert('Fechamento enviado para o AG com sucesso.');
+      location.reload();
+    }catch(err){ console.error(err); alert('Erro ao enviar para AG.'); }
+    return;
+  }
+  const btnCriar = e.target.closest('.btn-criar-fech');
+  if (btnCriar){
+    const placa = btnCriar.getAttribute('data-placa')||'';
+    const data = btnCriar.getAttribute('data-data')||'';
+    if (!placa || !data){ alert('Placa ou data inválida.'); return; }
+    if (!confirm('Confirmar criação/vínculo do fechamento para esta placa e data?')) return;
+    try{
+      const resp = await fetch('/operacional/gestao-fechamento/criar/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ placa: placa, data_fechamento: data })
+      });
+      const js = await resp.json();
+      if (!resp.ok || !js.success){ alert(js.error || 'Falha ao criar/vincular.'); return; }
+      alert('Fechamento criado/vinculado com sucesso.');
+      location.reload();
+    }catch(err){ console.error(err); alert('Erro ao criar/vincular fechamento.'); }
+    return;
+  }
+  const btnExcluir = e.target.closest('.btn-excluir-fech');
+  if (btnExcluir){
+    const placa = btnExcluir.getAttribute('data-placa')||'';
+    const data = btnExcluir.getAttribute('data-data')||'';
+    if (!placa || !data){ alert('Placa ou data inválida.'); return; }
+    if (!confirm('Confirma excluir o fechamento (se permitido) e desvincular dos vencimentos e lançamentos?')) return;
+    try{
+      const resp = await fetch('/operacional/gestao-fechamento/excluir/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ placa: placa, data_fechamento: data })
+      });
+      const js = await resp.json();
+      if (!resp.ok || !js.success){ alert(js.error || 'Falha ao excluir fechamento.'); return; }
+      alert('Fechamento excluído e vínculos removidos.');
+      location.reload();
+    }catch(err){ console.error(err); alert('Erro ao excluir fechamento.'); }
+  }
+});
+</script>
+{% endblock %}
+

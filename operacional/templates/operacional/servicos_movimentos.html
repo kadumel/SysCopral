@@ -1,0 +1,944 @@
+{% extends 'home.html' %}
+{% load static %}
+{% load l10n %}
+
+{% block title %}Serviços de Movimentação - Operacional{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #0056b3;
+        --secondary-color: #ff6b00;
+        --success-color: #28a745;
+        --text-color: #333;
+        --text-light: #666;
+        --light-gray: #f8f9fa;
+        --primary-gradient: linear-gradient(135deg, var(--primary-color) 0%, #003366 100%);
+        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        --warning-gradient: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        --danger-gradient: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        --accent-gradient: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(0, 0, 0, 0.08);
+        --shadow-deep: 0 12px 24px -8px rgba(0, 0, 0, 0.18);
+        --shadow-hover: 0 18px 30px -10px rgba(0, 0, 0, 0.22);
+        --shadow-medium: 0 8px 16px -6px rgba(0, 0, 0, 0.1);
+        --border-radius: 12px;
+        --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+        background-color: var(--light-gray);
+        background-image: linear-gradient(135deg, rgba(0, 86, 179, 0.06), rgba(0, 51, 102, 0.06));
+        background-attachment: fixed;
+        min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.08) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 255, 198, 0.05) 0%, transparent 50%);
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .servicos-main-content {
+        position: relative;
+        z-index: 1;
+        padding: 1.25rem 1rem;
+        min-height: 100vh;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+
+    .page-title {
+        text-align: left;
+        margin-bottom: 1.5rem;
+        color: var(--primary-color);
+        font-size: 2rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    .page-title i {
+        font-size: 2.2rem;
+        animation: pulse 2s ease-in-out infinite;
+        color: var(--primary-color);
+    }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+    }
+
+    .header-filters {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-deep);
+        border: 1px solid var(--glass-border);
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+    .header-filters:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .header-filters::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: conic-gradient(from 0deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        animation: rotate-glow 20s linear infinite;
+        pointer-events: none;
+    }
+
+    @keyframes rotate-glow {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    /* Padronização com demais páginas */
+    .filters-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .form-group {
+        position: relative;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: var(--text-color);
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .form-control {
+        border: 2px solid #e1e5e9;
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+        background: white;
+        transition: var(--transition);
+        width: 100%;
+    }
+
+    .form-select {
+        border: 2px solid #e1e5e9;
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+        background: white;
+        transition: var(--transition);
+        width: 100%;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        outline: none;
+    }
+
+    .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
+        outline: none;
+    }
+
+    .btn-primary {
+        background: var(--primary-gradient);
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--border-radius);
+        font-weight: 600;
+        transition: var(--transition);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0, 86, 179, 0.3);
+        color: white;
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        border: none;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--border-radius);
+        font-weight: 600;
+        transition: var(--transition);
+    }
+
+    .btn-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(108, 117, 125, 0.3);
+        color: white;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 1rem;
+        align-items: end;
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .page-title {
+            font-size: 1.5rem;
+        }
+        
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .filter-actions {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .filter-actions button {
+            width: 100%;
+        }
+    }
+
+    .bounce-in {
+        animation: bounceIn 0.8s ease-out;
+    }
+
+    @keyframes bounceIn {
+        0% {
+            opacity: 0;
+            transform: scale(0.3);
+        }
+        50% {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        70% {
+            transform: scale(0.9);
+        }
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Tabela de resultados */
+    .table-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-deep);
+        overflow: hidden;
+    }
+
+    .table-responsive {
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: var(--shadow-medium);
+    }
+
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead th {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        font-weight: 600;
+        padding: 1rem;
+        text-align: center;
+    }
+
+    .table tbody td {
+        padding: 1rem;
+        border-bottom: 1px solid #e9ecef;
+        vertical-align: middle;
+        text-align: center;
+    }
+
+    .table tbody tr:hover {
+        background-color: rgba(0, 86, 179, 0.05);
+    }
+
+    .stats-card {
+        background: linear-gradient(135deg, var(--primary-color), #003366);
+        color: white;
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        text-align: center;
+        box-shadow: var(--shadow-medium);
+    }
+
+    .stats-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 0.5rem;
+    }
+
+    .stats-label {
+        color: rgba(255,255,255,0.9);
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
+
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Paginação padronizada */
+    .pagination { justify-content: center; margin-top: 2rem; }
+    .page-link { color: var(--primary-color); border: 1px solid #dee2e6; padding: 0.75rem 1rem; }
+    .page-link:hover { background-color: var(--primary-color); border-color: var(--primary-color); color: white; }
+    .page-item.active .page-link { background-color: var(--primary-color); border-color: var(--primary-color); }
+
+    /* Override do header para padronizar topo colorido */
+    .header-filters { padding: 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow-deep); }
+    .header-filters::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: var(--primary-color); border-radius: var(--border-radius) var(--border-radius) 0 0; animation: none; }
+    .header-filters:hover { transform: none; box-shadow: var(--shadow-deep); }
+
+    /* Hierarquia: expand/collapse */
+    .toggle { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: .5rem; }
+    .collapsed { display: none; }
+    .text-start { text-align: left; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="servicos-main-content">
+    <div class="header-filters">
+        <h1 class="page-title">
+            <i class="fas fa-wrench"></i>
+            Movimentações
+        </h1>
+        
+        <!-- Stats Cards -->
+        <div class="stats-cards">
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_total_placas }}</div>
+                <div class="stats-label">Total de Placas</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_placas_fechadas }}</div>
+                <div class="stats-label">Placas 100% Fechadas</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_placas_abertas }}</div>
+                <div class="stats-label">Placas em Aberto</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_total_itens }}</div>
+                <div class="stats-label">Total de Itens</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_itens_fechados }}</div>
+                <div class="stats-label">Itens Fechados</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-number">{{ metric_itens_abertos }}</div>
+                <div class="stats-label">Itens Abertos</div>
+            </div>
+        </div>
+        
+        <form method="get" class="filters-form">
+            <div class="filters-row">
+                <div class="form-group">
+                    <label for="placa" class="form-label">Placa</label>
+                    <input type="text" class="form-control" id="placa" name="placa" 
+                           value="{{ placa_filtro }}" placeholder="Digite a placa">
+                </div>
+
+                <div class="form-group">
+                    <label for="agregado" class="form-label">Agregado</label>
+                    <input type="text" class="form-control" id="agregado" name="agregado" 
+                           value="{{ agregado_filtro }}" placeholder="Nome do agregado">
+                </div>
+
+                <div class="form-group">
+                    <label for="data_inicio" class="form-label">Data Início</label>
+                    <input type="date" class="form-control" id="data_inicio" name="data_inicio" value="{{ data_inicio }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="data_fim" class="form-label">Data Fim</label>
+                    <input type="date" class="form-control" id="data_fim" name="data_fim" value="{{ data_fim }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="status_item" class="form-label">Status</label>
+                    <select id="status_item" name="status_item" class="form-select">
+                        <option value="" {% if not status_item_filtro %}selected{% endif %}>Todos</option>
+                        <option value="aberto" {% if status_item_filtro == 'aberto' %}selected{% endif %}>Abertos</option>
+                        <option value="fechado" {% if status_item_filtro == 'fechado' %}selected{% endif %}>Fechados</option>
+                    </select>
+                </div>
+
+                
+            </div>
+            <div class="d-flex gap-2 mt-3 justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i> Filtrar
+                </button>
+                <a href="{% url 'operacional:servicos_movimentos' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Limpar
+                </a>
+                
+            </div>
+        </form>
+    </div>
+
+    <div class="table-container">
+        {% if grupos %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="text-start">Placa</th>
+                            <th class="text-start">Tipo</th>
+                            <th>Data</th>
+                            <th>OS</th>
+                            <th>Cód. Item</th>
+                            <th>Item</th>
+                            <th>Quantidade</th>
+                            <th>Valor</th>
+                            <th>Total</th>
+                            <th>Perc.</th>
+                            <th>Cobrar</th>
+                            <th>Período</th>
+                            <th>Parcelas</th>
+                            <th>Status</th>
+                            <th>Sel.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for g in grupos %}
+                        <tr class="row-placa" data-placa-index="{{ forloop.counter0 }}" style="background:#f3f6fb;font-weight:700;">
+                            <td class="text-start">
+                                <span class="toggle" data-toggle-target="placa-{{ forloop.counter0 }}">
+                                    <i class="fas fa-chevron-right"></i> {{ g.placa }}
+                                </span>
+                            </td>
+                            <td class="text-start"></td>
+                            <td></td>
+                            <td colspan="3" class="text-muted text-start">Total da Placa</td>
+                            <td></td>  
+                            <td></td>  
+                            <td>R$ {{ g.total_placa|floatformat:2 }}</td>
+                            <td></td> <!-- Perc. -->
+                            <td>R$ {{ g.cobrar_placa|floatformat:2 }}</td> <!-- Cobrar -->
+                            <td></td> <!-- Período -->
+                            <td></td> <!-- Parcelas -->
+                            <td>
+                                {% if g.status_placa == 'mixed' %}
+                                    <span class="badge bg-warning" title="Há itens em aberto"><i class="fas fa-circle"></i></span>
+                                {% elif g.status_placa == 'all_closed' %}
+                                    <span class="badge bg-danger" title="Todos fechados"><i class="fas fa-check-circle"></i></span>
+                                {% else %}
+                                    <span class="badge bg-success" title="Todos abertos"><i class="fas fa-circle"></i></span>
+                                {% endif %}
+                            </td>
+                            <td> <!-- Ações -->
+                                <div class="d-flex gap-2">
+                                    <button type="button" class="btn btn-success btn-sm btn-fechar-placa" data-placa="{{ g.placa }}" data-placa-index="{{ forloop.counter0 }}" title="Gerar Contas a Receber" {% if g.status_placa == 'all_closed' %}disabled{% endif %}>
+                                        <i class="fas fa-cash-register"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% for t in g.tipos %}
+                        <tr class="row-tipo collapsed placa-{{ forloop.parentloop.counter0 }}" style="background:#fafbfd;font-weight:600;">
+                            <td class="text-start"></td>
+                            <td class="text-start">
+                                <span class="toggle" data-toggle-target="tipo-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}">
+                                    <i class="fas fa-chevron-right"></i> {{ t.tipo }}
+                                </span>
+                            </td>
+                            <td></td>
+                            <td colspan="3" class="text-muted text-start">Total do Tipo</td>
+                            <td></td> 
+                            <td></td> 
+                            <td>R$ {{ t.total_tipo|floatformat:2 }}</td>
+                            <td></td> <!-- Perc. -->
+                            <td>R$ {{ t.cobrar_tipo|floatformat:2 }}</td> <!-- Cobrar -->
+                            <td></td> <!-- Período -->
+                            <td></td> <!-- Parcelas -->
+                            <td>
+                                {% if t.status_tipo == 'mixed' %}
+                                    <span class="badge bg-warning" title="Há itens em aberto"><i class="fas fa-circle"></i></span>
+                                {% elif t.status_tipo == 'all_closed' %}
+                                    <span class="badge bg-danger" title="Todos fechados"><i class="fas fa-check-circle"></i></span>
+                                {% else %}
+                                    <span class="badge bg-success" title="Todos abertos"><i class="fas fa-circle"></i></span>
+                                {% endif %}
+                            </td>
+							<td class="text-center">
+								<input type="checkbox" class="form-check-input cr-select-tipo" data-target-class="tipo-{{ forloop.parentloop.counter0 }}-{{ forloop.counter0 }}">
+							</td>
+                        </tr>
+                            {% for it in t.itens %}
+                            <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-status="{{ it.status }}" data-cd-servico="{{ it.cd_servico|default_if_none:'' }}" data-nm-servico="{{ it.nm_servico|default_if_none:'' }}" data-vl-sistema="{{ it.vl_sistema|default_if_none:0 }}">
+                                <td class="text-start"></td>
+                                <td class="text-start"></td>
+                                <td>{{ it.data|date:"d/m/Y" }}</td>
+                                <td>{{ it.ordem_servico }}</td>
+                                <td>{{ it.cd_item }}</td>
+                                <td class="text-start">{{ it.nm_item }}</td>
+                                <td data-unidade="{{ it.unidade|default_if_none:'' }}">{{ it.quantidade }}</td>
+                                <td>R$ {{ it.valor|floatformat:2 }}</td>
+                                <td>R$ {{ it.total|floatformat:2 }}</td>
+                            <td>
+                                {% if it.vl_sistema %}
+                                    <span class="perc-display" data-mode="valor" data-vl-sistema="{{ it.vl_sistema|floatformat:2|unlocalize }}">R$ {{ it.vl_sistema|floatformat:2 }}</span>
+                                    <div class="input-group input-group-sm d-none">
+                                        <input type="number" class="form-control form-control-sm perc-input" min="0" step="0.01" value="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}" data-original="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                {% else %}
+                                    <span class="perc-display" data-mode="percent" data-val="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">{{ it.perc|default_if_none:0|floatformat:2 }}%</span>
+                                    <div class="input-group input-group-sm d-none">
+                                        <input type="number" class="form-control form-control-sm perc-input" min="0" step="0.01" value="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}" data-original="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>R$ {{ it.cobrar|floatformat:2 }}</td>
+                            <td>
+                                <select name="periodo_{{ forloop.parentloop.parentloop.counter0 }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" class="form-select form-select-sm">
+                                    {% for key,label in periodos_choices %}
+                                        <option value="{{ key }}" {% if periodo_selecionado == key %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" min="1" class="form-control form-control-sm" name="parcela_{{ forloop.parentloop.parentloop.counter0 }}_{{ forloop.parentloop.counter0 }}_{{ forloop.counter0 }}" value="{{ parcela_selecionada }}">
+                            </td>
+                            <td>
+                                {% if it.status == 'fechado' %}
+                                    <span class="badge bg-danger">Fechado</span>
+                                {% else %}
+                                    <span class="badge bg-success">Aberto</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <input type="checkbox" class="form-check-input cr-select" {% if it.status == 'fechado' %}disabled{% endif %}>
+                            </td>
+                            </tr>
+                            {% endfor %}
+                        {% endfor %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if is_paginated %}
+                <nav aria-label="Paginação">
+                    <ul class="pagination">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% if placa_filtro %}&placa={{ placa_filtro }}{% endif %}{% if agregado_filtro %}&agregado={{ agregado_filtro }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}"><i class="fas fa-angle-double-left"></i></a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if placa_filtro %}&placa={{ placa_filtro }}{% endif %}{% if agregado_filtro %}&agregado={{ agregado_filtro }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}"><i class="fas fa-angle-left"></i></a>
+                            </li>
+                        {% endif %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                        </li>
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if placa_filtro %}&placa={{ placa_filtro }}{% endif %}{% if agregado_filtro %}&agregado={{ agregado_filtro }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}"><i class="fas fa-angle-right"></i></a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if placa_filtro %}&placa={{ placa_filtro }}{% endif %}{% if agregado_filtro %}&agregado={{ agregado_filtro }}{% endif %}{% if data_inicio %}&data_inicio={{ data_inicio }}{% endif %}{% if data_fim %}&data_fim={{ data_fim }}{% endif %}"><i class="fas fa-angle-double-right"></i></a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                Nenhum serviço encontrado
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle hierarquia
+    document.addEventListener('click', function(e){
+        const btn = e.target.closest('.toggle');
+        if (!btn) return;
+        const targetKey = btn.getAttribute('data-toggle-target');
+        if (!targetKey) return;
+        const icon = btn.querySelector('i');
+        const rows = document.querySelectorAll('.'+CSS.escape(targetKey));
+        let anyVisible = false;
+        rows.forEach(r => { if (!r.classList.contains('collapsed')) anyVisible = true; });
+        rows.forEach(r => {
+            if (anyVisible) r.classList.add('collapsed'); else r.classList.remove('collapsed');
+        });
+        if (icon) { icon.classList.toggle('fa-chevron-right'); icon.classList.toggle('fa-chevron-down'); }
+        // Se for o nível 1 (placa-#) e estivermos colapsando, colapsar também todos os níveis abaixo
+        const isPlacaToggle = targetKey.startsWith('placa-');
+        if (isPlacaToggle && anyVisible) {
+            const placaRow = btn.closest('tr.row-placa');
+            if (placaRow) {
+                let next = placaRow.nextElementSibling;
+                while (next && !next.classList.contains('row-placa')) {
+                    if (next.classList.contains('row-tipo') || next.classList.contains('row-item')) {
+                        next.classList.add('collapsed');
+                        // normalizar ícone do toggle do tipo para "direita"
+                        if (next.classList.contains('row-tipo')) {
+                            const tgl = next.querySelector('.toggle i');
+                            if (tgl) {
+                                tgl.classList.remove('fa-chevron-down');
+                                tgl.classList.add('fa-chevron-right');
+                            }
+                        }
+                    }
+                    next = next.nextElementSibling;
+                }
+            }
+        }
+    });
+
+    // Modal para inserir data de fechamento (Contas a Receber)
+    function ensureReceberModal(){
+        let wrap = document.getElementById('modalReceberWrap');
+        if (wrap) return;
+        wrap = document.createElement('div');
+        wrap.id = 'modalReceberWrap';
+        wrap.innerHTML = `
+        <div class="modal fade" id="modalReceber" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Gerar Contas a Receber</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-2">
+                  <label class="form-label">Placa</label>
+                  <input type="text" class="form-control" id="crPlaca" readonly>
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">Data de Fechamento</label>
+                  <input type="date" class="form-control" id="crDataFech">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="crConfirm">Gerar</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+        document.body.appendChild(wrap);
+    }
+
+    async function gerarContasAReceber(placa, fecharBtn, dataFech, dataInicio, dataFim, periodoSel, parcelaSel){
+        if (!placa || !dataFech) { alert('Informe a data de fechamento.'); return; }
+        // Coletar itens abertos da placa
+        const payloadItens = [];
+        const placaRow = fecharBtn.closest('tr.row-placa');
+        let next = placaRow.nextElementSibling;
+        while (next && !next.classList.contains('row-placa')){
+            if (next.classList.contains('row-item')){
+                const tds = next.querySelectorAll('td');
+                const rowStatus = (next.getAttribute('data-status')||'').toLowerCase();
+                const chk = next.querySelector('input.cr-select');
+                if (!chk || !chk.checked) { next = next.nextElementSibling; continue; }
+                if (rowStatus === 'fechado') { next = next.nextElementSibling; continue; }
+                const percInput = tds[9]?.querySelector('.perc-input');
+                const tipoTxt = (next.getAttribute('data-tipo')||'').toLowerCase();
+                const codeVal = tds[4]?.textContent?.trim() || '';
+                const nameVal = tds[5]?.textContent?.trim() || '';
+                const unidadeVal = tds[6]?.getAttribute('data-unidade') || '';
+                const isServico = tipoTxt.includes('servi');
+                const cdServicoAttr = next.getAttribute('data-cd-servico') || '';
+                const nmServicoAttr = next.getAttribute('data-nm-servico') || '';
+                const periodoSelEl = tds[11]?.querySelector('select');
+                const parcelaEl = tds[12]?.querySelector('input');
+                payloadItens.push({
+                    data: tds[2]?.textContent?.trim(),
+                    ordem_servico: tds[3]?.textContent?.trim(),
+                    cd_item: codeVal,
+                    nm_item: nameVal,
+                    cd_servico: isServico ? (cdServicoAttr || codeVal) : (cdServicoAttr || codeVal),
+                    nm_servico: isServico ? (nmServicoAttr || nameVal) : (nmServicoAttr || nameVal),
+                    is_servico: isServico,
+                    quantidade: Number((tds[6]?.textContent||'0').replace(',', '.')),
+                    unidade: unidadeVal,
+                    valor_unitario: Number(((tds[7]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
+                    valor: Number(((tds[8]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
+                    perc: Number((percInput?.value||'0').replace(',', '.')),
+                    periodo: periodoSelEl ? (periodoSelEl.value||'') : '',
+                    parcela: parcelaEl ? (parcelaEl.value||'') : '',
+                    cobrar: Number(((tds[10]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
+                    tipo: (next.getAttribute('data-tipo')||'')
+                });
+            }
+            next = next.nextElementSibling;
+        }
+        if (!payloadItens.length) { alert('Selecione ao menos um item.'); return; }
+        // Verificar existência
+        let exists = false;
+        try {
+            const url = new URL(window.location.origin + '/operacional/servicos-movimentos/fechamento/check/');
+            url.searchParams.set('placa', placa);
+            url.searchParams.set('data', dataFech);
+            const resp = await fetch(url.toString());
+            const data = await resp.json();
+            if (resp.ok) exists = !!data.exists;
+        } catch(_e) {}
+        const msg = exists ? 'Já existe Contas a Receber para esta placa e data. Deseja incluir apenas os itens em aberto?' : 'Deseja gerar o Contas a Receber agora?';
+        if (!confirm(msg)) return;
+        // Enviar
+        const efetiva = await fetch('/operacional/servicos-movimentos/fechamento/fechar/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({
+                placa: placa,
+                data_inicio: dataInicio,
+                data_fim: dataFim,
+                data_fechamento: dataFech,
+                periodo: periodoSel,
+                parcela: parcelaSel,
+                itens_tabela: payloadItens
+            })
+        });
+        const resEf = await efetiva.json();
+        if (!efetiva.ok || !resEf.success) {
+            alert(resEf.error || 'Falha ao gerar Contas a Receber.');
+        } else {
+            alert(resEf.message || 'Contas a Receber gerado/atualizado com sucesso.');
+            setTimeout(() => { window.location.reload(); }, 200);
+        }
+    }
+
+	// Checkbox do nível 2 (tipo): marcar/desmarcar todos os itens do nível 3
+	document.addEventListener('change', function(e){
+		const chkTipo = e.target.closest('input.cr-select-tipo');
+		if (!chkTipo) return;
+		const targetClass = chkTipo.getAttribute('data-target-class') || '';
+		if (!targetClass) return;
+		const rows = document.querySelectorAll('tr.row-item.'+CSS.escape(targetClass)+' input.cr-select');
+		rows.forEach(el => { if (!el.disabled) el.checked = chkTipo.checked; });
+	});
+
+    // Clique no botão: abrir modal, configurar e acionar geração
+    document.addEventListener('click', async function(e){
+        const fecharBtn = e.target.closest('.btn-fechar-placa');
+        if (!fecharBtn) return;
+        const placa = fecharBtn.getAttribute('data-placa') || '';
+        ensureReceberModal();
+        const modalEl = document.getElementById('modalReceber');
+        const dateInput = modalEl.querySelector('#crDataFech');
+        modalEl.querySelector('#crPlaca').value = placa;
+        dateInput.value = '';
+        const modal = (typeof bootstrap !== 'undefined') ? new bootstrap.Modal(modalEl) : null;
+        const dataInicio = document.getElementById('data_inicio')?.value || '';
+        const dataFim = document.getElementById('data_fim')?.value || '';
+        const periodoSel = document.querySelector('[name="periodo"]')?.value || 'S';
+        const parcelaSel = document.querySelector('[name="parcela"]')?.value || '1';
+        const confirmBtn = modalEl.querySelector('#crConfirm');
+        confirmBtn.onclick = async () => {
+            const dataFech = dateInput.value || '';
+            if (modal) modal.hide(); else modalEl.style.display='none';
+            await gerarContasAReceber(placa, fecharBtn, dataFech, dataInicio, dataFim, periodoSel, parcelaSel);
+        };
+        if (modal) modal.show(); else modalEl.style.display='block';
+    });
+
+    // utilitário CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    
+    // Toggle edição do percentual ao clicar no valor (ignora quando exibindo valor do sistema)
+    document.addEventListener('click', function(e){
+        const span = e.target.closest('.perc-display');
+        if (!span) return;
+        if (span.getAttribute('data-mode') === 'valor') return; // quando está exibindo vl_sistema, não editar percentual
+        const td = span.parentElement;
+        const group = td.querySelector('.input-group');
+        if (!group) return;
+        span.classList.add('d-none');
+        group.classList.remove('d-none');
+        const inp = group.querySelector('.perc-input');
+        if (inp) { inp.focus(); inp.select(); }
+    });
+
+    // Ao pressionar Enter no input, confirma; Esc cancela
+    document.addEventListener('keydown', function(e){
+        const input = e.target.closest('.perc-input');
+        if (!input) return;
+        if (e.key === 'Escape') {
+            const group = input.closest('.input-group');
+            const td = group.parentElement;
+            const span = td.querySelector('.perc-display');
+            input.value = input.getAttribute('data-original') || '0.00';
+            group.classList.add('d-none');
+            span.textContent = (parseFloat(input.value)||0).toFixed(2).replace('.', ',') + '%';
+            span.classList.remove('d-none');
+        }
+        if (e.key === 'Enter') {
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+
+    // Inline edição de Percentual e recálculo do Cobrar
+    document.addEventListener('change', function(e){
+        const input = e.target.closest('.perc-input');
+        if (!input) return;
+        const tr = input.closest('tr.row-item');
+        if (!tr) return;
+        const oldVal = parseFloat((input.getAttribute('data-original')||'0').replace(',', '.')) || 0;
+        const newVal = parseFloat((input.value||'0').replace(',', '.')) || 0;
+        if (newVal === oldVal) return;
+        if (!confirm('Confirmar alteração do percentual?')) { input.value = oldVal.toFixed(2); return; }
+        input.setAttribute('data-original', newVal.toFixed(2));
+        // Atualiza display
+        const tdPerc = input.closest('td');
+        const spanDisplay = tdPerc.querySelector('.perc-display');
+        const grp = input.closest('.input-group');
+        if (spanDisplay && grp) {
+            spanDisplay.textContent = newVal.toFixed(2).replace('.', ',') + '%';
+            grp.classList.add('d-none');
+            spanDisplay.classList.remove('d-none');
+        }
+
+        const tds = tr.querySelectorAll('td');
+        const tipoTxt = (tr.getAttribute('data-tipo')||'').toLowerCase();
+        const vlSis = Number(tr.getAttribute('data-vl-sistema')||'0');
+        const totalTxt = (tds[8]?.textContent||'').replace('R$','').trim();
+        const totalVal = parseFloat(totalTxt.replace('.', '').replace(',', '.')) || 0;
+        const qtyVal = Number((tds[6]?.textContent||'0').replace(',', '.')) || 0;
+        const valorUnitTxt = (tds[7]?.textContent||'').replace('R$','').trim();
+        const valorUnit = parseFloat(valorUnitTxt.replace('.', '').replace(',', '.')) || 0;
+
+        // regra de prioridade:
+        // - se houver valor do sistema (>0), cobrar = vl_sistema (unitário) * quantidade
+        // - senão: serviços mantêm cobrar; demais tipos: cobrar = total + total*fator
+        let cobrarVal = 0;
+        if (vlSis > 0) {
+            cobrarVal = vlSis * qtyVal;
+        } else if (tipoTxt.includes('servic')) {
+            // para serviço, manter o cobrar atual, não depende do percentual
+            const cobrarTxt = (tds[10]?.textContent||'').replace('R$','').trim();
+            cobrarVal = parseFloat(cobrarTxt.replace('.', '').replace(',', '.')) || totalVal;
+        } else {
+            const fator = newVal <= 1 ? newVal : newVal/100.0;
+            cobrarVal = totalVal + (fator * totalVal);
+        }
+
+        // Atualiza célula Cobrar do item
+        if (tds[10]) tds[10].textContent = 'R$ ' + cobrarVal.toFixed(2).replace('.', ',');
+
+        // Recalcular totais do tipo e da placa
+        function parseMoney(td){ return parseFloat((td?.textContent||'').replace('R$','').trim().replace('.', '').replace(',', '.'))||0; }
+
+        // Encontrar cabeçalhos (linha tipo e placa) superiores
+        // Varre para cima até achar row-tipo e row-placa correspondentes
+        let cursor = tr.previousElementSibling;
+        let tipoRow = null; let placaRow = null;
+        while (cursor) {
+            if (!tipoRow && cursor.classList.contains('row-tipo')) tipoRow = cursor;
+            if (cursor.classList.contains('row-placa')) { placaRow = cursor; break; }
+            cursor = cursor.previousElementSibling;
+        }
+
+        // Somar cobrar dos itens pertencentes ao mesmo tipo (até a próxima row-tipo/row-placa)
+        if (tipoRow) {
+            let sumTipo = 0; let sumTipoTotal = 0;
+            let nxt = tipoRow.nextElementSibling;
+            while (nxt && !nxt.classList.contains('row-tipo') && !nxt.classList.contains('row-placa')){
+                if (nxt.classList.contains('row-item')){
+                    const cells = nxt.querySelectorAll('td');
+                    sumTipo += parseMoney(cells[10]); // cobrar
+                    sumTipoTotal += parseMoney(cells[8]); // total
+                }
+                nxt = nxt.nextElementSibling;
+            }
+            const tipoCells = tipoRow.querySelectorAll('td');
+            if (tipoCells[10]) tipoCells[10].textContent = 'R$ ' + sumTipo.toFixed(2).replace('.', ','); // coluna Cobrar do tipo
+            if (tipoCells[8]) tipoCells[8].textContent = 'R$ ' + sumTipoTotal.toFixed(2).replace('.', ','); // coluna Total do tipo
+        }
+
+        // Somar cobrar dos itens da placa (até a próxima row-placa)
+        if (placaRow) {
+            let sumPlaca = 0; let sumPlacaTotal = 0;
+            let nxt = placaRow.nextElementSibling;
+            while (nxt && !nxt.classList.contains('row-placa')){
+                if (nxt.classList.contains('row-item')){
+                    const cells = nxt.querySelectorAll('td');
+                    sumPlaca += parseMoney(cells[10]);
+                    sumPlacaTotal += parseMoney(cells[8]);
+                }
+                nxt = nxt.nextElementSibling;
+            }
+            const placaCells = placaRow.querySelectorAll('td');
+            if (placaCells[10]) placaCells[10].textContent = 'R$ ' + sumPlaca.toFixed(2).replace('.', ','); // coluna Cobrar da placa
+            if (placaCells[8]) placaCells[8].textContent = 'R$ ' + sumPlacaTotal.toFixed(2).replace('.', ','); // coluna Total da placa
+        }
+    });
+    
+});
+</script>
+{% endblock %}

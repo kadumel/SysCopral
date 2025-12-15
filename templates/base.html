@@ -133,7 +133,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'index' %}">
+            <a class="navbar-brand" href="{% url 'app:index' %}">
                 <img src="{% static 'img/logo.png' %}" alt="Copral Logo">
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
@@ -142,7 +142,7 @@
             <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'index' %}">
+                        <a class="nav-link" href="{% url 'app:index' %}">
                             <i class="fas fa-home"></i> Home
                         </a>
                     </li>
