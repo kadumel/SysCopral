@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Operacional - Documentação</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --primary: #0056b3;
+      --text: #333;
+      --muted: #6b7280;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Arial, sans-serif; color: var(--text); line-height: 1.5; margin: 0; }
+    .container { max-width: 900px; margin: 32px auto; padding: 0 16px; }
+    h1, h2, h3 { color: var(--primary); margin: 0.6em 0 0.4em; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 22px; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; }
+    h3 { font-size: 18px; }
+    p, li { font-size: 14px; }
+    code, pre { background: #f5f7fa; border: 1px solid #e5e7eb; border-radius: 6px; padding: 2px 6px; }
+    .muted { color: var(--muted); }
+    .kbd { border: 1px solid #aaa; border-bottom-width: 3px; border-radius: 4px; padding: 1px 4px; font-family: monospace; background: #fff; }
+    .toc { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; }
+    .toc ul { margin: 8px 0 0 18px; }
+    .callout { background: #eef6ff; border-left: 4px solid var(--primary); padding: 10px 12px; margin: 12px 0; border-radius: 6px; }
+    @media print {
+      .container { max-width: 100%; }
+      a[href]:after { content: "" !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Operacional - Documentação do Aplicativo</h1>
+    <p class="muted">Versão 1.0 • {{DATA_ATUAL}}</p>
+
+    <div class="toc">
+      <strong>Sumário</strong>
+      <ul>
+        <li><a href="#visao">Visão Geral</a></li>
+        <li><a href="#navegacao">Navegação e Menus</a></li>
+        <li><a href="#paginas">Páginas e Funcionalidades</a></li>
+        <li><a href="#regras">Regras de Negócio</a></li>
+        <li><a href="#endpoints">Endpoints e Ações</a></li>
+        <li><a href="#permissoes">Permissões</a></li>
+        <li><a href="#modelos">Campos e Modelos</a></li>
+        <li><a href="#fluxos">Integrações e Fluxos</a></li>
+        <li><a href="#pdf">Exportar para PDF</a></li>
+        <li><a href="#glossario">Glossário</a></li>
+      </ul>
+    </div>
+
+    <h2 id="visao">1. Visão Geral</h2>
+    <p>O módulo Operacional consolida rotinas de Movimentações, Contas a Receber/Pagar, Carta Frete, Fechamentos, Lançamentos e Abastecimento.</p>
+
+    <h2 id="navegacao">2. Navegação e Menus</h2>
+    <p>Menu lateral (Operacional): Serviços, Lançamentos, Contas a Receber, Contas a Pagar, Carta Frete, Fechamento (Gestão) e Abastecimento.</p>
+
+    <h2 id="paginas">3. Páginas e Funcionalidades</h2>
+    <h3>3.1 Serviços / Movimentações</h3>
+    <ul>
+      <li>Filtro por placa, agregado e período; agrupamento por Placa → Tipo → Itens.</li>
+      <li>Prioridade de cálculo: <em>vl_sistema</em> &gt; <em>percentual</em>.</li>
+      <li>Geração de CR com período e parcelas.</li>
+    </ul>
+
+    <h3>3.2 Contas a Receber</h3>
+    <ul>
+      <li>Lista de cabeçalhos com itens/vencimentos em modal.</li>
+      <li>Exclusão de item recalcule e atualiza a linha imediatamente.</li>
+    </ul>
+
+    <h3>3.3 Contas a Pagar</h3>
+    <ul>
+      <li>Mesma dinâmica de CR; se último item for excluído, cabeçalho é removido.</li>
+    </ul>
+
+    <h3>3.4 Carta Frete</h3>
+    <ul>
+      <li>Filtros por placa, datas e status; geração de CP a partir de itens.</li>
+    </ul>
+
+    <h3>3.5 Fechamentos (lista)</h3>
+    <ul>
+      <li>Consulta com ações de itens/simulação/alterar data/excluir.</li>
+    </ul>
+
+    <h3>3.6 Gestão de Fechamento</h3>
+    <ul>
+      <li>Consolidação por placa na data: Total Final = CP − CR + Lançamentos(±).</li>
+      <li>Ação “Enviar para AG” habilitada quando o fechamento existe.</li>
+    </ul>
+
+    <h3>3.7 Lançamentos</h3>
+    <ul>
+      <li>Gestão de receitas/despesas, período e parcelas; CRUD com modais.</li>
+    </ul>
+
+    <h3>3.8 Abastecimento</h3>
+    <ul>
+      <li>Indicadores (registros, veículos, total km, total litros, km/l, gasto).</li>
+      <li>Tabela com Total KM, Litros e KM/L por registro (edição de litros inline).</li>
+    </ul>
+
+    <h2 id="regras">4. Regras de Negócio</h2>
+    <ul>
+      <li>Serviços: cobra valor do serviço; demais: prioridade <em>vl_sistema</em> → cálculo com percentual.</li>
+      <li>Bloqueios: exclusão condicionada a vínculos com fechamento; envio AG bloqueia alterações.</li>
+      <li>Gestão de Fechamento: fórmula total por placa = CP − CR + Lançamentos.</li>
+    </ul>
+
+    <h2 id="endpoints">5. Endpoints e Ações</h2>
+    <p>Vide lista completa no arquivo Markdown (<code>docs/operacional_documentation.md</code>). Principais:</p>
+    <ul>
+      <li>CR/CP itens e vencimentos; exclusões com recálculo; geração via Serviços/Carta Frete.</li>
+      <li>Gestão Fechamento: detalhes, criar, excluir, enviar AG.</li>
+      <li>Abastecimento: salvar litros em batelada.</li>
+    </ul>
+
+    <h2 id="permissoes">6. Permissões</h2>
+    <p>Todas as páginas exigem <code>operacional.acessar_operacional</code>. Ações respeitam regras de bloqueio.</p>
+
+    <h2 id="modelos">7. Campos e Modelos</h2>
+    <ul>
+      <li><strong>Item</strong>: percentual, vl_sistema;</li>
+      <li><strong>Abastecimento</strong>: qt_litros, total_km → km/l;</li>
+      <li><strong>Fechamento</strong>: data_fechamento, cod_ag;</li>
+    </ul>
+
+    <h2 id="fluxos">8. Integrações e Fluxos</h2>
+    <ol>
+      <li>Serviços → Geração de CR.</li>
+      <li>Carta Frete → Geração de CP.</li>
+      <li>Gestão Fechamento → Consolidação + Envio AG.</li>
+    </ol>
+
+    <h2 id="pdf">9. Exportar para PDF</h2>
+    <div class="callout">
+      <p><strong>Navegador:</strong> abrir este HTML, pressionar <span class="kbd">Ctrl</span>+<span class="kbd">P</span>, escolher “Salvar como PDF”, papel A4 e habilitar “Gráficos de segundo plano”.</p>
+      <p><strong>wkhtmltopdf:</strong></p>
+      <pre><code>wkhtmltopdf --enable-local-file-access docs/operacional_documentation.html docs/operacional_documentation.pdf</code></pre>
+    </div>
+
+    <h2 id="glossario">10. Glossário</h2>
+    <p><strong>CR</strong>: Contas a Receber • <strong>CP</strong>: Contas a Pagar • <strong>AG</strong>: ambiente externo • <strong>Km/L</strong>: eficiência.</p>
+  </div>
+</body>
+</html>
+
+

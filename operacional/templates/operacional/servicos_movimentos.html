@@ -441,9 +441,9 @@
                             <th>Cód. Item</th>
                             <th>Item</th>
                             <th>Quantidade</th>
-                            <th>Valor</th>
+                            <th>Vl Frota</th>
                             <th>Total</th>
-                            <th>Perc.</th>
+                            <th>Vl Sistema</th>
                             <th>Cobrar</th>
                             <th>Período</th>
                             <th>Parcelas</th>
@@ -529,7 +529,7 @@
                                 <td>R$ {{ it.total|floatformat:2 }}</td>
                             <td>
                                 {% if it.vl_sistema %}
-                                    <span class="perc-display" data-mode="valor" data-vl-sistema="{{ it.vl_sistema|floatformat:2|unlocalize }}">R$ {{ it.vl_sistema|floatformat:2 }}</span>
+                                    <span class="perc-display" data-mode="valor" data-vl-sistema="{{ it.vl_sistema|floatformat:4|unlocalize }}">R$ {{ it.vl_sistema|floatformat:4 }}</span>
                                     <div class="input-group input-group-sm d-none">
                                         <input type="number" class="form-control form-control-sm perc-input" min="0" step="0.01" value="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}" data-original="{{ it.perc|default_if_none:0|floatformat:2|unlocalize }}">
                                         <span class="input-group-text">%</span>
@@ -608,6 +608,45 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Helpers para moeda e coluna "Vl Sistema"
+    function parseCurrency(txt){
+        const s = (txt||'').toString().replace('R$', '').trim().replace(/\./g, '').replace(',', '.');
+        return Number(s) || 0;
+    }
+    function updateVlSistemaCell(tr){
+        try{
+            const tds = tr.querySelectorAll('td');
+            const unitVal = parseCurrency(tds[7]?.textContent || '0'); // "Vl Frota"
+            const cell = tds[9]; // "Vl Sistema"
+            if (!cell) return 0;
+            const percInput = cell.querySelector('.perc-input');
+            const percSpan = cell.querySelector('.perc-display');
+            let percVal = 0;
+            if (percInput && typeof percInput.value === 'string'){
+                percVal = Number(percInput.value.toString().replace(',', '.')) || 0;
+            } else if (percSpan && percSpan.getAttribute('data-mode') === 'percent'){
+                const d = percSpan.getAttribute('data-val') || '0';
+                percVal = Number(d.toString().replace(',', '.')) || 0;
+            }
+            const percNorm = percVal > 1 ? (percVal / 100.0) : percVal;
+            const baseSis = Number((tr.getAttribute('data-vl-sistema')||'0').toString().replace(',', '.')) || 0;
+            const eff = baseSis > 0 ? baseSis : (unitVal * (1 + (percNorm || 0)));
+            // esconder controles antigos de percentual, mas manter no DOM
+            const disp = cell.querySelector('.perc-display'); if (disp) disp.classList.add('d-none');
+            const grp = cell.querySelector('.input-group'); if (grp) grp.classList.add('d-none');
+            // exibir valor efetivo
+            let span = cell.querySelector('.vl-sis-display');
+            if (!span){
+                span = document.createElement('span');
+                span.className = 'vl-sis-display';
+                cell.appendChild(span);
+            }
+            span.textContent = 'R$ ' + eff.toFixed(4).replace('.', ',');
+            // armazenar no TR para uso no payload
+            tr.setAttribute('data-vl-sistema-eff', String(eff));
+            return eff;
+        }catch(_e){ return 0; }
+    }
     // Toggle hierarquia
     document.addEventListener('click', function(e){
         const btn = e.target.closest('.toggle');
@@ -694,15 +733,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!chk || !chk.checked) { next = next.nextElementSibling; continue; }
                 if (rowStatus === 'fechado') { next = next.nextElementSibling; continue; }
                 const percInput = tds[9]?.querySelector('.perc-input');
+                const percSpan = tds[9]?.querySelector('.perc-display');
                 const tipoTxt = (next.getAttribute('data-tipo')||'').toLowerCase();
                 const codeVal = tds[4]?.textContent?.trim() || '';
                 const nameVal = tds[5]?.textContent?.trim() || '';
                 const unidadeVal = tds[6]?.getAttribute('data-unidade') || '';
+                const baseSis = Number((next.getAttribute('data-vl-sistema')||'0').toString().replace(',', '.')) || 0;
                 const isServico = tipoTxt.includes('servi');
                 const cdServicoAttr = next.getAttribute('data-cd-servico') || '';
                 const nmServicoAttr = next.getAttribute('data-nm-servico') || '';
                 const periodoSelEl = tds[11]?.querySelector('select');
                 const parcelaEl = tds[12]?.querySelector('input');
+                // Percentual: pega exatamente o que está na tabela (input, ou fallback para data-val do span)
+                const percVal = (function(){
+                    let v = 0;
+                    if (percInput && typeof percInput.value === 'string') {
+                        v = Number(percInput.value.toString().replace(',', '.')) || 0;
+                    } else if (percSpan && percSpan.getAttribute('data-mode') === 'percent') {
+                        const d = percSpan.getAttribute('data-val') || '0';
+                        v = Number(d.toString().replace(',', '.')) || 0;
+                    }
+                    return v;
+                })();
+                // Valor efetivo a ser armazenado: valor_sistema disponível, senão unitário + percentual
+                const unitVal = parseCurrency(tds[7]?.textContent || '0');
+                const percNorm = percVal > 1 ? (percVal / 100.0) : percVal;
+                const vlSisEff = baseSis > 0 ? baseSis : (unitVal * (1 + (percNorm || 0)));
                 payloadItens.push({
                     data: tds[2]?.textContent?.trim(),
                     ordem_servico: tds[3]?.textContent?.trim(),
@@ -711,11 +767,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     cd_servico: isServico ? (cdServicoAttr || codeVal) : (cdServicoAttr || codeVal),
                     nm_servico: isServico ? (nmServicoAttr || nameVal) : (nmServicoAttr || nameVal),
                     is_servico: isServico,
+                    vl_sistema: vlSisEff,
                     quantidade: Number((tds[6]?.textContent||'0').replace(',', '.')),
                     unidade: unidadeVal,
                     valor_unitario: Number(((tds[7]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
-                    valor: Number(((tds[8]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
-                    perc: Number((percInput?.value||'0').replace(',', '.')),
+                    // Enviar "valor" como o efetivo (vl_sistema ou unitário + percentual) sem arredondar
+                    valor: vlSisEff,
+                    perc: percVal,
                     periodo: periodoSelEl ? (periodoSelEl.value||'') : '',
                     parcela: parcelaEl ? (parcelaEl.value||'') : '',
                     cobrar: Number(((tds[10]?.textContent||'').replace('R$', '').trim()).replace('.', '').replace(',', '.')),
@@ -890,6 +948,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Atualiza célula Cobrar do item
         if (tds[10]) tds[10].textContent = 'R$ ' + cobrarVal.toFixed(2).replace('.', ',');
+        // Atualiza "Vl Sistema" exibido e armazenado no TR
+        try { updateVlSistemaCell(tr); } catch(_e) {}
 
         // Recalcular totais do tipo e da placa
         function parseMoney(td){ return parseFloat((td?.textContent||'').replace('R$','').trim().replace('.', '').replace(',', '.'))||0; }
@@ -939,6 +999,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Render inicial da coluna "Vl Sistema" para todas as linhas de item
+    try {
+        document.querySelectorAll('tr.row-item').forEach(updateVlSistemaCell);
+    } catch(_e) {}
 });
 </script>
 {% endblock %}

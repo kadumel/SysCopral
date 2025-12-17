@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.views.generic import ListView, TemplateView
 from django.db.models import Q, Sum, F
 from django.db import models
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
 import re
 from django.utils.decorators import method_decorator
@@ -13,6 +13,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.db import connection, transaction
 from django.contrib import messages
+from django.template.loader import render_to_string
+from django.contrib.staticfiles.storage import staticfiles_storage
+from io import BytesIO
+from PIL import Image  # type: ignore
+import base64
+import tempfile
+from pathlib import Path
+import os
+try:
+    from xhtml2pdf import pisa  # type: ignore
+except Exception:
+    pisa = None
 from .models import Veiculo, Servico, Item, Abastecimento, Atualizações, Lancamento, OpeCategoria, Fechamento, ContasReceber, ItensContasReceber, ItensContasPagar, VencContasReceber, VencContasPagar, tipo_periodo
 
 # Aliases para nomes de modelos que podem variar
@@ -712,6 +724,34 @@ class AbastecimentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
         
         return context
 
+class OperacionalDocsView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    template_name = 'docs/operacional_documentation.html'
+    permission_required = 'operacional.acessar_operacional'
+
+class PrestacaoContasView(LoginRequiredMixin, PermissionRequiredMixin, TemplateView):
+    """
+    Página para gerar o documento de Prestação de Contas por placa/data de fechamento.
+    A lista de itens é obtida via endpoint existente `gestao_fechamento_detalhes`.
+    """
+    template_name = 'operacional/prestacao_contas.html'
+    permission_required = 'operacional.acessar_operacional'
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        try:
+            placas = list(
+                Veiculo.objects.select_related('placa')
+                .values_list('placa__placa', flat=True)
+                .distinct().order_by('placa__placa')
+            )
+        except Exception:
+            placas = []
+        context.update({
+            'placas_disponiveis': placas,
+            'data_fechamento': (self.request.GET.get('data_fechamento') or '').strip(),
+            'placa_filtro': (self.request.GET.get('placa') or '').strip(),
+        })
+        return context
+
 
 # View para Atualizar Dados
 
@@ -1058,10 +1098,10 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 perc_display = 0.0  # para serviços não aplicar percentual por padrão
             else:
                 # Demais tipos:
-                # Regra de prioridade:
-                # 1) Se houver vl_sistema (>0), cobrar = vl_sistema (unitário) * quantidade
-                # 2) Caso contrário, cobrar = TOTAL + (percentual * TOTAL)
-                #    (percentual pode ser informado em 0..1 ou 0..100)
+                # Regra de prioridade (unitário):
+                # 1) Se houver vl_sistema (>0), usar vl_sistema (unitário)
+                # 2) Caso contrário, usar (valor unitário "Vl Frota") + percentual do item aplicado sobre o unitário
+                # Em ambos os casos, "cobrar" = unitário efetivo * quantidade
                 # Buscar vl_sistema por id, código ou nome
                 vl_sistema_lookup = 0
                 if cd_item_key is not None and cd_item_key in item_id_to_vl_sistema:
@@ -1078,41 +1118,43 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                     vl_sistema_f = float(vl_sistema_lookup or 0)
                 except Exception:
                     vl_sistema_f = 0.0
+                # Percentual do item
+                perc_lookup = 0
+                if cd_item_key is not None and cd_item_key in item_id_to_percent:
+                    perc_lookup = item_id_to_percent.get(cd_item_key) or 0
+                else:
+                    # tentar por código como string
+                    cd_item_raw = r.get('cd_item')
+                    cd_item_str = str(cd_item_raw).strip() if cd_item_raw is not None else ''
+                    perc_lookup = item_code_to_percent.get(cd_item_str) or 0
+                    if not perc_lookup:
+                        # fallback por nome do item
+                        nm_item_raw = r.get('nm_item')
+                        nm_item_key = str(nm_item_raw).strip().upper() if nm_item_raw else ''
+                        perc_lookup = item_name_to_percent.get(nm_item_key) or 0
+                try:
+                    perc_f = float(perc_lookup or 0)
+                except Exception:
+                    perc_f = 0.0
+                fator = perc_f if perc_f <= 1 else (perc_f / 100.0)
+                unit_frota = 0.0
+                try:
+                    unit_frota = float(r.get('valor') or 0)
+                except Exception:
+                    unit_frota = 0.0
                 qty_f = 0.0
                 try:
                     qty_f = float(r.get('quantidade') or 0)
                 except Exception:
                     qty_f = 0.0
+                # Determinar unitário efetivo para "Vl Sistema"
                 if vl_sistema_f > 0:
-                    cobrar_val = vl_sistema_f * qty_f
-                    perc_display = 0.0  # exibir valor do sistema na UI; percentual não se aplica
+                    unit_eff = vl_sistema_f
+                    perc_display = 0.0  # para exibição
                 else:
-                    # Sem vl_sistema: aplicar percentual sobre o total
-                    perc_lookup = 0
-                    if cd_item_key is not None and cd_item_key in item_id_to_percent:
-                        perc_lookup = item_id_to_percent.get(cd_item_key) or 0
-                    else:
-                        # tentar por código como string
-                        cd_item_raw = r.get('cd_item')
-                        cd_item_str = str(cd_item_raw).strip() if cd_item_raw is not None else ''
-                        perc_lookup = item_code_to_percent.get(cd_item_str) or 0
-                        if not perc_lookup:
-                            # fallback por nome do item
-                            nm_item_raw = r.get('nm_item')
-                            nm_item_key = str(nm_item_raw).strip().upper() if nm_item_raw else ''
-                            perc_lookup = item_name_to_percent.get(nm_item_key) or 0
-                    try:
-                        perc_f = float(perc_lookup or 0)
-                    except Exception:
-                        perc_f = 0.0
-                    base_total = float(total_item or 0)
-                    if perc_f == 0.0:
-                        cobrar_val = base_total
-                        perc_display = 0.0
-                    else:
-                        fator = perc_f if perc_f <= 1 else (perc_f / 100.0)
-                        cobrar_val = base_total + (fator * base_total)
-                        perc_display = perc_f if perc_f > 1 else (perc_f * 100.0)
+                    unit_eff = unit_frota * (1 + (fator if fator else 0.0))
+                    perc_display = perc_f if perc_f > 1 else (perc_f * 100.0)
+                cobrar_val = unit_eff * qty_f
 
             if placa not in grupos:
                 grupos[placa] = { 'placa': placa, 'total_placa': 0, 'cobrar_placa': 0, 'tipos': {}, 'status_placa': 'all_open' }
@@ -1153,8 +1195,8 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 'valor': r.get('valor') or 0,
                 'total': total_item or 0,
                 'perc': perc_display if 'perc_display' in locals() else 0.0,
-                # valor do sistema (unitário) para priorização no cálculo/visualização
-                'vl_sistema': vl_sistema_f if 'vl_sistema_f' in locals() else 0.0,
+                # "Vl Sistema" unitário efetivo (vl_sistema se >0, senão unitário + percentual do item)
+                'vl_sistema': unit_eff if 'unit_eff' in locals() else (vl_sistema_f if 'vl_sistema_f' in locals() else 0.0),
                 'cobrar': cobrar_val or 0,
                 'cd_servico': r.get('cd_servico'),
                 'nm_servico': r.get('nm_servico'),
@@ -2017,6 +2059,7 @@ def gestao_fechamento_detalhes(request):
     - vencimentos de Contas a Receber
     - vencimentos de Contas a Pagar
     - lançamentos
+    - itens (Contas a Receber e Contas a Pagar)
     Parâmetros: placa, data_fechamento (yyyy-mm-dd ou dd/mm/yyyy)
     """
     placa = (request.GET.get('placa') or '').strip()
@@ -2035,7 +2078,9 @@ def gestao_fechamento_detalhes(request):
     start_dt = dt
     end_dt = dt + timedelta(days=1)
     # Contas a Receber - vencimentos
-    cr_qs = VencContasReceber.objects.select_related('contas_receber', 'contas_receber__placa').filter(data_vencimento__gte=start_dt, data_vencimento__lt=end_dt)
+    # Regra: considerar a data de fechamento do cabeçalho (contas_receber.data_fechamento),
+    # e não a data de vencimento individual
+    cr_qs = VencContasReceber.objects.select_related('contas_receber', 'contas_receber__placa').filter(contas_receber__data_fechamento=dt)
     if placa:
         veic_ids = list(Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa).values_list('id_veiculo', flat=True))
         if veic_ids:
@@ -2063,7 +2108,9 @@ def gestao_fechamento_detalhes(request):
             'placa': placa_txt,
         })
     # Contas a Pagar - vencimentos
-    cp_qs = VencContasPagar.objects.select_related('contas_pagar', 'contas_pagar__placa').filter(data_vencimento__gte=start_dt, data_vencimento__lt=end_dt)
+    # Regra: considerar a data de fechamento do cabeçalho (contas_pagar.data_fechamento),
+    # e não a data de vencimento individual
+    cp_qs = VencContasPagar.objects.select_related('contas_pagar', 'contas_pagar__placa').filter(contas_pagar__data_fechamento=dt)
     if placa:
         veic_ids = list(Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa).values_list('id_veiculo', flat=True))
         if veic_ids:
@@ -2110,8 +2157,116 @@ def gestao_fechamento_detalhes(request):
             'valor': float(l.valor or 0),
             'placa': placa_txt,
             'obs': l.obs or '',
+            'periodo': getattr(l, 'periodo', '') or '',
+            'parcela': getattr(l, 'parcela', 1) or 1,
         })
-    return JsonResponse({'success': True, 'cr_venc': cr_rows, 'cp_venc': cp_rows, 'lanc': lanc_rows})
+    # Itens de Contas a Receber/Contas a Pagar
+    cr_itens_rows = []
+    cp_itens_rows = []
+    # localizar veiculos por placa (quando fornecida)
+    veic_ids = None
+    if placa:
+        veic_ids = list(Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa).values_list('id_veiculo', flat=True))
+        if not veic_ids:
+            veic_ids = []
+    # Cabeçalhos CR na data
+    cr_cabs = ContasReceber.objects.filter(data_fechamento=dt)
+    if veic_ids is not None:
+        cr_cabs = cr_cabs.filter(placa__id_veiculo__in=veic_ids)
+    cr_cabs_ids = list(cr_cabs.values_list('id', flat=True))
+    if cr_cabs_ids:
+        for it in ItensContasReceber.objects.select_related().filter(contas_receber_id__in=cr_cabs_ids).order_by('data', 'ordemServico'):
+            cr_itens_rows.append({
+                'os': it.ordemServico,
+                'servico': it.nmServico,
+                'data': it.data.strftime('%d/%m/%Y') if it.data else '',
+                'tipo': it.tipo or '',
+                'item': it.nmItem,
+                'qtde': float(it.qtde or 0),
+                'un': it.unidade or '',
+                'valor_unit': float(it.valor_unitario or 0),
+                'percentual': float(it.percentual or 0),
+                'valor': float(it.valor or 0),
+                'total': float(it.total or 0),
+                'periodo': getattr(it, 'periodo', '') or '',
+                'parcela': getattr(it, 'parcela', 1) or 1,
+            })
+    # Cabeçalhos CP na data
+    cp_cabs = ContasAPagarModel.objects.filter(data_fechamento=dt)
+    if veic_ids is not None:
+        cp_cabs = cp_cabs.filter(placa__id_veiculo__in=veic_ids)
+    cp_cabs_ids = list(cp_cabs.values_list('id', flat=True))
+    if cp_cabs_ids:
+        for it in ItensContasPagar.objects.select_related().filter(contas_pagar_id__in=cp_cabs_ids).order_by('data', 'codigo'):
+            cp_itens_rows.append({
+                'empresa': it.empresa or '',
+                'codigo': it.codigo or '',
+                'placa': it.placa or '',
+                'data': it.data.strftime('%d/%m/%Y') if it.data else '',
+                'act': it.act or '',
+                'status': it.status or '',
+                'trecho': it.trecho or '',
+                'valor': float(it.valor or 0),
+                'adiantamento': float(it.adiantamento or 0),
+                'outros': float(it.outros or 0),
+                'saldo': float(it.saldo or 0),
+                'periodo': it.periodo or '',
+                'parcela': it.parcela or 1,
+            })
+    return JsonResponse({
+        'success': True,
+        'cr_venc': cr_rows,
+        'cp_venc': cp_rows,
+        'lanc': lanc_rows,
+        'cr_itens': cr_itens_rows,
+        'cp_itens': cp_itens_rows,
+    })
+
+@login_required
+@permission_required('operacional.acessar_operacional', raise_exception=True)
+@require_GET
+def gestao_fechamento_listar_placas(request):
+    """
+    Lista placas com Fechamento gerado na data informada (yyyy-mm-dd).
+    Retorna placa, nome do agregado e id do fechamento.
+    """
+    data_str = (request.GET.get('data_fechamento') or '').strip()
+    if not data_str:
+        return JsonResponse({'success': False, 'error': 'Informe data_fechamento'}, status=400)
+    try:
+        dt = datetime.strptime(data_str, '%Y-%m-%d').date()
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Data inválida'}, status=400)
+    start_dt = datetime.combine(dt, datetime.min.time())
+    end_dt = start_dt + timedelta(days=1)
+    rows = []
+    qs = (Fechamento.objects
+          .select_related('placa', 'placa__placa')
+          .filter(
+              data_fechamento__gte=start_dt,
+              data_fechamento__lt=end_dt,
+              # Somente fechamentos já enviados para o AG
+              cod_ag__isnull=False
+          )
+          .exclude(cod_ag__exact=''))
+    seen = set()
+    for f in qs:
+        try:
+            placa_txt = f.placa.placa.placa  # Agregado.placa
+            ag_nome = f.placa.placa.nm_agregado
+        except Exception:
+            placa_txt = ''
+            ag_nome = ''
+        key = (placa_txt or '', ag_nome or '')
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({
+            'fechamento_id': getattr(f, 'id', None),
+            'placa': placa_txt,
+            'agregado': ag_nome,
+        })
+    return JsonResponse({'success': True, 'rows': rows})
 
 @login_required
 @permission_required('operacional.acessar_operacional', raise_exception=True)
@@ -3314,22 +3469,38 @@ def fechar_caixa(request):
                 'atualizado_por': request.user,
             }
         )
-        # conjunto para evitar duplicar mesmos itens no mesmo cab
-        existing_keys = set(
-            f"{it['ordemServico']}|{it['cdItem']}|{(it['data'].date() if hasattr(it['data'],'date') else it['data'])}"
-            for it in ItensContasReceber.objects.filter(contas_receber=cab).values('ordemServico','cdItem','data')
-        )
+        # mapa para atualizar itens já existentes (evitar duplicatas e permitir upsert)
+        existing_map = {}
+        for it in ItensContasReceber.objects.filter(contas_receber=cab):
+            try:
+                k = f"{getattr(it,'ordemServico',0)}|{getattr(it,'cdItem',0)}|{(it.data.date() if getattr(it,'data',None) else '')}"
+                existing_map[k] = it
+            except Exception:
+                continue
         for d in rows:
             unit_val = float(d.get('valor_unitario') or 0)
             qty_val = float(d.get('quantidade') or 1)
             raw_total = float(d.get('valor') or (unit_val * qty_val))
             perc_mv = d.get('perc')
+            vl_sis = float(d.get('vl_sistema') or 0.0)
+            # percentual informado na tela (pode vir em 0–1 ou 0–100)
             try:
                 perc_val = float(perc_mv) if perc_mv is not None else 0.0
             except Exception:
                 perc_val = 0.0
             cobrar_val = float(d.get('cobrar') or raw_total)
             soma_total += cobrar_val
+            # Calcular 'valor' conforme regra:
+            # - se houver valor do sistema, usar diretamente
+            # - senão, aplicar o percentual que veio da tabela item sobre o valor unitário (percentual a mais)
+            # Observação: armazenamos o percentual exatamente como veio da tabela (apenas arredondado),
+            # sem converter de fração para pontos percentuais ou inferir a partir do "cobrar".
+            fator = (perc_val / 100.0) if perc_val > 1 else (perc_val or 0.0)
+            # Valor a armazenar: se "Vl Sistema" efetivo (>0) vier no payload, usa-o; senão calcula por unitário + percentual
+            # Observação: no cálculo por percentual não aplicar arredondamento aqui (somente exibição pode formatar)
+            valor_calc = vl_sis if vl_sis > 0 else ((unit_val * (1 + (fator or 0.0))) if unit_val else 0.0)
+            # Percentual: armazenar exatamente o recebido da tabela de item (apenas arredondado)
+            perc_to_store = round(perc_val or 0.0, 2)
             # data do item (datetime)
             item_dt = None
             try:
@@ -3365,28 +3536,42 @@ def fechar_caixa(request):
             cd_item_key = safe_int(d.get('cd_item') or d.get('item_code_col') or 0, 0)
             cd_serv_key = safe_int(d.get('cd_servico') or d.get('code_col') or (d.get('cd_item') or 0), 0)
             dup_key = f"{os_val}|{cd_item_key}|{item_dt.date()}"
-            if dup_key in existing_keys:
-                continue
-            ItensContasReceber.objects.create(
-                contas_receber=cab,
-                ordemServico=os_val,
-                cdServico=(cd_serv_key or cd_item_key),
-                nmServico=nm_serv_val,
-                data=item_dt,
-                tipo=tipo_txt,
-                cdItem=(cd_item_key or cd_serv_key),
-                nmItem=nm_item_val,
-                qtde=float(d.get('quantidade') or d.get('qty_col') or 0),
-                unidade=(d.get('unidade') or '').strip() if isinstance(d.get('unidade'), str) else '',
-                valor_unitario=unit_val,
-                percentual=perc_val,
-                valor=raw_total,
-                total=cobrar_val,
-                periodo=(d.get('periodo') or periodo),
-                parcela=int(d.get('parcela') or parcela or 1),
-            )
-            existing_keys.add(dup_key)
-            created += 1
+            if dup_key in existing_map:
+                # atualizar item existente (upsert)
+                it = existing_map[dup_key]
+                it.cdServico = (cd_serv_key or cd_item_key)
+                it.nmServico = nm_serv_val
+                it.tipo = tipo_txt
+                it.nmItem = nm_item_val
+                it.qtde = float(d.get('quantidade') or d.get('qty_col') or 0)
+                it.unidade = (d.get('unidade') or '').strip() if isinstance(d.get('unidade'), str) else ''
+                it.valor_unitario = unit_val
+                it.percentual = perc_to_store
+                it.valor = valor_calc
+                it.total = cobrar_val
+                it.periodo = (d.get('periodo') or periodo)
+                it.parcela = int(d.get('parcela') or parcela or 1)
+                it.save(update_fields=['cdServico','nmServico','tipo','nmItem','qtde','unidade','valor_unitario','percentual','valor','total','periodo','parcela','dt_atualizacao'])
+            else:
+                ItensContasReceber.objects.create(
+                    contas_receber=cab,
+                    ordemServico=os_val,
+                    cdServico=(cd_serv_key or cd_item_key),
+                    nmServico=nm_serv_val,
+                    data=item_dt,
+                    tipo=tipo_txt,
+                    cdItem=(cd_item_key or cd_serv_key),
+                    nmItem=nm_item_val,
+                    qtde=float(d.get('quantidade') or d.get('qty_col') or 0),
+                    unidade=(d.get('unidade') or '').strip() if isinstance(d.get('unidade'), str) else '',
+                    valor_unitario=unit_val,
+                    percentual=perc_to_store,
+                    valor=valor_calc,
+                    total=cobrar_val,
+                    periodo=(d.get('periodo') or periodo),
+                    parcela=int(d.get('parcela') or parcela or 1),
+                )
+                created += 1
 
         # Atualizar valor total do cabeçalho
         total_cab = ItensContasReceber.objects.filter(contas_receber=cab).aggregate(s=models.Sum('total'))['s'] or 0.0
@@ -3433,6 +3618,234 @@ def fechar_caixa(request):
             pass
 
     return JsonResponse({'success': True, 'created': created, 'message': f'Contas a Receber atualizado com {created} itens. Total R$ {soma_total:.2f}.'})
+
+@login_required
+@permission_required('operacional.acessar_operacional', raise_exception=True)
+@require_GET
+def prestacao_contas_pdf(request):
+    """
+    Gera PDF de Prestação de Contas no servidor.
+    Parâmetros:
+      - data_fechamento: yyyy-mm-dd
+      - placa: pode repetir múltiplas vezes (?placa=AAA&placa=BBB)
+    Retorna application/pdf para download (arquivo único com todas as placas).
+    """
+    if pisa is None:
+        return JsonResponse({'success': False, 'error': 'Biblioteca xhtml2pdf não instalada no servidor.'}, status=500)
+    data_str = (request.GET.get('data_fechamento') or '').strip()
+    placas = request.GET.getlist('placa') or []
+    if not data_str or not placas:
+        return JsonResponse({'success': False, 'error': 'Informe data_fechamento e ao menos uma placa.'}, status=400)
+    # Reusa a lógica de gestao_fechamento_detalhes para cada placa
+    docs = []
+    for placa in placas:
+        try:
+            # construir contexto por placa
+            req = request  # reutiliza timezone/locales
+            # Copia essencial da função gestao_fechamento_detalhes
+            dt = None
+            for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+                try:
+                    dt = datetime.strptime(data_str, fmt).date()
+                    break
+                except Exception:
+                    continue
+            if dt is None:
+                continue
+            start_dt = dt
+            end_dt = dt + timedelta(days=1)
+            # Vencimentos CR/CP por data de fechamento (regra ajustada)
+            cr_qs = VencContasReceber.objects.select_related('contas_receber', 'contas_receber__placa').filter(contas_receber__data_fechamento=dt)
+            veic_qs = Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa)
+            veic_ids = list(veic_qs.values_list('id_veiculo', flat=True))
+            if veic_ids:
+                cr_qs = cr_qs.filter(contas_receber__placa__in=veic_ids)
+            cr_rows = []
+            for v in cr_qs:
+                cr_rows.append({
+                    'seq': v.seq_vencimento,
+                    'data': v.data_vencimento.strftime('%d/%m/%Y') if v.data_vencimento else '',
+                    'valor': float(v.valor or 0),
+                })
+            cp_qs = VencContasPagar.objects.select_related('contas_pagar', 'contas_pagar__placa').filter(contas_pagar__data_fechamento=dt)
+            if veic_ids:
+                cp_qs = cp_qs.filter(contas_pagar__placa__in=veic_ids)
+            cp_rows = []
+            for v in cp_qs:
+                cp_rows.append({
+                    'seq': v.seq_vencimento,
+                    'data': v.data_vencimento.strftime('%d/%m/%Y') if v.data_vencimento else '',
+                    'valor': float(v.valor or 0),
+                })
+            # Lançamentos
+            lanc_qs = Lancamento.objects.select_related('veiculo', 'veiculo__placa').filter(data=dt)
+            if veic_ids:
+                lanc_qs = lanc_qs.filter(veiculo__id_veiculo__in=veic_ids)
+            lanc_rows = []
+            for l in lanc_qs:
+                lanc_rows.append({
+                    'data': l.data.strftime('%d/%m/%Y') if l.data else '',
+                    'categoria': getattr(l.categoria, 'nome', ''),
+                    'valor': float(l.valor or 0),
+                    'obs': l.obs or '',
+                    'periodo': getattr(l, 'periodo', '') or '',
+                    'parcela': getattr(l, 'parcela', 1) or 1,
+                })
+            # Itens CR/CP
+            cr_itens_rows = []
+            cp_itens_rows = []
+            cr_cabs = ContasReceber.objects.filter(data_fechamento=dt)
+            if veic_ids:
+                cr_cabs = cr_cabs.filter(placa__id_veiculo__in=veic_ids)
+            cr_ids = list(cr_cabs.values_list('id', flat=True))
+            if cr_ids:
+                for it in ItensContasReceber.objects.select_related().filter(contas_receber_id__in=cr_ids).order_by('data', 'ordemServico'):
+                    cr_itens_rows.append({
+                        'os': it.ordemServico,
+                        'servico': it.nmServico,
+                        'data': it.data.strftime('%d/%m/%Y') if it.data else '',
+                        'item': it.nmItem,
+                        'qtde': float(it.qtde or 0),
+                        'un': it.unidade or '',
+                        'valor': float(it.valor or 0),
+                        'percentual': float(it.percentual or 0),
+                        'valor_unit': float(it.valor_unitario or 0),
+                        'total': float(it.total or 0),
+                        'periodo': getattr(it, 'periodo', '') or '',
+                        'parcela': getattr(it, 'parcela', 1) or 1,
+                    })
+            cp_cabs = ContasAPagarModel.objects.filter(data_fechamento=dt)
+            if veic_ids:
+                cp_cabs = cp_cabs.filter(placa__id_veiculo__in=veic_ids)
+            cp_ids = list(cp_cabs.values_list('id', flat=True))
+            if cp_ids and ItensContasAPagarModel:
+                for it in ItensContasAPagarModel.objects.select_related().filter(**{'contas_pagar_id__in': cp_ids}).order_by('data', 'codigo'):
+                    cp_itens_rows.append({
+                        'empresa': it.empresa or '',
+                        'codigo': it.codigo or '',
+                        'placa': it.placa or '',
+                        'data': it.data.strftime('%d/%m/%Y') if it.data else '',
+                        'act': it.act or '',
+                        'status': it.status or '',
+                        'trecho': it.trecho or '',
+                        'valor': float(it.valor or 0),
+                        'adiantamento': float(it.adiantamento or 0),
+                        'outros': float(it.outros or 0),
+                        'saldo': float(it.saldo or 0),
+                        'periodo': it.periodo or '',
+                        'parcela': it.parcela or 1,
+                    })
+            # Totais (ótica do agregado, como no front):
+            sCR = sum([float(x.get('valor', 0) or 0) for x in cr_rows])  # a pagar (agregado)
+            sCP = sum([float(x.get('valor', 0) or 0) for x in cp_rows])  # a receber (agregado)
+            sLN = sum([float(x.get('valor', 0) or 0) for x in lanc_rows])
+            total_geral = (sCP - sCR + sLN)
+            # Agregado (nome)
+            ag_nome = ''
+            try:
+                veic = veic_qs.first()
+                ag_nome = getattr(getattr(veic, 'placa', None), 'nm_agregado', '') or ''
+            except Exception:
+                ag_nome = ''
+            docs.append({
+                'placa': placa,
+                'agregado': ag_nome,
+                'data': data_str,
+                'cr_itens': cr_itens_rows,
+                'cp_itens': cp_itens_rows,
+                'cr_venc': cr_rows,
+                'cp_venc': cp_rows,
+                'lanc': lanc_rows,
+                'totais': {
+                    'sCR': sCR, 'sCP': sCP, 'sLN': sLN, 'totalGeral': total_geral
+                }
+            })
+        except Exception:
+            continue
+    if not docs:
+        return JsonResponse({'success': False, 'error': 'Sem dados para gerar.'}, status=404)
+    context = {
+        'docs': docs,
+        'logo_url': staticfiles_storage.url('img/logo.png'),
+        'logo_src': (getattr(staticfiles_storage, 'base_url', None) or '/static/') + 'img/logo.png',
+        'logo_data_uri': None,
+        'logo_abs_path': None,
+        'logo_file_uri': None,
+        'hoje': date.today().strftime('%d/%m/%Y'),
+    }
+    # Converter logo para RGB (sem transparência) para evitar máscara escura no PDF
+    try:
+        logo_path = staticfiles_storage.path('img/logo.png')
+        with Image.open(logo_path) as im:
+            if im.mode in ('RGBA', 'LA'):
+                bg = Image.new('RGB', im.size, (255, 255, 255))
+                alpha = im.split()[-1]
+                bg.paste(im, mask=alpha)
+                im_rgb = bg
+            else:
+                im_rgb = im.convert('RGB')
+            # Salvar como JPEG temporário (sem canal alpha) para evitar máscara
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            tmp.close()
+            im_rgb.save(tmp.name, format='JPEG', quality=95)
+            context['logo_abs_path'] = tmp.name
+            try:
+                context['logo_file_uri'] = Path(tmp.name).as_uri()
+            except Exception:
+                context['logo_file_uri'] = None
+            # Além disso, disponibilizar como data URI (JPEG) para engines que preferem inline
+            buf = BytesIO()
+            im_rgb.save(buf, format='JPEG', quality=95)
+            b64 = base64.b64encode(buf.getvalue()).decode('ascii')
+            context['logo_data_uri'] = f'data:image/jpeg;base64,{b64}'
+    except Exception:
+        pass
+    html = render_to_string('operacional/prestacao_contas_pdf.html', context)
+    result = BytesIO()
+    def link_callback(uri, rel):
+        try:
+            base_url = getattr(staticfiles_storage, 'base_url', None) or '/static/'
+            # map /static/... to filesystem path
+            if uri.startswith(base_url):
+                rel_path = uri.replace(base_url, '')
+                return staticfiles_storage.path(rel_path)
+            # file:/// scheme
+            if uri.startswith('file://'):
+                return uri.replace('file://', '')
+            # absolute path on filesystem
+            if os.path.isabs(uri) and os.path.exists(uri):
+                return uri
+            return uri
+        except Exception:
+            return uri
+    pisa.CreatePDF(html, dest=result, link_callback=link_callback, encoding='utf-8')
+    pdf = result.getvalue()
+    if not pdf:
+        return JsonResponse({'success': False, 'error': 'Falha ao montar PDF.'}, status=500)
+    # Definir nome do arquivo
+    def _sanitize(t: str) -> str:
+        try:
+            import re, unicodedata
+            t = unicodedata.normalize('NFD', str(t))
+            t = ''.join(ch for ch in t if unicodedata.category(ch) != 'Mn')
+            t = re.sub(r'[^A-Za-z0-9_\\-]+', '_', t)
+            t = re.sub(r'_+', '_', t).strip('_')
+            return t
+        except Exception:
+            return str(t).replace(' ', '_')
+    fname = f'prestacao_{data_str}.pdf'
+    try:
+        if len(placas) == 1 and docs:
+            placa_fname = _sanitize(docs[0].get('placa') or placas[0] or '')
+            ag_fname = _sanitize(docs[0].get('agregado') or '')
+            parts = [p for p in [placa_fname, ag_fname, data_str] if p]
+            if parts:
+                fname = '_'.join(parts) + '.pdf'
+    except Exception:
+        pass
+    resp = HttpResponse(pdf, content_type='application/pdf')
+    resp['Content-Disposition'] = f'attachment; filename="{fname}"'
+    return resp
 
 class LancamentosListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     """
