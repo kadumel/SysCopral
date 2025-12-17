@@ -26,12 +26,21 @@
       <div class="row g-3">
         <div class="col-md-3">
           <label class="form-label">Placa</label>
-          <select name="placa" class="form-select">
-            <option value="" {% if not placa_filtro %}selected{% endif %}>Todas</option>
+          <input name="placa" class="form-control" value="{{ placa_filtro }}" list="placasList" placeholder="Digite a placa">
+          <datalist id="placasList">
             {% for p in placas_disponiveis %}
-              <option value="{{ p }}" {% if placa_filtro == p %}selected{% endif %}>{{ p }}</option>
+              <option value="{{ p }}"></option>
             {% endfor %}
-          </select>
+          </datalist>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Agregado</label>
+          <input name="agregado" class="form-control" value="{{ agregado_filtro }}" list="agregadosList" placeholder="Digite o agregado">
+          <datalist id="agregadosList">
+            {% for a in agregados_disponiveis %}
+              <option value="{{ a }}"></option>
+            {% endfor %}
+          </datalist>
         </div>
         <div class="col-md-3">
           <label class="form-label">Data de Fechamento</label>
@@ -47,12 +56,12 @@
 
   <div class="table-container">
     <div class="card-body">
-    {% if rows and rows|length > 0 %}
+    {% if grupos and grupos|length > 0 %}
     <div class="table-responsive">
       <table class="table table-sm align-middle">
         <thead>
           <tr>
-            <th>Placa</th>
+            <th class="text-start">Agregado / Placa</th>
             <th>Total A Receber</th>
             <th>Total A Pagar</th>
             <th>Lançamentos</th>
@@ -63,32 +72,48 @@
           </tr>
         </thead>
         <tbody>
-          {% for r in rows %}
-          <tr>
-            <td class="text-start">{{ r.placa }}</td>
-            <td>R$ {{ r.total_receber|floatformat:2 }}</td>
-            <td>R$ {{ r.total_pagar|floatformat:2 }}</td>
-            <td>R$ {{ r.lancamentos|floatformat:2 }}</td>
-            <td><strong>R$ {{ r.total_final|floatformat:2 }}</strong></td>
-            <td>{{ r.fechamento_id|default_if_none:'' }}</td>
-            <td>{{ r.cod_ag }}</td>
+          {% for g in grupos %}
+          <tr class="table-secondary">
+            <td class="text-start"><strong>{{ g.agregado }}</strong></td>
+            <td><strong>R$ {{ g.totais.total_receber|floatformat:2 }}</strong></td>
+            <td><strong>R$ {{ g.totais.total_pagar|floatformat:2 }}</strong></td>
+            <td><strong>R$ {{ g.totais.lancamentos|floatformat:2 }}</strong></td>
+            <td><strong>R$ {{ g.totais.total_final|floatformat:2 }}</strong></td>
+            <td></td>
+            <td></td>
             <td>
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-outline-primary btn-sm btn-det-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Detalhes do Fechamento">
-                  <i class="fas fa-search"></i>
-                </button>
-                <button type="button" class="btn btn-outline-success btn-sm btn-criar-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Criar/Vincular Fechamento">
-                  <i class="fas fa-link"></i>
-                </button>
-                <button type="button" class="btn btn-outline-info btn-sm btn-enviar-ag" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Enviar para AG" {% if not r.fechamento_id %}disabled{% endif %}>
-                  <i class="fas fa-paper-plane"></i>
-                </button>
-                <button type="button" class="btn btn-outline-danger btn-sm btn-excluir-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Excluir Fechamento">
-                  <i class="fas fa-unlink"></i>
-                </button>
-              </div>
+              <button type="button" class="btn btn-outline-info btn-sm btn-enviar-ag-grupo" data-placas="{{ g.placas_csv }}" data-data="{{ data_fechamento }}" title="Enviar para AG (grupo)" {% if not g.all_have_fech or g.all_sent_ag %}disabled{% endif %}>
+                <i class="fas fa-paper-plane"></i>
+              </button>
+              <button type="button" class="btn btn-outline-primary btn-sm btn-pdf-grupo" data-placas="{{ g.placas_csv }}" data-data="{{ data_fechamento }}" title="Baixar PDF do agregado" onclick="return pdfGrupo(this);" {% if not g.all_sent_ag %}disabled{% endif %}>
+                <i class="fas fa-file-download"></i>
+              </button>
             </td>
           </tr>
+            {% for r in g.placas %}
+            <tr>
+              <td class="text-start ps-4">• {{ r.placa }}</td>
+              <td>R$ {{ r.total_receber|floatformat:2 }}</td>
+              <td>R$ {{ r.total_pagar|floatformat:2 }}</td>
+              <td>R$ {{ r.lancamentos|floatformat:2 }}</td>
+              <td><strong>R$ {{ r.total_final|floatformat:2 }}</strong></td>
+              <td>{{ r.fechamento_id|default_if_none:'' }}</td>
+              <td>{{ r.cod_ag }}</td>
+              <td>
+                <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-outline-primary btn-sm btn-det-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Detalhes do Fechamento">
+                    <i class="fas fa-search"></i>
+                  </button>
+                  <button type="button" class="btn btn-outline-success btn-sm btn-criar-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Criar/Vincular Fechamento">
+                    <i class="fas fa-link"></i>
+                  </button>
+                  <button type="button" class="btn btn-outline-danger btn-sm btn-excluir-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Excluir Fechamento (habilitado apenas sem envio ao AG)" {% if r.cod_ag %}disabled{% endif %}>
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
           {% endfor %}
         </tbody>
       </table>
@@ -162,7 +187,80 @@ function getCookie(name) {
       }
     }
   }
+  // Baixar PDF do agregado (todas as placas do grupo)
+  const btnPdfGroup = e.target.closest('.btn-pdf-grupo');
+  if (btnPdfGroup){
+    const placasCsv = btnPdfGroup.getAttribute('data-placas')||'';
+    const data = btnPdfGroup.getAttribute('data-data')||'';
+    if (!placasCsv || !data){ alert('Grupo sem placas ou data inválida.'); return; }
+    const placas = placasCsv.split(',').map(s=>s.trim()).filter(Boolean);
+    if (!placas.length){ alert('Nenhuma placa no grupo.'); return; }
+    const url = new URL(window.location.origin + '/operacional/prestacao-contas/pdf/');
+    url.searchParams.set('data_fechamento', data);
+    placas.forEach(p => url.searchParams.append('placa', p));
+    // Baixar via fetch -> blob (evita bloqueio de popup e dispara sempre)
+    fetch(url.toString(), { method: 'GET' })
+      .then(resp => {
+        if (!resp.ok) throw new Error('Falha ao gerar PDF do agregado');
+        const cd = resp.headers.get('Content-Disposition') || '';
+        const m = /filename="?([^"]+)"?/i.exec(cd);
+        const fname = (m && m[1]) ? m[1] : 'prestacao.pdf';
+        return resp.blob().then(blob => ({ blob, fname }));
+      })
+      .then(({ blob, fname }) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+        document.body.removeChild(a);
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Erro ao baixar PDF do agregado.');
+      });
+    return;
+  }
   return cookieValue;
+}
+// Função global para acionar download do PDF do agregado (chamada inline no botão)
+function pdfGrupo(btn){
+  try{
+    const placasCsv = btn.getAttribute('data-placas')||'';
+    const data = btn.getAttribute('data-data')||'';
+    if (!placasCsv || !data){ alert('Grupo sem placas ou data inválida.'); return false; }
+    const placas = placasCsv.split(',').map(s=>s.trim()).filter(Boolean);
+    if (!placas.length){ alert('Nenhuma placa no grupo.'); return false; }
+    const url = new URL(window.location.origin + '/operacional/prestacao-contas/pdf/');
+    url.searchParams.set('data_fechamento', data);
+    placas.forEach(p => url.searchParams.append('placa', p));
+    fetch(url.toString(), { method: 'GET' })
+      .then(resp => {
+        if (!resp.ok) throw new Error('Falha ao gerar PDF do agregado');
+        const cd = resp.headers.get('Content-Disposition') || '';
+        const m = /filename="?([^"]+)"?/i.exec(cd);
+        const fname = (m && m[1]) ? m[1] : 'prestacao.pdf';
+        return resp.blob().then(blob => ({ blob, fname }));
+      })
+      .then(({ blob, fname }) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+        document.body.removeChild(a);
+      })
+      .catch(err => {
+        console.error(err);
+        alert('Erro ao baixar PDF do agregado.');
+      });
+  }catch(err){
+    console.error(err);
+    alert('Erro ao iniciar download do PDF do agregado.');
+  }
+  return false;
 }
 document.addEventListener('click', async function(e){
   // Detalhes
@@ -212,6 +310,33 @@ document.addEventListener('click', async function(e){
       alert('Fechamento enviado para o AG com sucesso.');
       location.reload();
     }catch(err){ console.error(err); alert('Erro ao enviar para AG.'); }
+    return;
+  }
+  // Enviar grupo para AG (todas as placas do agregado)
+  const btnSendGroup = e.target.closest('.btn-enviar-ag-grupo');
+  if (btnSendGroup){
+    const placasCsv = btnSendGroup.getAttribute('data-placas')||'';
+    const data = btnSendGroup.getAttribute('data-data')||'';
+    if (!placasCsv || !data){ alert('Grupo sem placas ou data inválida.'); return; }
+    const placas = placasCsv.split(',').map(s=>s.trim()).filter(Boolean);
+    if (!placas.length){ alert('Nenhuma placa no grupo.'); return; }
+    if (!confirm(`Confirmar envio para o AG de ${placas.length} placa(s)?`)) return;
+    btnSendGroup.disabled = true;
+    try{
+      const resp = await fetch('/operacional/gestao-fechamento/enviar-ag-grupo/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ placas: placas, data_fechamento: data })
+      });
+      const js = await resp.json();
+      if (!resp.ok || !js.success){
+        alert(js.error || 'Falha ao enviar grupo para o AG.');
+        btnSendGroup.disabled = false;
+        return;
+      }
+      alert('Fechamento de todas as placas do agregado enviado para o AG com sucesso.');
+      location.reload();
+    }catch(err){ console.error(err); alert('Erro ao enviar grupo para AG.'); btnSendGroup.disabled = false; }
     return;
   }
   const btnCriar = e.target.closest('.btn-criar-fech');

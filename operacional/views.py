@@ -1709,6 +1709,7 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         placa_f = (self.request.GET.get('placa') or '').strip()
+        agregado_f = (self.request.GET.get('agregado') or '').strip()
         data_str = (self.request.GET.get('data_fechamento') or '').strip()  # yyyy-mm-dd
         # Não carrega dados se não houver data de fechamento
 
@@ -1734,6 +1735,10 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
                     veic_ids = list(Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa_f).values_list('id_veiculo', flat=True))
                     if veic_ids:
                         recv_qs = recv_qs.filter(contas_receber__placa__in=veic_ids)
+                if agregado_f:
+                    veic_ids_ag = list(Veiculo.objects.select_related('placa').filter(placa__nm_agregado__icontains=agregado_f).values_list('id_veiculo', flat=True))
+                    if veic_ids_ag:
+                        recv_qs = recv_qs.filter(contas_receber__placa__in=veic_ids_ag)
                 # Agrupar por placa (tentar caminho triplo e, se vazio, caminho duplo)
                 recv_by_plate = list(
                     recv_qs
@@ -1778,6 +1783,10 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
                     veic_ids = list(Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa_f).values_list('id_veiculo', flat=True))
                     if veic_ids:
                         pagar_qs = pagar_qs.filter(contas_pagar__placa__in=veic_ids)
+                if agregado_f:
+                    veic_ids_ag = list(Veiculo.objects.select_related('placa').filter(placa__nm_agregado__icontains=agregado_f).values_list('id_veiculo', flat=True))
+                    if veic_ids_ag:
+                        pagar_qs = pagar_qs.filter(contas_pagar__placa__in=veic_ids_ag)
                 pagar_by_plate = list(
                     pagar_qs
                     .values('contas_pagar__placa__placa')
@@ -1822,6 +1831,10 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
                     veic_ids = list(Veiculo.objects.select_related('placa').filter(placa__placa__iexact=placa_f).values_list('id_veiculo', flat=True))
                     if veic_ids:
                         lanc_qs = lanc_qs.filter(veiculo__id_veiculo__in=veic_ids)
+                if agregado_f:
+                    veic_ids_ag = list(Veiculo.objects.select_related('placa').filter(placa__nm_agregado__icontains=agregado_f).values_list('id_veiculo', flat=True))
+                    if veic_ids_ag:
+                        lanc_qs = lanc_qs.filter(veiculo__id_veiculo__in=veic_ids_ag)
                 lanc_map = {}
                 for l in lanc_qs:
                     try:
@@ -1849,9 +1862,14 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
                     # localizar fechamento (id e cod_ag) para a placa/data
                     fech_id = None
                     cod_ag_val = ''
+                    ag_nome_val = ''
                     try:
                         veic_row = Veiculo.objects.select_related('placa').filter(placa__placa__iexact=plate).first()
                         if veic_row:
+                            ag_nome_val = str(getattr(getattr(veic_row, 'placa', None), 'nm_agregado', '') or '')
+                            if agregado_f and (ag_nome_val or '').lower().find(agregado_f.lower()) == -1:
+                                # placa não pertence ao agregado filtrado
+                                continue
                             fech_dt_start = datetime.combine(dt, datetime.min.time())
                             fech_dt_end = fech_dt_start + timedelta(days=1)
                             fech = Fechamento.objects.filter(placa=veic_row, data_fechamento__gte=fech_dt_start, data_fechamento__lt=fech_dt_end).first()
@@ -1862,6 +1880,7 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
                         pass
                     rows.append({
                         'placa': plate,
+                        'agregado': ag_nome_val,
                         'total_receber': total_receber,
                         'total_pagar': total_pagar,
                         'lancamentos': total_lanc,
@@ -1880,12 +1899,42 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
             )
         except Exception:
             placas_disponiveis = []
+        try:
+            agregados_disponiveis = list(
+                Veiculo.objects.select_related('placa')
+                .values_list('placa__nm_agregado', flat=True)
+                .distinct()
+                .order_by('placa__nm_agregado')
+            )
+        except Exception:
+            agregados_disponiveis = []
 
         context.update({
             'placa_filtro': placa_f,
+            'agregado_filtro': agregado_f,
             'data_fechamento': (self.request.GET.get('data_fechamento') or '').strip(),
             'placas_disponiveis': placas_disponiveis,
+            'agregados_disponiveis': agregados_disponiveis,
             'rows': rows,
+            # Agrupar por agregado para exibir hierarquia Agregado -> Placas
+            'grupos': (lambda rr: [
+                {
+                    'agregado': k or 'SEM AGREGADO',
+                    'placas': v,
+                    'placas_csv': ','.join([str(p.get('placa') or '') for p in v if p.get('placa')]),
+                    'all_have_fech': all(bool(p.get('fechamento_id')) for p in v),
+                    'all_sent_ag': all(bool((p.get('cod_ag') or '').strip()) for p in v),
+                    'totais': {
+                        'total_receber': sum(p.get('total_receber', 0.0) for p in v),
+                        'total_pagar': sum(p.get('total_pagar', 0.0) for p in v),
+                        'lancamentos': sum(p.get('lancamentos', 0.0) for p in v),
+                        'total_final': sum(p.get('total_final', 0.0) for p in v),
+                    }
+                }
+                for k, v in (lambda m: m.items())( (lambda m:
+                    ( [m.setdefault((p.get('agregado') or '').strip() or 'SEM AGREGADO', []).append(p) for p in rr], m )[1]
+                )({}) )
+            ])(rows),
         })
         return context
 
@@ -2051,6 +2100,96 @@ def gestao_fechamento_enviar_ag(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Falha ao marcar envio: {e}'}, status=500)
     return JsonResponse({'success': True, 'cod_ag': ag_code})
+
+@login_required
+@permission_required('operacional.acessar_operacional', raise_exception=True)
+@csrf_exempt
+@require_POST
+def gestao_fechamento_enviar_ag_grupo(request):
+    """
+    Marca um conjunto de Fechamentos (todas as placas do mesmo agregado) como enviados para o AG
+    gerando/aplicando o MESMO código para todas.
+    Espera JSON: { placas: [str], data_fechamento }
+    Regras:
+      - Se algum fechamento já possuir cod_ag e os demais não, todos recebem esse mesmo código.
+      - Se existirem códigos diferentes entre as placas, retorna erro (não sobrescreve).
+      - Se nenhum tiver código, gera 'AG-{slug_agregado}-{yyyymmdd}' e aplica para todos.
+    """
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+    placas = payload.get('placas') or []
+    data_str = (payload.get('data_fechamento') or '').strip()
+    if not placas or not data_str:
+        return JsonResponse({'success': False, 'error': 'Parâmetros inválidos'}, status=400)
+    # Parse data
+    dt = None
+    for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+        try:
+            dt = datetime.strptime(data_str, fmt)
+            break
+        except Exception:
+            continue
+    if dt is None:
+        return JsonResponse({'success': False, 'error': 'Data inválida'}, status=400)
+    start_dt = dt if isinstance(dt, datetime) else datetime.combine(dt, datetime.min.time())
+    end_dt = start_dt + timedelta(days=1)
+    fechamentos = []
+    agregados = set()
+    for placa in placas:
+        veic = Veiculo.objects.select_related('placa').filter(placa__placa__iexact=str(placa).strip()).first()
+        if not veic:
+            return JsonResponse({'success': False, 'error': f'Veículo não encontrado: {placa}'}, status=404)
+        agregados.add((getattr(getattr(veic, 'placa', None), 'nm_agregado', '') or '').strip())
+        cab = Fechamento.objects.filter(placa=veic, data_fechamento__gte=start_dt, data_fechamento__lt=end_dt).first()
+        if not cab:
+            return JsonResponse({'success': False, 'error': f'Fechamento não encontrado para {placa} em {data_str}'}, status=404)
+        fechamentos.append(cab)
+    # Verificar códigos existentes
+    existing_codes = { (str(getattr(f, 'cod_ag', '') or '').strip() or None) for f in fechamentos }
+    existing_codes.discard(None)
+    if len(existing_codes) > 1:
+        return JsonResponse({'success': False, 'error': 'Existem placas com códigos AG diferentes. Ajuste antes de enviar em grupo.'}, status=400)
+    # Determinar o código
+    if existing_codes:
+        group_code = existing_codes.pop()
+    else:
+        # gerar um código padronizado por agregado e data respeitando o tamanho do campo cod_ag (20)
+        ag_nome = (list(agregados)[0] if agregados else '').strip() or 'AGREGADO'
+        # sanitizar
+        import re, unicodedata
+        ag_slug = unicodedata.normalize('NFD', ag_nome)
+        ag_slug = ''.join(ch for ch in ag_slug if unicodedata.category(ch) != 'Mn')
+        ag_slug = re.sub(r'[^A-Za-z0-9\-]+', '-', ag_slug).strip('-').upper()
+        ymd = start_dt.strftime("%Y%m%d")
+        max_len = 20
+        # tentativa 1: AG-{slug}-{YYYYMMDD}
+        candidate = f'AG-{ag_slug}-{ymd}'
+        if len(candidate) > max_len:
+            # truncar o slug para caber
+            reserved = len('AG-') + 1 + len(ymd)  # prefix + '-' + date
+            allow = max_len - reserved
+            if allow < 1:
+                allow = 1
+            candidate = f'AG-{ag_slug[:allow]}-{ymd}'
+        if len(candidate) > max_len:
+            # fallback final estável e curto
+            candidate = f'AG-{ymd}'
+        group_code = candidate
+    # Aplicar código a todos sem cod_ag
+    try:
+        with transaction.atomic():
+            for f in fechamentos:
+                cur = (str(getattr(f, 'cod_ag', '') or '').strip() or None)
+                if cur and cur != group_code:
+                    return JsonResponse({'success': False, 'error': f'Placa {f.placa.placa.placa} já possui código AG diferente ({cur}).'}, status=400)
+                if not cur:
+                    f.cod_ag = group_code
+                    f.save(update_fields=['cod_ag'])
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': f'Falha ao marcar envio em grupo: {e}'}, status=500)
+    return JsonResponse({'success': True, 'cod_ag': group_code})
 @permission_required('operacional.acessar_operacional', raise_exception=True)
 @require_GET
 def gestao_fechamento_detalhes(request):
