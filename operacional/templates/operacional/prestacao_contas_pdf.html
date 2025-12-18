@@ -1,0 +1,131 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <style>
+    @page { size: A4 landscape; margin: 12mm 8mm; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10px; color:#111; }
+    .doc { page-break-after: always; }
+    .header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; padding-bottom:4px; margin-bottom:8px; }
+    .brand { display:flex; align-items:center; gap:6px; }
+    .brand img { height:22px; display:block; background:#ffffff; mix-blend-mode: normal; }
+    .title { font-weight:bold; text-align:center; flex:1; font-size:11px; }
+    table { width:100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { border-bottom:1px solid #e5e7eb; padding:4px 6px; word-break: break-word; }
+    th { background:#f1f5f9; text-align:left; font-weight:bold; font-size:10px; }
+    td { font-size:9px; }
+    h5 { margin:6px 0; font-size:10px; }
+  </style>
+</head>
+<body>
+{% for d in docs %}
+  <div class="doc">
+    <div class="header">
+      <div class="brand">
+        <img src="{{ logo_src|default:logo_file_uri|default:logo_data_uri|default:logo_abs_path|default:logo_url }}" alt="Copral">
+      </div>
+      <div class="title">Prestação de Contas</div>
+      <div style="text-align:right;">
+        Placa: {{ d.placa }}{% if d.agregado %} | Agregado: {{ d.agregado }}{% endif %}<br/>
+        Data de Fechamento: {{ d.data }}<br/>
+        Emissão: {{ hoje }}
+      </div>
+    </div>
+
+    {% if d.cr_itens %}
+    <h5>Itens - Contas a Pagar</h5>
+    <table>
+      <thead>
+        <tr>
+          <th>OS</th><th>Serviço</th><th>Data</th><th>Item</th><th>Qtde</th><th>Un</th><th>Valor</th><th>Total</th><th>Per.</th><th>Parc.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in d.cr_itens %}
+        <tr>
+          <td>{{ i.os }}</td><td>{{ i.servico }}</td><td>{{ i.data }}</td><td>{{ i.item }}</td>
+          <td>{{ i.qtde|floatformat:2 }}</td><td>{{ i.un }}</td><td>{{ i.valor|floatformat:2 }}</td>
+          <td>{{ i.total|floatformat:2 }}</td><td>{{ i.periodo }}</td><td>{{ i.parcela }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if d.cr_venc %}
+    <h5>Vencimentos - Contas a Pagar</h5>
+    <table>
+      <thead><tr><th>Seq</th><th>Data</th><th>Valor</th></tr></thead>
+      <tbody>
+        {% for v in d.cr_venc %}
+        <tr><td>{{ v.seq }}</td><td>{{ v.data }}</td><td>{{ v.valor|floatformat:2 }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if d.cp_itens %}
+    <h5>Itens - Contas a Receber</h5>
+    <table>
+      <thead>
+        <tr>
+          <th>Emp</th><th>Código</th><th>Placa</th><th>Data</th><th>ACT</th><th>Status</th><th>Trecho</th>
+          <th>Valor</th><th>Adiant.</th><th>Outros</th><th>Saldo</th><th>Per.</th><th>Parc.</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in d.cp_itens %}
+        <tr>
+          <td>{{ i.empresa }}</td><td>{{ i.codigo }}</td><td>{{ i.placa }}</td><td>{{ i.data }}</td>
+          <td>{{ i.act }}</td><td>{{ i.status }}</td><td>{{ i.trecho }}</td>
+          <td>{{ i.valor|floatformat:2 }}</td><td>{{ i.adiantamento|floatformat:2 }}</td><td>{{ i.outros|floatformat:2 }}</td>
+          <td>{{ i.saldo|floatformat:2 }}</td><td>{{ i.periodo }}</td><td>{{ i.parcela }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if d.cp_venc %}
+    <h5>Vencimentos - Contas a Receber</h5>
+    <table>
+      <thead><tr><th>Seq</th><th>Data</th><th>Valor</th></tr></thead>
+      <tbody>
+        {% for v in d.cp_venc %}
+        <tr><td>{{ v.seq }}</td><td>{{ v.data }}</td><td>{{ v.valor|floatformat:2 }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if d.lanc %}
+    <h5>Lançamentos</h5>
+    <table>
+      <thead><tr><th>Data</th><th>Categoria</th><th>Valor</th><th>Obs</th><th>Per.</th><th>Parc.</th></tr></thead>
+      <tbody>
+        {% for l in d.lanc %}
+        <tr><td>{{ l.data }}</td><td>{{ l.categoria }}</td><td>{{ l.valor|floatformat:2 }}</td><td>{{ l.obs }}</td><td>{{ l.periodo }}</td><td>{{ l.parcela }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if d.totais %}
+    <h5>Totais</h5>
+    <table>
+      <tbody>
+        <tr><th style="width:60%;">Total a Receber (R$):</th><td>{{ d.totais.sCP|floatformat:2 }}</td></tr>
+        <tr><th style="width:60%;">Total a Pagar (R$):</th><td>{{ d.totais.sCR|floatformat:2 }}</td></tr>
+        <tr><th style="width:60%;">Lançamentos (± R$):</th><td>{{ d.totais.sLN|floatformat:2 }}</td></tr>
+        <tr><th style="width:60%;">Total Geral (R$):</th><td>{{ d.totais.totalGeral|floatformat:2 }}</td></tr>
+      </tbody>
+    </table>
+    {% endif %}
+
+  </div>
+{% endfor %}
+</body>
+</html>
+
+

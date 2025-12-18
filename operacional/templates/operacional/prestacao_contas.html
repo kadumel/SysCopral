@@ -1,0 +1,398 @@
+{% extends 'home.html' %}
+{% load static %}
+
+{% block title %}Prestação de Contas - Movimentos{% endblock %}
+
+{% block extra_css %}
+<style>
+  :root { --primary:#0056b3; --radius:12px; --muted:#6b7280; }
+  .pc-main { max-width: 100%; margin: 0 auto; padding: 1.25rem 1rem; }
+  .header-filters { background:#fff; border-radius: var(--radius); padding:1rem; box-shadow: 0 12px 24px -8px rgba(0,0,0,.12); margin-bottom:1rem; position:relative; }
+  .header-filters::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background: var(--primary); border-radius: var(--radius) var(--radius) 0 0; }
+  .page-title { color: var(--primary); font-weight:700; font-size:1.6rem; display:flex; gap:.5rem; align-items:center; margin-bottom:.75rem; }
+  .form-label { font-weight:600; color:#333; }
+  .doc-container { background:#fff; border-radius: var(--radius); padding:1rem; box-shadow: 0 12px 24px -8px rgba(0,0,0,.12); }
+  .doc-header { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e5e7eb; padding-bottom:.5rem; margin-bottom:.75rem; }
+  .doc-table { width:100%; border-collapse: separate; border-spacing: 6px 2px; table-layout: fixed; }
+  .doc-table th, .doc-table td { border-bottom:1px solid #e5e7eb; padding:.25rem .6rem; white-space: normal; word-break: break-word; overflow-wrap: anywhere; }
+  .doc-table th { background:#f8fafc; text-align:left; font-weight:600; font-size:.76rem; }
+  /* reduzir levemente a fonte apenas dos valores (td) em tela */
+  .doc-table td { font-size:.70rem; }
+  /* reduzir cabeçalho e títulos dos blocos em tela */
+  .doc-header { font-size:.9rem; }
+  .doc-header .doc-title { font-size:.95rem; }
+  .doc-container h5 { font-size:.9rem; }
+  /* Compactar a 1ª coluna (ex.: OS) somente onde indicado */
+  .doc-table.compact-first th:nth-child(1), .doc-table.compact-first td:nth-child(1) { width: 64px; }
+  /* Evitar quebras dentro de elementos críticos */
+  .doc-header,
+  .sign,
+  .doc-table thead,
+  .doc-table tfoot,
+  .doc-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .brand { display: flex; align-items: center; gap: .5rem; }
+  .pc-logo { height: 28px; }
+  .doc-header .doc-title { flex:1; text-align:center; font-weight:700; font-size:1.05rem; color:#111; }
+  .list-table { width:100%; border-collapse: collapse; background:#fff; border-radius: var(--radius); overflow:hidden; box-shadow: 0 12px 24px -8px rgba(0,0,0,.12); }
+  .list-table th, .list-table td { border-bottom:1px solid #e5e7eb; padding:.5rem; font-size:.9rem; }
+  .list-table th { background:#f1f5f9; }
+  .list-table th.actions, .list-table td.actions { width: 84px; text-align:center; }
+  .btnVisualizar i { font-size: 1.25rem; }
+  .sign { margin-top:1.25rem; display:flex; gap:2rem; }
+  .sign > div { flex:1; text-align:center; }
+  .sign .line { border-top:1px solid #333; margin-top:2rem; }
+  /* Ocultar cabeçalho HTML quando for gerar PDF e usar carimbo no jsPDF */
+  .for-pdf .doc-header { display:none !important; }
+  @media print {
+    @page { size: A4 landscape; margin: 10mm 8mm; }
+    .no-print { display:none !important; }
+    .pc-main { padding:0; }
+    .doc-container { box-shadow: none; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* cabeçalho um pouco maior, valores menores */
+    .doc-table th, .doc-table td { padding: .18rem .45rem; }
+    /* Definição em px: cabeçalho 1px maior que valores */
+    .doc-table td { font-size: 9px; }
+    .doc-table th { font-size: 10px; }
+    /* Títulos e cabeçalho menores para PDF */
+    .doc-header { font-size: 7.2pt; }
+    .doc-header .doc-title { font-size: 8pt; }
+    .doc-container h5 { font-size: 7pt; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pc-main">
+  <div class="header-filters">
+    <h1 class="page-title"><i class="fas fa-file-signature"></i> Prestação de Contas</h1>
+    <form class="row g-3">
+      <div class="col-md-4">
+        <label class="form-label">Placa</label>
+        <select id="pcPlaca" class="form-select">
+          <option value="">Selecione</option>
+          {% for p in placas_disponiveis %}
+            <option value="{{ p }}" {% if placa_filtro == p %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Data de Fechamento</label>
+        <input id="pcData" type="date" class="form-control" value="{{ data_fechamento }}">
+      </div>
+      <div class="col-md-4 d-flex align-items-end gap-2">
+        <button type="button" id="btnBuscar" class="btn btn-outline-primary no-print"><i class="fas fa-search me-1"></i> Buscar Placas</button>
+        <button type="button" id="btnGerarUnico" class="btn btn-primary no-print" disabled><i class="fas fa-file-download me-1"></i> Baixar PDF Único</button>
+        <button type="button" id="btnGerarInd" class="btn btn-secondary no-print" disabled><i class="fas fa-file-export me-1"></i> Baixar PDFs Individuais</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="mb-3 no-print" id="listaWrap" style="display:none;">
+    <table class="list-table">
+      <thead>
+        <tr>
+          <th style="width: 44px;"><input type="checkbox" id="chkAll"></th>
+          <th>Placa</th>
+          <th>Agregado</th>
+          <th class="actions">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="listaBody"></tbody>
+    </table>
+  </div>
+
+  <div id="docWrap" class="doc-container" style="display:none;">
+    <div id="multiDocs"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+const LOGO_URL = "{% static 'img/logo.png' %}";
+function fmt(v){ return Number(v||0).toFixed(2).replace('.', ','); }
+function todayBR(){
+  const d = new Date(); const dd=String(d.getDate()).padStart(2,'0');
+  const mm=String(d.getMonth()+1).padStart(2,'0'); const yy=d.getFullYear();
+  return `${dd}/${mm}/${yy}`;
+}
+function formatBRDateFromISO(iso){
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
+const hoje = todayBR();
+
+async function ensureHtml2Pdf(){
+  if (window.html2pdf) return true;
+  await new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+    s.onload = resolve;
+    document.body.appendChild(s);
+  });
+  return !!window.html2pdf;
+}
+
+const selAll = document.getElementById('chkAll');
+const listaBody = document.getElementById('listaBody');
+function sanitizeName(t){
+  return (t||'').toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^\w\-]+/g,'_')
+    .replace(/_+/g,'_')
+    .replace(/^_+|_+$/g,'');
+}
+function getSelecionadas(){
+  return Array.from(listaBody.querySelectorAll('input[type=checkbox].rowchk:checked'))
+    .map(chk => ({ placa: chk.dataset.placa, agregado: chk.dataset.agregado }));
+}
+selAll?.addEventListener('change', () => {
+  const on = selAll.checked;
+  listaBody.querySelectorAll('input[type=checkbox].rowchk').forEach(c => c.checked = on);
+  const any = getSelecionadas().length > 0;
+  document.getElementById('btnGerarUnico').disabled = !any;
+  document.getElementById('btnGerarInd').disabled = !any;
+});
+listaBody.addEventListener('change', (e) => {
+  if (e.target && e.target.classList.contains('rowchk')) {
+    const any = getSelecionadas().length > 0;
+    document.getElementById('btnGerarUnico').disabled = !any;
+    document.getElementById('btnGerarInd').disabled = !any;
+  }
+});
+// Visualizar documento de uma placa
+listaBody.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btnVisualizar');
+  if (!btn) return;
+  const data = document.getElementById('pcData').value || '';
+  if (!data){ alert('Informe a data de fechamento.'); return; }
+  const placa = btn.dataset.placa || '';
+  const agregado = btn.dataset.agregado || '';
+  try{
+    const js = await carregarDetalhes(placa, data);
+    const html = blocoDocumento({placa, agregado, data, js, includeHeaderHtml:true, pageBreakAfter:false});
+    const cont = document.getElementById('multiDocs');
+    cont.innerHTML = html;
+    document.getElementById('docWrap').style.display = '';
+    // garantir que cabeçalho permaneça visível em tela
+    cont.classList.remove('for-pdf');
+  }catch(err){
+    console.error(err);
+    alert('Falha ao visualizar documento.');
+  }
+});
+
+document.getElementById('btnBuscar').addEventListener('click', async () => {
+  const data = document.getElementById('pcData').value || '';
+  if (!data){ alert('Informe a data de fechamento.'); return; }
+  const url = new URL(window.location.origin + '/operacional/gestao-fechamento/placas/');
+  url.searchParams.set('data_fechamento', data);
+  const resp = await fetch(url.toString());
+  const js = await resp.json();
+  if (!resp.ok || !js.success){ alert(js.error || 'Não foi possível listar placas.'); return; }
+  listaBody.innerHTML = '';
+  (js.rows || []).forEach(r => {
+    listaBody.insertAdjacentHTML('beforeend', `<tr>
+      <td><input type="checkbox" class="rowchk" data-placa="${r.placa}" data-agregado="${r.agregado||''}"></td>
+      <td>${r.placa || ''}</td>
+      <td>${r.agregado || ''}</td>
+      <td class="actions">
+        <button type="button" class="btn btn-link btn-sm btnVisualizar" title="Visualizar" data-placa="${r.placa}" data-agregado="${r.agregado||''}">
+          <i class="fas fa-eye"></i>
+        </button>
+      </td>
+    </tr>`);
+  });
+  document.getElementById('listaWrap').style.display = '';
+  document.getElementById('btnGerarUnico').disabled = true;
+  document.getElementById('btnGerarInd').disabled = true;
+  document.getElementById('docWrap').style.display = 'none';
+});
+
+async function carregarDetalhes(placa, data){
+  const url = new URL(window.location.origin + '/operacional/gestao-fechamento/detalhes/');
+  url.searchParams.set('placa', placa);
+  url.searchParams.set('data_fechamento', data);
+  const resp = await fetch(url.toString());
+  const js = await resp.json();
+  if (!resp.ok || !js.success){ throw new Error(js.error || 'Falha ao obter detalhes'); }
+  return js;
+}
+
+function blocoDocumento({placa, agregado, data, js, includeHeaderHtml=true, pageBreakAfter=true}){
+  const crIt = js.cr_itens || [];
+  const cpIt = js.cp_itens || [];
+  const crV = js.cr_venc || [];
+  const cpV = js.cp_venc || [];
+  const ln = js.lanc || [];
+  let sCR=0, sCP=0, sLN=0;
+  crV.forEach(r=> sCR += Number(r.valor||0));
+  cpV.forEach(r=> sCP += Number(r.valor||0));
+  ln.forEach(r=> sLN += Number(r.valor||0));
+  const totalGeral = (sCP - sCR + sLN);
+
+  const head = `
+    <div class="doc-header">
+      <div class="brand">
+        <img class="pc-logo" src="${LOGO_URL}" alt="Copral">
+      </div>
+      <div class="doc-title">Prestação de Contas</div>
+      <div style="text-align:right;">
+        Placa: ${placa} | Agregado: ${agregado||''}<br/>
+        Data de Fechamento: ${formatBRDateFromISO(data)}<br/>
+        Emissão: ${hoje}
+      </div>
+    </div>`;
+  const sec = (titulo, cols, rows, opts) => {
+    if (!rows || !rows.length) return '';
+    return `
+      <h5 style="margin:.5rem 0;">${titulo}</h5>
+      <table class="doc-table${(opts && opts.compactFirst) ? ' compact-first' : ''}">
+        <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr>${r.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>`;
+  };
+  // Para o agregado: CR (empresa) = Pagar (agregado); CP (empresa) = Receber (agregado)
+  // CR Itens: usar "Valor" (em vez de Valor Unitário) e remover coluna Percentual
+  const secCRItens = sec('Itens - Contas a Pagar',
+    ['OS','Serviço','Data','Item','Qtde','Un','Valor','Total','Per.','Parc.'],
+    crIt.map(i => [i.os, i.servico, i.data, i.item, fmt(i.qtde), i.un, fmt(i.valor), fmt(i.total), i.periodo || '', i.parcela || '']),
+    { compactFirst: true }
+  );
+  const secCRVenc = sec('Vencimentos - Contas a Pagar', ['Seq','Data','Valor'], crV.map(v=>[v.seq, v.data, fmt(v.valor)]));
+  const secCPItens = sec('Itens - Contas a Receber',
+    ['Emp','Código','Placa','Data','ACT','Status','Trecho','Valor','Adiant.','Outros','Saldo','Per.','Parc.'],
+    cpIt.map(i => [i.empresa, i.codigo, i.placa, i.data, i.act, i.status, i.trecho, fmt(i.valor), fmt(i.adiantamento), fmt(i.outros), fmt(i.saldo), i.periodo, i.parcela])
+  );
+  const secCPVenc = sec('Vencimentos - Contas a Receber', ['Seq','Data','Valor'], cpV.map(v=>[v.seq, v.data, fmt(v.valor)]));
+  const secLanc = sec('Lançamentos', ['Data','Categoria','Valor','Obs','Per.','Parc.'], ln.map(l=>[l.data, l.categoria, fmt(l.valor), l.obs||'', l.periodo || '', l.parcela || '']));
+  const rodape = `
+    <table class="doc-table">
+      <tfoot>
+        <tr><th colspan="3" style="text-align:right;">Total a Receber (R$):</th><th>${fmt(sCP)}</th></tr>
+        <tr><th colspan="3" style="text-align:right;">Total a Pagar (R$):</th><th>${fmt(sCR)}</th></tr>
+        <tr><th colspan="3" style="text-align:right;">Lançamentos (± R$):</th><th>${fmt(sLN)}</th></tr>
+        <tr><th colspan="3" style="text-align:right;">Total Geral (R$):</th><th>${fmt(totalGeral)}</th></tr>
+      </tfoot>
+    </table>
+    <div class="sign">
+      <div><div class="line"></div><div>Agregado</div></div>
+      <div><div class="line"></div><div>Empresa</div></div>
+    </div>`;
+  const headerPart = includeHeaderHtml ? head : '';
+  const styleBreak = pageBreakAfter ? 'page-break-after: always;' : '';
+  return `<section style="${styleBreak}">${headerPart}${secCRItens}${secCRVenc}${secCPItens}${secCPVenc}${secLanc}${rodape}</section>`;
+}
+
+async function getLogoDataUrl(){
+  try{
+    const res = await fetch(LOGO_URL, { mode: 'cors' });
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result);
+      r.readAsDataURL(blob);
+    });
+  }catch(e){ return null; }
+}
+
+function drawHeaderAllPages(pdf, { logoData, placa, agregado, dataFechamento, emissao }){
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const rightX = pageWidth - 8; // respeita margem direita
+  const centerX = pageWidth / 2;
+  const totalPages = pdf.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    // Logo à esquerda
+    if (logoData){
+      try { pdf.addImage(logoData, 'PNG', 8, 6, 18, 0); } catch(_) {}
+    }
+    // Título centralizado
+    try{
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(8);
+      pdf.text('Prestação de Contas', centerX, 11, { align: 'center' });
+    }catch(_){}
+    // Texto à direita
+    try{
+      pdf.setFontSize(7);
+      pdf.setFont('helvetica', 'normal');
+      if (placa || agregado){
+        pdf.text(`Placa: ${placa||''} | Agregado: ${agregado||''}`, rightX, 9, { align: 'right' });
+      }
+      pdf.text(`Data de Fechamento: ${dataFechamento||''}`, rightX, 13, { align: 'right' });
+      pdf.text(`Emissão: ${emissao||''}`, rightX, 16.5, { align: 'right' });
+    }catch(_){}
+  }
+}
+
+document.getElementById('btnGerarUnico').addEventListener('click', async () => {
+  const data = document.getElementById('pcData').value || '';
+  const selecionadas = getSelecionadas();
+  if (!data || !selecionadas.length){ alert('Selecione a data e ao menos uma placa.'); return; }
+  try{
+    // Download via servidor (sem alterar o DOM da página)
+    const url = new URL(window.location.origin + '/operacional/prestacao-contas/pdf/');
+    url.searchParams.set('data_fechamento', data);
+    for (const s of selecionadas) url.searchParams.append('placa', s.placa);
+    const a = document.createElement('a');
+    a.href = url.toString();
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }catch(e){ console.error(e); alert('Erro ao montar documento único.'); }
+});
+
+document.getElementById('btnGerarInd').addEventListener('click', async () => {
+  const data = document.getElementById('pcData').value || '';
+  const selecionadas = getSelecionadas();
+  if (!data || !selecionadas.length){ alert('Selecione a data e ao menos uma placa.'); return; }
+  try{
+    const ok = await ensureHtml2Pdf();
+    if (!ok){ alert('Falha ao carregar o gerador de PDF.'); return; }
+    for (const s of selecionadas){
+      const js = await carregarDetalhes(s.placa, data);
+      const sectionHTML = blocoDocumento({placa:s.placa, agregado:s.agregado, data, js, includeHeaderHtml:false, pageBreakAfter:false});
+      const wrap = document.getElementById('docWrap');
+      const cont = document.getElementById('multiDocs');
+      cont.innerHTML = sectionHTML;
+      cont.classList.add('for-pdf');
+      wrap.style.display = '';
+      const __old = {
+        position: cont.style.position, left: cont.style.left, top: cont.style.top,
+        opacity: cont.style.opacity, pointerEvents: cont.style.pointerEvents,
+        zIndex: cont.style.zIndex, width: cont.style.width, boxSizing: cont.style.boxSizing
+      };
+      cont.style.position = 'absolute';
+      cont.style.left = '0';
+      cont.style.top = '0';
+      cont.style.opacity = '0';
+      cont.style.pointerEvents = 'none';
+      cont.style.zIndex = '-1';
+      cont.style.width = 'auto';
+      cont.style.boxSizing = 'border-box';
+      try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch(_e) {}
+      await new Promise(r => setTimeout(r, 600));
+      // Redirecionar para geração no servidor (individual)
+      const url = new URL(window.location.origin + '/operacional/prestacao-contas/pdf/');
+      url.searchParams.set('data_fechamento', data);
+      url.searchParams.append('placa', s.placa);
+      const a = document.createElement('a');
+      a.href = url.toString();
+      a.download = '';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  }catch(e){ console.error(e); alert('Erro ao gerar PDFs individuais.'); }
+});
+</script>
+{% endblock %}
+
