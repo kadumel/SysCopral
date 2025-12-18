@@ -664,8 +664,15 @@ class AbastecimentoListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
             ultimo_dia = (proximo_mes - timedelta(days=1))
             data_final_filtro = ultimo_dia.strftime('%Y-%m-%d')
         
-        # Obter valores distintos para os seletores
-        tipos_combustivel = Item.objects.values_list('nm_item', flat=True).distinct().exclude(nm_item__isnull=True).exclude(nm_item__exact='').order_by('nm_item')
+        # Obter valores distintos para os seletores (apenas tipos presentes no resultado da sp_abastecimento)
+        tipos_combustivel = (
+            Abastecimento.objects
+            .values_list('id_item__nm_item', flat=True)
+            .distinct()
+            .exclude(id_item__nm_item__isnull=True)
+            .exclude(id_item__nm_item__exact='')
+            .order_by('id_item__nm_item')
+        )
         
         # Calcular indicadores
         queryset = self.get_queryset()
