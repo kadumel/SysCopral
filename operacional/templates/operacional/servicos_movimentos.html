@@ -500,7 +500,7 @@
                             <td></td> 
                             <td></td> 
                             <td>R$ {{ t.total_tipo|floatformat:2 }}</td>
-                            <td></td> <!-- Perc. -->
+                            <td></td> <!-- Perc. (sem botão no nível 2) -->
                             <td>R$ {{ t.cobrar_tipo|floatformat:2 }}</td> <!-- Cobrar -->
                             <td></td> <!-- Período -->
                             <td></td> <!-- Parcelas -->
@@ -518,7 +518,7 @@
 							</td>
                         </tr>
                             {% for it in t.itens %}
-                            <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-status="{{ it.status }}" data-cd-servico="{{ it.cd_servico|default_if_none:'' }}" data-nm-servico="{{ it.nm_servico|default_if_none:'' }}" data-vl-sistema="{{ it.vl_sistema|default_if_none:0 }}">
+                            <tr class="row-item collapsed tipo-{{ forloop.parentloop.parentloop.counter0 }}-{{ forloop.parentloop.counter0 }}" data-tipo="{{ t.tipo|lower }}" data-origem="{{ it.origem|default_if_none:''|lower }}" data-status="{{ it.status }}" data-cd-servico="{{ it.cd_servico|default_if_none:'' }}" data-nm-servico="{{ it.nm_servico|default_if_none:'' }}" data-vl-sistema="{{ it.vl_sistema|default_if_none:0 }}">
                                 <td class="text-start"></td>
                                 <td class="text-start"></td>
                                 <td>{{ it.data|date:"d/m/Y" }}</td>
@@ -542,6 +542,7 @@
                                         <span class="input-group-text">%</span>
                                     </div>
                                 {% endif %}
+                                <!-- Botão para editar valor unitário (adicionado via JS quando tipo=abastecimento e origem=externo) -->
                             </td>
                             <td>R$ {{ it.cobrar|floatformat:2 }}</td>
                             <td>
@@ -1004,6 +1005,151 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         document.querySelectorAll('tr.row-item').forEach(updateVlSistemaCell);
     } catch(_e) {}
+
+    // Modal para editar valor unitário do abastecimento externo
+    (function ensureEditValorModal(){
+        if (document.getElementById('modalEditarValor')) return;
+        const wrap = document.createElement('div');
+        wrap.innerHTML = `
+        <div class="modal fade" id="modalEditarValor" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Editar valor unitário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="mb-2">
+                  <label class="form-label">Valor unitário (R$)</label>
+                  <input type="number" class="form-control form-control-sm" id="editValorUnit" min="0" step="0.0001">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success btn-sm" id="btnSalvarValorUnit">Salvar</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+        document.body.appendChild(wrap.firstElementChild);
+    })();
+
+    // Inserir botão de edição ao lado do "Vl Sistema" no último nível:
+    // - Abastecimento com origem=externo (individual)
+    // - Serviço (individual em cada item)
+    (function addEditButtons(){
+        document.querySelectorAll('tr.row-item').forEach(tr => {
+            const tipoAttr = (tr.getAttribute('data-tipo')||'').toLowerCase();
+            const origemAttr = (tr.getAttribute('data-origem')||'').toLowerCase();
+            // normalizar acentos (serviço -> servico)
+            const tipoNorm = tipoAttr.normalize ? tipoAttr.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ç/g,'c') : tipoAttr;
+            const isAbast = tipoNorm.includes('abastec');
+            const isServ = tipoNorm.includes('servic') || tipoNorm.includes('servi');
+            if (!(isAbast || isServ)) return;
+            // Para abastecimento, apenas quando origem for externo
+            if (isAbast && origemAttr !== 'externo') return;
+            const tds = tr.querySelectorAll('td');
+            const tdVlSis = tds[9];
+            if (!tdVlSis) return;
+            if (tdVlSis.querySelector('.btn-edit-vl-unit')) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-outline-warning btn-sm ms-2 btn-edit-vl-unit';
+            btn.title = 'Editar valor unitário (abastecimento externo)';
+            btn.innerHTML = '<i class="fas fa-pen"></i>';
+            tdVlSis.appendChild(btn);
+        });
+    })();
+
+    // Função para recalcular totais do tipo e da placa a partir de uma linha item
+    function recalcTotalsForRow(tr){
+        function parseMoney(td){
+            return parseFloat((td?.textContent||'').replace('R$','').trim().replace(/\./g,'').replace(',', '.'))||0;
+        }
+        // localizar a row-tipo e row-placa acima
+        let cursor = tr.previousElementSibling;
+        let tipoRow = null; let placaRow = null;
+        while (cursor) {
+            if (!tipoRow && cursor.classList.contains('row-tipo')) tipoRow = cursor;
+            if (cursor.classList.contains('row-placa')) { placaRow = cursor; break; }
+            cursor = cursor.previousElementSibling;
+        }
+        // somar itens do mesmo tipo até próxima row-tipo/placa
+        if (tipoRow){
+            let sumTipoCobrar = 0; let sumTipoTotal = 0;
+            let nxt = tipoRow.nextElementSibling;
+            while (nxt && !nxt.classList.contains('row-tipo') && !nxt.classList.contains('row-placa')){
+                if (nxt.classList.contains('row-item')){
+                    const cells = nxt.querySelectorAll('td');
+                    sumTipoCobrar += parseMoney(cells[10]);
+                    sumTipoTotal += parseMoney(cells[8]);
+                }
+                nxt = nxt.nextElementSibling;
+            }
+            const cells = tipoRow.querySelectorAll('td');
+            if (cells[10]) cells[10].textContent = 'R$ ' + sumTipoCobrar.toFixed(2).replace('.', ',');
+            if (cells[8]) cells[8].textContent = 'R$ ' + sumTipoTotal.toFixed(2).replace('.', ',');
+        }
+        // somar por placa até próxima row-placa
+        if (placaRow){
+            let sumPlacaCobrar = 0; let sumPlacaTotal = 0;
+            let nxt = placaRow.nextElementSibling;
+            while (nxt && !nxt.classList.contains('row-placa')){
+                if (nxt.classList.contains('row-item')){
+                    const cells = nxt.querySelectorAll('td');
+                    sumPlacaCobrar += parseMoney(cells[10]);
+                    sumPlacaTotal += parseMoney(cells[8]);
+                }
+                nxt = nxt.nextElementSibling;
+            }
+            const cells = placaRow.querySelectorAll('td');
+            if (cells[10]) cells[10].textContent = 'R$ ' + sumPlacaCobrar.toFixed(2).replace('.', ',');
+            if (cells[8]) cells[8].textContent = 'R$ ' + sumPlacaTotal.toFixed(2).replace('.', ',');
+        }
+    }
+
+    // Ação do botão editar: abrir modal, salvar valor, atualizar td Vl Sistema e cobrar
+    document.addEventListener('click', function(e){
+        const btn = e.target.closest('.btn-edit-vl-unit');
+        if (!btn) return;
+        const tr = btn.closest('tr.row-item');
+        if (!tr) return;
+        const tds = tr.querySelectorAll('td');
+        // valor unitário atual efetivo
+        let currentUnit = Number(tr.getAttribute('data-vl-sistema') || '0');
+        if (!currentUnit) {
+            // tentar a partir do display (vl-sis-display) se já calculado
+            const span = tds[9]?.querySelector('.vl-sis-display');
+            if (span) {
+                currentUnit = Number((span.textContent||'').replace('R$','').trim().replace(/\./g,'').replace(',', '.')) || 0;
+            }
+        }
+        const modalEl = document.getElementById('modalEditarValor');
+        const input = modalEl.querySelector('#editValorUnit');
+        input.value = currentUnit ? currentUnit.toFixed(4) : '';
+        const modal = (typeof bootstrap!=='undefined') ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+        const salvar = modalEl.querySelector('#btnSalvarValorUnit');
+        const onSave = () => {
+            const v = Number((input.value||'0').toString().replace(',', '.'));
+            if (!(v >= 0)) { alert('Informe um valor válido.'); return; }
+            // Atualiza atributo base (data-vl-sistema) para que updateVlSistemaCell priorize este valor
+            tr.setAttribute('data-vl-sistema', String(v));
+            try { updateVlSistemaCell(tr); } catch(_e) {}
+            // Recalcula cobrar = unit * quantidade
+            const qty = Number((tds[6]?.textContent||'0').toString().replace(',', '.')) || 0;
+            const cobrarVal = v * qty;
+            if (tds[10]) tds[10].textContent = 'R$ ' + cobrarVal.toFixed(2).replace('.', ',');
+            // Recalcular totais de tipo e placa
+            recalcTotalsForRow(tr);
+            if (modal) modal.hide(); else modalEl.style.display='none';
+            // limpar listener único
+            salvar.removeEventListener('click', onSave);
+        };
+        salvar.addEventListener('click', onSave);
+        if (modal) modal.show(); else modalEl.style.display='block';
+    });
+
+    // Removido botão de edição em massa do nível 2; lápis só no nível 3 (item)
 });
 </script>
 {% endblock %}
