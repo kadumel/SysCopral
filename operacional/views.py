@@ -25,7 +25,7 @@ try:
     from xhtml2pdf import pisa  # type: ignore
 except Exception:
     pisa = None
-from .models import Veiculo, Servico, Item, Abastecimento, Atualizações, Lancamento, OpeCategoria, Fechamento, ContasReceber, ItensContasReceber, ItensContasPagar, VencContasReceber, VencContasPagar, tipo_periodo
+from .models import Veiculo, Servico, Item, PrecoHistorico, Abastecimento, Atualizações, Lancamento, OpeCategoria, Fechamento, ContasReceber, ItensContasReceber, ItensContasPagar, VencContasReceber, VencContasPagar, tipo_periodo
 
 # Aliases para nomes de modelos que podem variar
 try:
@@ -1053,6 +1053,19 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 key = str(it['nm_item']).strip().upper()
                 item_name_to_percent[key] = it['percentual'] or 0
                 item_name_to_vl_sistema[key] = it.get('vl_sistema') or 0
+        # Histórico de preço por código de item (cd_item como string)
+        price_hist_by_code = {}
+        if item_codes_str:
+            try:
+                for ph in PrecoHistorico.objects.filter(cd_item__in=list(item_codes_str)).values('cd_item', 'data', 'valor'):
+                    code = str(ph['cd_item']).strip()
+                    arr = price_hist_by_code.setdefault(code, [])
+                    arr.append((ph['data'], float(ph['valor'] or 0)))
+                # ordenar por data crescente para busca eficiente
+                for code, arr in price_hist_by_code.items():
+                    arr.sort(key=lambda x: x[0])
+            except Exception:
+                price_hist_by_code = {}
 
         # Preparar mapa de status "fechado" por item (ordem, cd_item, data, placa)
         placas_str = set([ (r.get('placa') or '').strip() for r in rows if r.get('placa') ])
@@ -1133,6 +1146,25 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 # Em ambos os casos, "cobrar" = unitário efetivo * quantidade
                 # Buscar vl_sistema por id, código ou nome
                 vl_sistema_lookup = 0
+                # 0) Se existir histórico de preço para o cd_item, usar o registro mais recente com data <= data da movimentação
+                try:
+                    mov_data_val = r.get('data')
+                    mov_date_only = mov_data_val.date() if hasattr(mov_data_val, 'date') else mov_data_val
+                except Exception:
+                    mov_date_only = None
+                hist_val = 0.0
+                if mov_date_only:
+                    try:
+                        cd_item_raw = r.get('cd_item')
+                        cd_item_str = str(cd_item_raw).strip() if cd_item_raw is not None else ''
+                        arr = price_hist_by_code.get(cd_item_str) or []
+                        # busca linear reversa (arrays são curtos). Para grandes, usar bisect.
+                        for d, v in reversed(arr):
+                            if d and d <= mov_date_only:
+                                hist_val = float(v or 0.0)
+                                break
+                    except Exception:
+                        hist_val = 0.0
                 if cd_item_key is not None and cd_item_key in item_id_to_vl_sistema:
                     vl_sistema_lookup = item_id_to_vl_sistema.get(cd_item_key) or 0
                 else:
@@ -1144,7 +1176,8 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                         nm_item_key = str(nm_item_raw).strip().upper() if nm_item_raw else ''
                         vl_sistema_lookup = item_name_to_vl_sistema.get(nm_item_key) or 0
                 try:
-                    vl_sistema_f = float(vl_sistema_lookup or 0)
+                    # prioridade final: histórico > vl_sistema do cadastro > 0
+                    vl_sistema_f = float((hist_val if hist_val else vl_sistema_lookup) or 0)
                 except Exception:
                     vl_sistema_f = 0.0
                 # Percentual do item

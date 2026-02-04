@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import OpeCategoria, Lancamento
+from .models import OpeCategoria, Lancamento, PrecoHistorico
 # Register your models here.
 
 @admin.register(OpeCategoria)
@@ -32,3 +32,10 @@ class LancamentoAdmin(admin.ModelAdmin):
         if not obj.pk:  # Só define autor na criação
             obj.usuario = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(PrecoHistorico)
+class PrecoHistoricoAdmin(admin.ModelAdmin):
+    list_display = ('cd_item', 'data', 'valor')
+    list_filter = ('cd_item', 'data')
+    search_fields = ('cd_item', )

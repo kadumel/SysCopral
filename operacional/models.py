@@ -74,6 +74,29 @@ class Item(models.Model):
         self.nm_item = self.nm_item.upper()
         super().save(*args, **kwargs)
 
+class PrecoHistorico(models.Model):
+    """
+    Histórico de preço unitário por código de item.
+    A regra é usar o registro mais recente cuja data seja menor ou igual à data da movimentação.
+    """
+    cd_item = models.CharField(max_length=50, db_index=True)
+    data = models.DateField(db_index=True)
+    valor = models.FloatField()
+    dt_criacao = models.DateTimeField(auto_now_add=True)
+    dt_atualizacao = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ope_preco_hist'
+        verbose_name = 'histórico de preço de item'
+        verbose_name_plural = 'históricos de preço de item'
+        unique_together = (('cd_item', 'data'),)
+        indexes = [
+            models.Index(fields=['cd_item', 'data']),
+        ]
+
+    def __str__(self):
+        return f"{self.cd_item} - {self.data} - {self.valor}"
+
 class Servico(models.Model):
     cd_tipo_servico = models.IntegerField(blank=True, null=True)
     nm_tipo_servico = models.CharField(max_length=150, blank=True, null=True)
