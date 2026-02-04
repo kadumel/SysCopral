@@ -187,41 +187,6 @@ function getCookie(name) {
       }
     }
   }
-  // Baixar PDF do agregado (todas as placas do grupo)
-  const btnPdfGroup = e.target.closest('.btn-pdf-grupo');
-  if (btnPdfGroup){
-    const placasCsv = btnPdfGroup.getAttribute('data-placas')||'';
-    const data = btnPdfGroup.getAttribute('data-data')||'';
-    if (!placasCsv || !data){ alert('Grupo sem placas ou data inválida.'); return; }
-    const placas = placasCsv.split(',').map(s=>s.trim()).filter(Boolean);
-    if (!placas.length){ alert('Nenhuma placa no grupo.'); return; }
-    const url = new URL(window.location.origin + '/operacional/prestacao-contas/pdf/');
-    url.searchParams.set('data_fechamento', data);
-    placas.forEach(p => url.searchParams.append('placa', p));
-    // Baixar via fetch -> blob (evita bloqueio de popup e dispara sempre)
-    fetch(url.toString(), { method: 'GET' })
-      .then(resp => {
-        if (!resp.ok) throw new Error('Falha ao gerar PDF do agregado');
-        const cd = resp.headers.get('Content-Disposition') || '';
-        const m = /filename="?([^"]+)"?/i.exec(cd);
-        const fname = (m && m[1]) ? m[1] : 'prestacao.pdf';
-        return resp.blob().then(blob => ({ blob, fname }));
-      })
-      .then(({ blob, fname }) => {
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = fname;
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
-        document.body.removeChild(a);
-      })
-      .catch(err => {
-        console.error(err);
-        alert('Erro ao baixar PDF do agregado.');
-      });
-    return;
-  }
   return cookieValue;
 }
 // Função global para acionar download do PDF do agregado (chamada inline no botão)

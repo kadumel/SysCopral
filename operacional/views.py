@@ -25,7 +25,7 @@ try:
     from xhtml2pdf import pisa  # type: ignore
 except Exception:
     pisa = None
-from .models import Veiculo, Servico, Item, Abastecimento, Atualizações, Lancamento, OpeCategoria, Fechamento, ContasReceber, ItensContasReceber, ItensContasPagar, VencContasReceber, VencContasPagar, tipo_periodo
+from .models import Veiculo, Servico, Item, PrecoHistorico, Abastecimento, Atualizações, Lancamento, OpeCategoria, Fechamento, ContasReceber, ItensContasReceber, ItensContasPagar, VencContasReceber, VencContasPagar, tipo_periodo
 
 # Aliases para nomes de modelos que podem variar
 try:
@@ -891,6 +891,7 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
         item_name_col = find_col(['nmitem', 'nm_item', 'nome_item', 'descricao_item'], fallback_contains='item')
         status_col = find_col(['status', 'st'], fallback_contains='status')
         unit_col = find_col(['unidade', 'unid', 'und', 'un'])
+        origin_col = find_col(['origem', 'ds_origem', 'origem_dado', 'origem_item', 'source'], fallback_contains='orig')
 
         select_parts = []
         if code_col: select_parts.append(f"{code_col} AS code_col")
@@ -907,6 +908,7 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
         if item_name_col: select_parts.append(f"{item_name_col} AS item_name_col")
         if status_col: select_parts.append(f"{status_col} AS status_col")
         if unit_col: select_parts.append(f"{unit_col} AS unit_col")
+        if origin_col: select_parts.append(f"{origin_col} AS origin_col")
         if not select_parts:
             select_parts.append("*")
 
@@ -985,6 +987,7 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                     'nm_item': row.get('item_name_col') if 'item_name_col' in row else row.get((item_name_col or '').lower()) if item_name_col else None,
                     'unidade': row.get('unit_col') if 'unit_col' in row else row.get((unit_col or '').lower()) if unit_col else None,
                     'status': row.get('status_col') if 'status_col' in row else None,
+                    'origem': row.get('origin_col') if 'origin_col' in row else row.get((origin_col or '').lower()) if origin_col else None,
                 })
 
         return rows
@@ -1004,7 +1007,11 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
         servico_code_to_valor = {}
         if service_codes:
             for s in Servico.objects.filter(cd_servico__in=list(service_codes)).values('cd_servico', 'valor'):
-                servico_code_to_valor[s['cd_servico']] = s['valor'] or 0
+                try:
+                    key = str(s['cd_servico']).strip()
+                except Exception:
+                    key = s['cd_servico']
+                servico_code_to_valor[key] = s['valor'] or 0
 
         # Preparar chaves robustas para itens: tanto por id_item (int) quanto por pro_codigo (str) e nm_item
         item_id_to_percent = {}
@@ -1046,6 +1053,19 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 key = str(it['nm_item']).strip().upper()
                 item_name_to_percent[key] = it['percentual'] or 0
                 item_name_to_vl_sistema[key] = it.get('vl_sistema') or 0
+        # Histórico de preço por código de item (cd_item como string)
+        price_hist_by_code = {}
+        if item_codes_str:
+            try:
+                for ph in PrecoHistorico.objects.filter(cd_item__in=list(item_codes_str)).values('cd_item', 'data', 'valor'):
+                    code = str(ph['cd_item']).strip()
+                    arr = price_hist_by_code.setdefault(code, [])
+                    arr.append((ph['data'], float(ph['valor'] or 0)))
+                # ordenar por data crescente para busca eficiente
+                for code, arr in price_hist_by_code.items():
+                    arr.sort(key=lambda x: x[0])
+            except Exception:
+                price_hist_by_code = {}
 
         # Preparar mapa de status "fechado" por item (ordem, cd_item, data, placa)
         placas_str = set([ (r.get('placa') or '').strip() for r in rows if r.get('placa') ])
@@ -1094,15 +1114,30 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 except Exception:
                     return None
             cd_servico_key = to_int_safe(cd_servico_row) if cd_servico_row is not None else None
+            try:
+                cd_servico_key_str = str(cd_servico_row).strip() if cd_servico_row is not None else ''
+            except Exception:
+                cd_servico_key_str = ''
             cd_item_key = to_int_safe(cd_item_row) if cd_item_row is not None else None
             is_servico = 'servic' in tipo_norm  # somente quando o tipo indicar serviço
             if is_servico:
-                # Serviço: usar valor do modelo; fallback para TOTAL do item
-                base_val = servico_code_to_valor.get(cd_servico_key) if cd_servico_key is not None else None
-                cobrar_val = float(base_val or 0)
-                if cobrar_val == 0:
-                    cobrar_val = float(total_item or 0)
-                perc_display = 0.0  # para serviços não aplicar percentual por padrão
+                # Serviço: unitário do modelo Servico.valor (por cd_servico); fallback para valor unitário da view
+                try:
+                    unit_frota = float(r.get('valor') or 0)
+                except Exception:
+                    unit_frota = 0.0
+                try:
+                    qty_f = float(r.get('quantidade') or 0)
+                except Exception:
+                    qty_f = 0.0
+                base_val = servico_code_to_valor.get(cd_servico_key_str)
+                try:
+                    base_f = float(base_val) if base_val is not None else 0.0
+                except Exception:
+                    base_f = 0.0
+                unit_eff = base_f if base_f > 0 else unit_frota
+                cobrar_val = unit_eff * qty_f
+                perc_display = 0.0  # serviços não aplicam percentual por padrão
             else:
                 # Demais tipos:
                 # Regra de prioridade (unitário):
@@ -1111,6 +1146,25 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 # Em ambos os casos, "cobrar" = unitário efetivo * quantidade
                 # Buscar vl_sistema por id, código ou nome
                 vl_sistema_lookup = 0
+                # 0) Se existir histórico de preço para o cd_item, usar o registro mais recente com data <= data da movimentação
+                try:
+                    mov_data_val = r.get('data')
+                    mov_date_only = mov_data_val.date() if hasattr(mov_data_val, 'date') else mov_data_val
+                except Exception:
+                    mov_date_only = None
+                hist_val = 0.0
+                if mov_date_only:
+                    try:
+                        cd_item_raw = r.get('cd_item')
+                        cd_item_str = str(cd_item_raw).strip() if cd_item_raw is not None else ''
+                        arr = price_hist_by_code.get(cd_item_str) or []
+                        # busca linear reversa (arrays são curtos). Para grandes, usar bisect.
+                        for d, v in reversed(arr):
+                            if d and d <= mov_date_only:
+                                hist_val = float(v or 0.0)
+                                break
+                    except Exception:
+                        hist_val = 0.0
                 if cd_item_key is not None and cd_item_key in item_id_to_vl_sistema:
                     vl_sistema_lookup = item_id_to_vl_sistema.get(cd_item_key) or 0
                 else:
@@ -1122,7 +1176,8 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                         nm_item_key = str(nm_item_raw).strip().upper() if nm_item_raw else ''
                         vl_sistema_lookup = item_name_to_vl_sistema.get(nm_item_key) or 0
                 try:
-                    vl_sistema_f = float(vl_sistema_lookup or 0)
+                    # prioridade final: histórico > vl_sistema do cadastro > 0
+                    vl_sistema_f = float((hist_val if hist_val else vl_sistema_lookup) or 0)
                 except Exception:
                     vl_sistema_f = 0.0
                 # Percentual do item
@@ -1209,6 +1264,7 @@ class ServicosMovimentosListView(LoginRequiredMixin, PermissionRequiredMixin, Li
                 'nm_servico': r.get('nm_servico'),
                 'unidade': r.get('unidade') or '',
                 'status': item_status_str,
+                'origem': (r.get('origem') or ''),
             })
 
             grupos[placa]['tipos'][tipo]['total_tipo'] += (total_item or 0)
