@@ -21,6 +21,7 @@ import base64
 import tempfile
 from pathlib import Path
 import os
+from decimal import Decimal, ROUND_HALF_UP
 try:
     from xhtml2pdf import pisa  # type: ignore
 except Exception:
@@ -1774,6 +1775,12 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
         placa_f = (self.request.GET.get('placa') or '').strip()
         agregado_f = (self.request.GET.get('agregado') or '').strip()
         data_str = (self.request.GET.get('data_fechamento') or '').strip()  # yyyy-mm-dd
+        # Atualiza cod_ag somente quando usuário clicar em Filtrar
+        if str(self.request.GET.get('atualizar_cod_ag') or '').strip() == '1':
+            try:
+                _atualizar_cod_ag_por_view(data_str)
+            except Exception:
+                pass
         # Não carrega dados se não houver data de fechamento
 
         print('teste', 100*'*')
@@ -1972,6 +1979,32 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
         except Exception:
             agregados_disponiveis = []
 
+        grupos_map = {}
+        for p in rows:
+            key = (p.get('agregado') or '').strip() or 'SEM AGREGADO'
+            grupos_map.setdefault(key, []).append(p)
+
+        grupos = []
+        for nome_ag, placas_rows in grupos_map.items():
+            fechamento_ids = [r.get('fechamento_id') for r in placas_rows if r.get('fechamento_id')]
+            cods_ag = [str(r.get('cod_ag') or '').strip() for r in placas_rows if str(r.get('cod_ag') or '').strip()]
+            cod_ag_grupo = cods_ag[0] if cods_ag else ''
+            grupos.append({
+                'agregado': nome_ag,
+                'placas': placas_rows,
+                'placas_csv': ','.join([str(p.get('placa') or '') for p in placas_rows if p.get('placa')]),
+                'all_have_fech': all(bool(p.get('fechamento_id')) for p in placas_rows),
+                'all_sent_ag': all(bool((p.get('cod_ag') or '').strip()) for p in placas_rows),
+                'fechamento_id_grupo': fechamento_ids[0] if fechamento_ids else None,
+                'cod_ag_grupo': cod_ag_grupo,
+                'totais': {
+                    'total_receber': sum(p.get('total_receber', 0.0) for p in placas_rows),
+                    'total_pagar': sum(p.get('total_pagar', 0.0) for p in placas_rows),
+                    'lancamentos': sum(p.get('lancamentos', 0.0) for p in placas_rows),
+                    'total_final': sum(p.get('total_final', 0.0) for p in placas_rows),
+                }
+            })
+
         context.update({
             'placa_filtro': placa_f,
             'agregado_filtro': agregado_f,
@@ -1979,25 +2012,7 @@ class GestaoFechamentoView(LoginRequiredMixin, PermissionRequiredMixin, Template
             'placas_disponiveis': placas_disponiveis,
             'agregados_disponiveis': agregados_disponiveis,
             'rows': rows,
-            # Agrupar por agregado para exibir hierarquia Agregado -> Placas
-            'grupos': (lambda rr: [
-                {
-                    'agregado': k or 'SEM AGREGADO',
-                    'placas': v,
-                    'placas_csv': ','.join([str(p.get('placa') or '') for p in v if p.get('placa')]),
-                    'all_have_fech': all(bool(p.get('fechamento_id')) for p in v),
-                    'all_sent_ag': all(bool((p.get('cod_ag') or '').strip()) for p in v),
-                    'totais': {
-                        'total_receber': sum(p.get('total_receber', 0.0) for p in v),
-                        'total_pagar': sum(p.get('total_pagar', 0.0) for p in v),
-                        'lancamentos': sum(p.get('lancamentos', 0.0) for p in v),
-                        'total_final': sum(p.get('total_final', 0.0) for p in v),
-                    }
-                }
-                for k, v in (lambda m: m.items())( (lambda m:
-                    ( [m.setdefault((p.get('agregado') or '').strip() or 'SEM AGREGADO', []).append(p) for p in rr], m )[1]
-                )({}) )
-            ])(rows),
+            'grupos': grupos,
         })
         return context
 
@@ -2253,6 +2268,311 @@ def gestao_fechamento_enviar_ag_grupo(request):
     except Exception as e:
         return JsonResponse({'success': False, 'error': f'Falha ao marcar envio em grupo: {e}'}, status=500)
     return JsonResponse({'success': True, 'cod_ag': group_code})
+
+
+def _ag_fixed_text(value, size: int) -> str:
+    txt = str(value or '')
+    if len(txt) >= size:
+        return txt[:size]
+    return txt.ljust(size)
+
+
+def _ag_fixed_digits(value, size: int) -> str:
+    txt = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if len(txt) >= size:
+        return txt[-size:]
+    return txt.zfill(size)
+
+
+def _ag_fixed_cnpjcpf(value, size: int = 14) -> str:
+    txt = ''.join(ch for ch in str(value or '') if ch.isdigit())
+    if len(txt) >= size:
+        return txt[:size]
+    # Para CNPJ/CPF no arquivo AG: completar com espaços, não com zeros
+    return txt.ljust(size)
+
+
+def _ag_fixed_money(value, size: int = 15) -> str:
+    dec = Decimal(str(value or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    # Layout AG 9(12).99: campo numérico com separador decimal explícito.
+    # Ex.: 11881.31 -> "000000011881.31" (15 posições)
+    txt = f"{dec:.2f}"
+    if len(txt) > size:
+        txt = txt[-size:]
+    return txt.rjust(size, '0')
+
+
+@login_required
+@permission_required('operacional.acessar_operacional', raise_exception=True)
+@csrf_exempt
+@require_POST
+def gestao_fechamento_gerar_arquivo_ag(request):
+    """
+    Gera arquivo .ag com:
+      - Header (H)
+      - Adiantamento a Fornecedor (A)
+      - Trailer (T)
+    para os fechamentos selecionados na gestão de fechamento.
+    """
+    try:
+        payload = json.loads(request.body.decode('utf-8'))
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+    fechamento_ids_raw = payload.get('fechamento_ids') or []
+    if not isinstance(fechamento_ids_raw, list) or not fechamento_ids_raw:
+        return JsonResponse({'success': False, 'error': 'Selecione ao menos um fechamento.'}, status=400)
+
+    fechamento_ids = []
+    for raw_id in fechamento_ids_raw:
+        try:
+            fechamento_ids.append(int(raw_id))
+        except Exception:
+            continue
+    fechamento_ids = sorted(set(fechamento_ids))
+    if not fechamento_ids:
+        return JsonResponse({'success': False, 'error': 'IDs de fechamento inválidos.'}, status=400)
+
+    fechamentos = list(
+        Fechamento.objects.select_related('placa', 'placa__placa')
+        .filter(id__in=fechamento_ids)
+        .order_by('id')
+    )
+    if not fechamentos:
+        return JsonResponse({'success': False, 'error': 'Nenhum fechamento encontrado para geração.'}, status=404)
+
+    selecionados_sem_ag = [f for f in fechamentos if not (str(getattr(f, 'cod_ag', '') or '').strip())]
+    if not selecionados_sem_ag:
+        return JsonResponse({'success': False, 'error': 'Todos os fechamentos selecionados já possuem código AG.'}, status=400)
+
+    estabelecimento = _ag_fixed_digits(os.environ.get('AG_ESTABELECIMENTO', '0001'), 4)
+    conta_financeira = _ag_fixed_digits(os.environ.get('AG_CONTA_FINANCEIRA', '0002'), 4)
+    centro_resultados = _ag_fixed_text(os.environ.get('AG_CENTRO_RESULTADOS', '001003'), 10)
+    despesa_adiantamento = _ag_fixed_text(os.environ.get('AG_DESPESA_ADIANTAMENTO', '3030201010'), 10)
+
+    header_layout = _ag_fixed_text(
+        os.environ.get('AG_HEADER_LAYOUT_VERSION', os.environ.get('AG_LAYOUT_VERSION', 'V')),
+        1
+    )
+    header_sistema_destino = _ag_fixed_text(os.environ.get('AG_HEADER_SISTEMA_DESTINO', 'AG'), 10)
+    header_sistema_origem = _ag_fixed_text(os.environ.get('AG_HEADER_SISTEMA_ORIGEM', 'BALCAO'), 10)
+    header_comentario = _ag_fixed_text(os.environ.get('AG_HEADER_COMENTARIO', 'GERADO PELO COPRAL'), 40)
+    header_empresa = _ag_fixed_text(os.environ.get('AG_HEADER_EMPRESA', '0001'), 4)
+    header_revisao = _ag_fixed_text(os.environ.get('AG_HEADER_REVISAO', '022'), 3)
+
+    linhas = [
+        "H"
+        + header_layout
+        + header_sistema_destino
+        + header_sistema_origem
+        + header_comentario
+        + header_empresa
+        + header_revisao
+    ]
+
+    def _calc_total_fechamento_placa(veic, dt_date):
+        start_dt = dt_date
+        end_dt = dt_date + timedelta(days=1)
+        total_receber = float(
+            VencContasReceber.objects.filter(
+                data_vencimento__gte=start_dt,
+                data_vencimento__lt=end_dt,
+                contas_receber__placa=veic
+            ).aggregate(total=Sum('valor')).get('total') or 0.0
+        )
+        if total_receber == 0.0:
+            total_receber = float(
+                ContasReceber.objects.filter(
+                    placa=veic,
+                    data_fechamento=dt_date
+                ).aggregate(total=Sum('valor')).get('total') or 0.0
+            )
+
+        total_pagar = float(
+            VencContasPagar.objects.filter(
+                data_vencimento__gte=start_dt,
+                data_vencimento__lt=end_dt,
+                contas_pagar__placa=veic
+            ).aggregate(total=Sum('valor')).get('total') or 0.0
+        )
+        if total_pagar == 0.0 and ContasAPagarModel is not None:
+            total_pagar = float(
+                ContasAPagarModel.objects.filter(
+                    placa=veic,
+                    data_fechamento=dt_date
+                ).aggregate(total=Sum('valor')).get('total') or 0.0
+            )
+
+        total_lanc = 0.0
+        for l in Lancamento.objects.filter(veiculo=veic, data=dt_date):
+            nat = (getattr(l, 'natureza', '') or '').strip().upper()
+            sign = 1.0 if nat in ('R', 'RECEITA', 'CREDITO', 'CREDIT') else -1.0
+            total_lanc += sign * float(getattr(l, 'valor', 0) or 0.0)
+
+        return Decimal(str(total_pagar - total_receber + total_lanc)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    # Agrupar os selecionados por agregado para gerar 1 registro A por agregado
+    grupos_ag = {}
+    for fech in selecionados_sem_ag:
+        veic = getattr(fech, 'placa', None)
+        ag = getattr(veic, 'placa', None)
+        if not veic or not ag or not getattr(fech, 'data_fechamento', None):
+            continue
+        ag_key = getattr(ag, 'placa', None) or str(getattr(ag, 'nm_agregado', '') or '')
+        if not ag_key:
+            continue
+        if ag_key not in grupos_ag:
+            grupos_ag[ag_key] = {
+                'ag': ag,
+                'data': fech.data_fechamento.date(),
+                'valor_total': Decimal('0.00'),
+                'fechamento_ids': [],
+            }
+        grupos_ag[ag_key]['valor_total'] += _calc_total_fechamento_placa(veic, fech.data_fechamento.date())
+        grupos_ag[ag_key]['fechamento_ids'].append(getattr(fech, 'id', None))
+
+    registros_a = 0
+    for grp in grupos_ag.values():
+        ag = grp['ag']
+        total_adiantamento = Decimal(str(grp['valor_total'] or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        if total_adiantamento <= 0:
+            continue
+
+        cnpjcpf = _ag_fixed_cnpjcpf(getattr(ag, 'cnpjcpf', '') or '', 14)
+        data_txt = _ag_fixed_digits(grp['data'].strftime('%d%m%Y'), 8)
+        nome_ag = str(getattr(ag, 'nm_agregado', '') or getattr(ag, 'placa', '') or '')
+        ids_validos = [str(i) for i in grp.get('fechamento_ids', []) if i]
+        ids_txt = ",".join(sorted(set(ids_validos), key=lambda x: int(x)))
+        usuario_nome = ''
+        try:
+            usuario_nome = str(getattr(request.user, 'username', '') or '').strip()
+        except Exception:
+            usuario_nome = ''
+        prefixo = f'FECHAMENTO:{ids_txt}|AGREGADO:'
+        sufixo = f'|USUARIO:{usuario_nome}'
+        max_obs = 100
+        espaco_nome = max_obs - len(prefixo) - len(sufixo)
+        if espaco_nome < 0:
+            # fallback defensivo para não estourar layout
+            observacao_raw = (prefixo + sufixo)[:max_obs]
+        else:
+            nome_ag_limitado = (nome_ag or '')[:espaco_nome]
+            observacao_raw = f'{prefixo}{nome_ag_limitado}{sufixo}'
+        observacao = _ag_fixed_text(observacao_raw, 100)
+
+        linhas.append(
+            "A"
+            + estabelecimento
+            + conta_financeira
+            + data_txt
+            + centro_resultados
+            + despesa_adiantamento
+            + cnpjcpf
+            + _ag_fixed_money(total_adiantamento, 15)
+            + "S"
+            + observacao
+        )
+        registros_a += 1
+
+    if registros_a == 0:
+        return JsonResponse({'success': False, 'error': 'Nenhum adiantamento encontrado para os fechamentos selecionados.'}, status=400)
+
+    linhas.append("T")
+    conteudo = "\r\n".join(linhas) + "\r\n"
+
+    ref_data = timezone.localdate().strftime('%Y%m%d')
+    filename = f'adiantamento_fornecedor_{ref_data}.ag'
+    response = HttpResponse(conteudo, content_type='text/plain; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _atualizar_cod_ag_por_view(data_str: str = ''):
+    """Atualiza cod_ag dos fechamentos sem código consultando a VW_CODIGO_AG por fechamento_id."""
+    dt = None
+    if data_str:
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d-%m-%Y'):
+            try:
+                dt = datetime.strptime(data_str, fmt).date()
+                break
+            except Exception:
+                continue
+
+    pend_qs = Fechamento.objects.filter(Q(cod_ag__isnull=True) | Q(cod_ag__exact=''))
+    if dt:
+        start_dt = datetime.combine(dt, datetime.min.time())
+        end_dt = start_dt + timedelta(days=1)
+        pend_qs = pend_qs.filter(data_fechamento__gte=start_dt, data_fechamento__lt=end_dt)
+    ids_sem_cod = list(pend_qs.values_list('id', flat=True))
+
+    if not ids_sem_cod:
+        return {'success': True, 'updated': 0, 'message': 'Nenhum fechamento pendente de Cod AG.'}
+
+    try:
+        with connection.cursor() as cursor:
+            # fechamento_id é fixo conforme regra do processo
+            cursor.execute("SELECT TOP 0 * FROM VW_CODIGO_AG")
+            desc = cursor.description or []
+            col_names_raw = [str(c[0]).strip() for c in desc]
+            col_names = [c.lower() for c in col_names_raw]
+    except Exception as e:
+        return {'success': False, 'error': f'Falha ao consultar VW_CODIGO_AG: {e}'}
+
+    cod_col_candidates = ('cod_ad', 'codad', 'cod_ag', 'codigo_ag', 'codigo')
+    cod_idx = next((i for i, n in enumerate(col_names) if n in cod_col_candidates), None)
+    if cod_idx is None:
+        return {'success': False, 'error': 'VW_CODIGO_AG sem coluna de código esperada (cod_ad/cod_ag).'}
+
+    cod_col_sql = col_names_raw[cod_idx]
+    placeholders = ','.join(['%s'] * len(ids_sem_cod))
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT [fechamento_id] AS fechamento_id, [{cod_col_sql}] AS cod_ag "
+                f"FROM VW_CODIGO_AG WHERE [fechamento_id] IN ({placeholders})",
+                ids_sem_cod
+            )
+            rows = cursor.fetchall()
+    except Exception as e:
+        return {'success': False, 'error': f'Falha ao ler dados da VW_CODIGO_AG: {e}'}
+
+    if not rows:
+        return {'success': True, 'updated': 0, 'message': 'Nenhum código AG encontrado na view.'}
+
+    mapa_cod = {}
+    for r in rows:
+        try:
+            fid = int(r[0])
+            cod = str(r[1] or '').strip()
+            if fid and cod:
+                mapa_cod[fid] = cod
+        except Exception:
+            continue
+
+    if not mapa_cod:
+        return {'success': True, 'updated': 0, 'message': 'Nenhum código AG válido retornado pela view.'}
+
+    updated = 0
+    with transaction.atomic():
+        for fid, cod in mapa_cod.items():
+            updated += Fechamento.objects.filter(id=fid).filter(Q(cod_ag__isnull=True) | Q(cod_ag__exact='')).update(cod_ag=cod)
+
+    return {'success': True, 'updated': int(updated), 'message': f'{int(updated)} fechamento(s) atualizado(s).'}
+
+
+@login_required
+@permission_required('operacional.acessar_operacional', raise_exception=True)
+@csrf_exempt
+@require_POST
+def gestao_fechamento_atualizar_cod_ag(request):
+    try:
+        payload = json.loads(request.body.decode('utf-8')) if request.body else {}
+    except Exception:
+        payload = {}
+    result = _atualizar_cod_ag_por_view((payload.get('data_fechamento') or '').strip())
+    if not result.get('success'):
+        return JsonResponse(result, status=500)
+    return JsonResponse(result)
 @permission_required('operacional.acessar_operacional', raise_exception=True)
 @require_GET
 def gestao_fechamento_detalhes(request):

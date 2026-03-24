@@ -37,6 +37,8 @@ urlpatterns = [
     path('gestao-fechamento/excluir/', views.gestao_fechamento_excluir, name='gestao_fechamento_excluir'),
     path('gestao-fechamento/enviar-ag/', views.gestao_fechamento_enviar_ag, name='gestao_fechamento_enviar_ag'),
     path('gestao-fechamento/enviar-ag-grupo/', views.gestao_fechamento_enviar_ag_grupo, name='gestao_fechamento_enviar_ag_grupo'),
+    path('gestao-fechamento/gerar-arquivo-ag/', views.gestao_fechamento_gerar_arquivo_ag, name='gestao_fechamento_gerar_arquivo_ag'),
+    path('gestao-fechamento/atualizar-cod-ag/', views.gestao_fechamento_atualizar_cod_ag, name='gestao_fechamento_atualizar_cod_ag'),
     path('gestao-fechamento/detalhes/', views.gestao_fechamento_detalhes, name='gestao_fechamento_detalhes'),
     path('gestao-fechamento/placas/', views.gestao_fechamento_listar_placas, name='gestao_fechamento_listar_placas'),
     # Documentação
