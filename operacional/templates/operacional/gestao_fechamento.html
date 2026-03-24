@@ -47,7 +47,7 @@
           <input type="date" name="data_fechamento" class="form-control" value="{{ data_fechamento }}">
         </div>
         <div class="col-md-3 d-flex align-items-end gap-2">
-          <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Filtrar</button>
+          <button class="btn btn-primary" type="submit" name="atualizar_cod_ag" value="1"><i class="fas fa-search me-1"></i>Filtrar</button>
           <a class="btn btn-secondary" href="{% url 'operacional:gestao_fechamento' %}"><i class="fas fa-times me-1"></i>Limpar</a>
         </div>
       </div>
@@ -61,6 +61,7 @@
       <table class="table table-sm align-middle">
         <thead>
           <tr>
+            <th>Gerar AG</th>
             <th class="text-start">Agregado / Placa</th>
             <th>Total A Receber</th>
             <th>Total A Pagar</th>
@@ -74,17 +75,24 @@
         <tbody>
           {% for g in grupos %}
           <tr class="table-secondary">
+            <td>
+              {% if g.fechamento_id_grupo and not g.cod_ag_grupo %}
+                <input
+                  type="checkbox"
+                  class="form-check-input chk-gerar-ag-grupo"
+                  data-ids="{% for r in g.placas %}{% if r.fechamento_id and not r.cod_ag %}{{ r.fechamento_id }},{% endif %}{% endfor %}"
+                  title="Selecionar fechamentos elegíveis do agregado para gerar AG"
+                >
+              {% endif %}
+            </td>
             <td class="text-start"><strong>{{ g.agregado }}</strong></td>
             <td><strong>R$ {{ g.totais.total_receber|floatformat:2 }}</strong></td>
             <td><strong>R$ {{ g.totais.total_pagar|floatformat:2 }}</strong></td>
             <td><strong>R$ {{ g.totais.lancamentos|floatformat:2 }}</strong></td>
             <td><strong>R$ {{ g.totais.total_final|floatformat:2 }}</strong></td>
-            <td></td>
-            <td></td>
+            <td>{{ g.fechamento_id_grupo|default_if_none:'' }}</td>
+            <td>{{ g.cod_ag_grupo }}</td>
             <td>
-              <button type="button" class="btn btn-outline-info btn-sm btn-enviar-ag-grupo" data-placas="{{ g.placas_csv }}" data-data="{{ data_fechamento }}" title="Enviar para AG (grupo)" {% if not g.all_have_fech or g.all_sent_ag %}disabled{% endif %}>
-                <i class="fas fa-paper-plane"></i>
-              </button>
               <button type="button" class="btn btn-outline-primary btn-sm btn-pdf-grupo" data-placas="{{ g.placas_csv }}" data-data="{{ data_fechamento }}" title="Baixar PDF do agregado" onclick="return pdfGrupo(this);" {% if not g.all_sent_ag %}disabled{% endif %}>
                 <i class="fas fa-file-download"></i>
               </button>
@@ -92,13 +100,14 @@
           </tr>
             {% for r in g.placas %}
             <tr>
+              <td></td>
               <td class="text-start ps-4">• {{ r.placa }}</td>
               <td>R$ {{ r.total_receber|floatformat:2 }}</td>
               <td>R$ {{ r.total_pagar|floatformat:2 }}</td>
               <td>R$ {{ r.lancamentos|floatformat:2 }}</td>
               <td><strong>R$ {{ r.total_final|floatformat:2 }}</strong></td>
-              <td>{{ r.fechamento_id|default_if_none:'' }}</td>
-              <td>{{ r.cod_ag }}</td>
+              <td></td>
+              <td></td>
               <td>
                 <div class="d-flex gap-2">
                   <button type="button" class="btn btn-outline-primary btn-sm btn-det-fech" data-placa="{{ r.placa }}" data-data="{{ data_fechamento }}" title="Detalhes do Fechamento">
@@ -125,6 +134,15 @@
       </div>
     {% endif %}
   </div>
+</div>
+
+<div class="d-flex justify-content-end mt-3">
+  <button type="button" class="btn btn-warning me-2" id="btnAtualizarCodAg">
+    <i class="fas fa-sync-alt me-1"></i>Atualizar Cod AG
+  </button>
+  <button type="button" class="btn btn-success" id="btnGerarArquivoAg">
+    <i class="fas fa-file-export me-1"></i>Gerar Arquivo AG
+  </button>
 </div>
 
 <!-- Modal Detalhes -->
@@ -277,31 +295,77 @@ document.addEventListener('click', async function(e){
     }catch(err){ console.error(err); alert('Erro ao enviar para AG.'); }
     return;
   }
-  // Enviar grupo para AG (todas as placas do agregado)
-  const btnSendGroup = e.target.closest('.btn-enviar-ag-grupo');
-  if (btnSendGroup){
-    const placasCsv = btnSendGroup.getAttribute('data-placas')||'';
-    const data = btnSendGroup.getAttribute('data-data')||'';
-    if (!placasCsv || !data){ alert('Grupo sem placas ou data inválida.'); return; }
-    const placas = placasCsv.split(',').map(s=>s.trim()).filter(Boolean);
-    if (!placas.length){ alert('Nenhuma placa no grupo.'); return; }
-    if (!confirm(`Confirmar envio para o AG de ${placas.length} placa(s)?`)) return;
-    btnSendGroup.disabled = true;
+  const btnGerarAg = e.target.closest('#btnGerarArquivoAg');
+  const btnAtualizarCodAg = e.target.closest('#btnAtualizarCodAg');
+  if (btnAtualizarCodAg){
+    const data = '{{ data_fechamento|default:"" }}';
+    btnAtualizarCodAg.disabled = true;
     try{
-      const resp = await fetch('/operacional/gestao-fechamento/enviar-ag-grupo/', {
+      const resp = await fetch('/operacional/gestao-fechamento/atualizar-cod-ag/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-        body: JSON.stringify({ placas: placas, data_fechamento: data })
+        body: JSON.stringify({ data_fechamento: data })
       });
       const js = await resp.json();
       if (!resp.ok || !js.success){
-        alert(js.error || 'Falha ao enviar grupo para o AG.');
-        btnSendGroup.disabled = false;
+        alert((js && js.error) ? js.error : 'Falha ao atualizar Cod AG.');
+        btnAtualizarCodAg.disabled = false;
         return;
       }
-      alert('Fechamento de todas as placas do agregado enviado para o AG com sucesso.');
+      alert(js.message || `Atualização concluída. ${js.updated || 0} registro(s) atualizados.`);
       location.reload();
-    }catch(err){ console.error(err); alert('Erro ao enviar grupo para AG.'); btnSendGroup.disabled = false; }
+    }catch(err){
+      console.error(err);
+      alert('Erro ao atualizar Cod AG.');
+      btnAtualizarCodAg.disabled = false;
+    }
+    return;
+  }
+  if (btnGerarAg){
+    const idsSet = new Set();
+    Array.from(document.querySelectorAll('.chk-gerar-ag-grupo:checked')).forEach((el) => {
+      const raw = (el.getAttribute('data-ids') || '').split(',').map(v => Number(v)).filter(Boolean);
+      raw.forEach((id) => idsSet.add(id));
+    });
+    const ids = Array.from(idsSet);
+    if (!ids.length){
+      alert('Selecione ao menos um fechamento sem código AG para gerar o arquivo.');
+      return;
+    }
+    btnGerarAg.disabled = true;
+    try{
+      const resp = await fetch('/operacional/gestao-fechamento/gerar-arquivo-ag/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+        body: JSON.stringify({ fechamento_ids: ids })
+      });
+      if (!resp.ok){
+        let msg = 'Falha ao gerar arquivo AG.';
+        try{
+          const js = await resp.json();
+          if (js && js.error) msg = js.error;
+        }catch(_e){}
+        alert(msg);
+        btnGerarAg.disabled = false;
+        return;
+      }
+      const cd = resp.headers.get('Content-Disposition') || '';
+      const m = /filename="?([^"]+)"?/i.exec(cd);
+      const fname = (m && m[1]) ? m[1] : 'adiantamento_fornecedor.ag';
+      const blob = await resp.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+      document.body.removeChild(a);
+      btnGerarAg.disabled = false;
+    }catch(err){
+      console.error(err);
+      alert('Erro ao gerar arquivo AG.');
+      btnGerarAg.disabled = false;
+    }
     return;
   }
   const btnCriar = e.target.closest('.btn-criar-fech');
